@@ -67,13 +67,47 @@ Open `http://<host>:8080/` — that is the URL the TVs point at.
 
 1. **Meet Manager → seed the session first**, then
    `File > Export > Start List for Scoreboard > Start Lists for CTS`
-2. Convert the `.scb` files to `meet.json`
-3. Drop it at `data/meet.json`
+   Export into a **fresh dated folder** — see the stale-file guard below.
+2. Convert:
 
-The server watches the file and reloads within a second. **No restart needed**, so
-a re-export after deck changes is a file copy.
+       node src/scb2meet.js .\export\2026-12-11 -o data\meet.json \
+         --home TOOEL --pool-lanes 6 --name "Tooele County Tri-Meet"
+
+3. That's it. The server watches the file and reloads within a second.
+
 
 ---
+
+### The .scb format (verified against real Meet Manager output)
+
+    line 1      #<eventNo><suffix?> <EVENT NAME>       e.g. "#2 MEN 200 MEDLEY RELAY"
+    line 2..n   exactly 38 chars, CRLF:
+                  [0:20]  name  - swimmer, or relay designation ("UHS   C")
+                  [20:22] "--"  - literal separator
+                  [22:38] team abbreviation
+
+Entry lines come in blocks of N per heat, in lane order; a blank name is an empty
+lane. Seeding is slowest-heat-first with centre-out lanes, so partially filled
+heats legitimately have gaps at both ends.
+
+**There is no seed time in this format** — two fields, that is all. The board hides
+its SEED TIME column when no lane carries one.
+
+`--lanes` is the block size in the file (auto-detected as the largest of 10/8/6/5/4
+that divides every file's line count). `--pool-lanes` is how many lanes the board
+draws. They differ: Meet Manager writes 10-lane blocks for an 8-lane pool.
+
+### Stale-file guard
+
+Exporting into a reused folder is the real footgun — last week's events silently
+fold into tonight's board. The converter refuses to run if file timestamps span
+more than 6 hours. Pass `--force` if that's genuinely intentional.
+
+### Teams not in the colour table
+
+Unlisted teams get a colour from a validated fallback ramp, assigned in order of
+first appearance and **skipping anything a known school already claimed**. Add
+schools to `KNOWN` in `src/scb2meet.js` as you learn their real brand hexes.
 
 ## Before going live: verify the parser
 

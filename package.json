@@ -8,8 +8,14 @@
     "mock": "node src/board-server.js --mock",
     "sniff": "node src/board-server.js --sniff"
   },
-  "dependencies": { "ws": "^8.18.0" },
-  "optionalDependencies": { "serialport": "^12.0.0" },
-  "engines": { "node": ">=20" },
+  "dependencies": {
+    "ws": "^8.21.3"
+  },
+  "optionalDependencies": {
+    "serialport": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }

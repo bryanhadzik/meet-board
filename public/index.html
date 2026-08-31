@@ -68,6 +68,8 @@ body{margin:0;background:var(--ground);color:var(--text);
   .tmr{font-family:"IBM Plex Mono",monospace;font-size:1.9cqw;font-variant-numeric:tabular-nums;text-align:right;width:8.6cqw;padding-right:.5cqw;flex:0 0 auto}
   .pl{font-family:"IBM Plex Mono",monospace;font-size:1.75cqw;font-weight:700;text-align:center;width:2.4cqw;flex:0 0 auto;color:#7d9aa1}
   .row.lead .tmr,.row.lead .pl{color:#7fe0ab}
+  .row.empty .ln{color:#3f5b61}
+  .row.empty{opacity:.55}
 
   .colR .nm{font-size:1.75cqw}
   .colR .ln{font-size:1.5cqw;width:2.3cqw}
@@ -166,7 +168,7 @@ tbody tr:last-child td{border-bottom:0}
       </div>
       <div class="colR">
         <div class="ctitle"><span class="lbl">UP NEXT</span><span class="sub" id="subR"></span></div>
-        <div class="colhead"><span class="c1"></span><span class="c2">SWIMMER</span><span class="c3">TEAM</span><span class="c4">SEED TIME</span></div>
+        <div class="colhead"><span class="c1"></span><span class="c2">SWIMMER</span><span class="c3">TEAM</span><span class="c4" id="seedHead">SEED TIME</span></div>
         <div class="rows" id="rowsR"></div>
         <div class="then"><span class="lbl">THEN</span><span class="txt" id="thenTxt"></span></div>
       </div>
@@ -1205,7 +1207,27 @@ function currentRows(){
     if(b.progress!==a.progress) return b.progress-a.progress;
     return (a.done==null?1e9:a.done)-(b.done==null?1e9:b.done);
   });
-  standings.forEach(function(s){
+  // A real scoreboard shows every lane, not just the occupied ones — a heat with
+  // three relays seeded centre-out should read as lanes 3/4/5 of the pool, with
+  // the empty lanes visibly empty rather than the rows stretching to fill.
+  var grid = MEET.laneCount || lanes.length;
+  var byLane = {};
+  standings.forEach(function(s){ byLane[s.l.lane] = s; });
+
+  for(var L=1; L<=grid; L++){
+    var s = byLane[L];
+    if(!s){
+      var er = el('div','row empty');
+      er.appendChild(el('div','stripe'));
+      er.appendChild(el('div','ln', String(L)));
+      er.appendChild(el('div','nm',''));
+      box.appendChild(er);
+      continue;
+    }
+    renderLane(s);
+  }
+
+  function renderLane(s){
     var place = s.place || (ranked.indexOf(s)+1);
     var r=el('div','row'+(place===1&&elapsed>0?' lead':''));
     var st=el('div','stripe'); st.style.background=COLOR[s.l.team]||'#7d9aa1'; r.appendChild(st);
@@ -1217,7 +1239,7 @@ function currentRows(){
     r.appendChild(el('div','tmr', showTime ? fmt(s.done) : '—'));
     r.appendChild(el('div','pl', showPlace ? String(place) : ''));
     box.appendChild(r);
-  });
+  }
 }
 
 function nextRows(){
@@ -1233,6 +1255,11 @@ function nextRows(){
     r.appendChild(el('div','seed',l.seed));
     box.appendChild(r);
   });
+  // Meet Manager's .scb export carries no seed times. Hide the column label
+  // rather than showing a header over an empty column.
+  var anySeed = nh.lanes.some(function(l){ return l.seed != null && l.seed !== ''; });
+  document.getElementById('seedHead').style.visibility = anySeed ? 'visible' : 'hidden';
+
   var q=nextPos(p[0],p[1]), qe=MEET.events[q[0]], qh=qe.heats[q[1]];
   document.getElementById('thenTxt').textContent='EVENT '+qe.no+' · '+qe.name.toUpperCase()+' · HEAT '+qh.no;
 }

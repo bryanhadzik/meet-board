@@ -280,6 +280,15 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(LIVE));
   }
+  // Serve the SAME file the server parsed, not whatever happens to sit in
+  // public/. Otherwise the page renders sample data while the server holds the
+  // real meet, and the two disagree silently.
+  if (url === '/meet.json' || url === '/api/meet') {
+    if (!MEET) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end('{}'); }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify(MEET));
+  }
+
   if (url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, link: LIVE.link, meet: !!MEET, clients: clients.size }));
