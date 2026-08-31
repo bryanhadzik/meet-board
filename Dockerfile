@@ -19,6 +19,11 @@ ENV BOARD_PORT=8080 \
     BOARD_PUBLIC=/app/public \
     BOARD_MEET=/data/meet.json
 
+# The server writes meet.json here on upload, so it must be writable by the
+# unprivileged user below. On a Linux host with a bind mount the HOST ownership
+# wins, so there you also need:  sudo chown -R 1000:1000 data
+RUN mkdir -p /data && chown node:node /data
+
 EXPOSE 8080
 VOLUME ["/data"]
 

@@ -1,5 +1,7 @@
 # Meet Board
 
+**Step-by-step setup runbook:** see SETUP.md
+
 Spectator meet board for swim meets and water polo. Shows the heat **in the water**
 on the left and the **next heat's full lane assignments** on the right, colour-coded
 by team, so a parent can tell at a glance whether their kid is up.

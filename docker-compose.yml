@@ -1,9 +1,12 @@
 services:
   board:
-    # Pull the image built by GitHub Actions. Change OWNER to your GitHub user.
-    image: ghcr.io/OWNER/meet-board:latest
-    # To build locally instead, comment out `image:` above and uncomment:
-    # build: .
+    # Build on this machine. Simplest path for a single device: `git pull`
+    # then `docker compose up -d --build` and you're current.
+    build: .
+    image: meet-board:local
+    # To pull a prebuilt image from GitHub Actions instead, comment out the two
+    # lines above and use this (replace OWNER with your GitHub username):
+    # image: ghcr.io/OWNER/meet-board:latest
     container_name: meet-board
     restart: unless-stopped
     ports:
