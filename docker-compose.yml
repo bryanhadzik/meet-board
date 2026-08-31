@@ -1,0 +1,25 @@
+services:
+  board:
+    # Pull the image built by GitHub Actions. Change OWNER to your GitHub user.
+    image: ghcr.io/OWNER/meet-board:latest
+    # To build locally instead, comment out `image:` above and uncomment:
+    # build: .
+    container_name: meet-board
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Drop the converted meet.json here. The server watches it and reloads
+      # automatically, so a re-export after deck changes needs no restart.
+      - ./data:/data
+    environment:
+      # Where the console's serial feed appears on the network.
+      # Set to your serial-to-ethernet device server.
+      BOARD_TCP: "192.168.20.50:4001"
+      # For a bench test with no hardware, comment BOARD_TCP out and use:
+      # BOARD_SOURCE: "mock"
+      # BOARD_MEET: "/app/public/meet.json"
+      TZ: "America/Denver"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

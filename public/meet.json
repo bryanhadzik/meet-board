@@ -1,0 +1,894 @@
+{
+ "meet": "Tooele County Tri-Meet",
+ "venue": "Tooele High School Natatorium",
+ "date": "2026-12-11",
+ "laneCount": 6,
+ "homeTeam": "TOOEL",
+ "teams": {
+  "TOOEL": {
+   "name": "Tooele",
+   "mascot": "Buffaloes",
+   "color": "#D18AE0",
+   "alt": "#E8EEEE",
+   "colorName": "purple"
+  },
+  "STAN": {
+   "name": "Stansbury",
+   "mascot": "Stallions",
+   "color": "#3D8BF5",
+   "alt": "#9AA6AB",
+   "colorName": "royal blue"
+  },
+  "GHS": {
+   "name": "Grantsville",
+   "mascot": "Cowboys",
+   "color": "#F0546A",
+   "alt": "#E8EEEE",
+   "colorName": "red"
+  }
+ },
+ "events": [
+  {
+   "no": 13,
+   "name": "Girls 200 IM",
+   "distance": 200,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "T. Lindqvist",
+       "team": "STAN",
+       "seed": "2:30.72"
+      },
+      {
+       "lane": 2,
+       "name": "R. Kowalczyk",
+       "team": "GHS",
+       "seed": "2:20.69"
+      },
+      {
+       "lane": 3,
+       "name": "L. Halvorsen",
+       "team": "GHS",
+       "seed": "2:22.86"
+      },
+      {
+       "lane": 4,
+       "name": "R. Bergstrom",
+       "team": "STAN",
+       "seed": "2:20.26"
+      },
+      {
+       "lane": 5,
+       "name": "R. Ferreira",
+       "team": "STAN",
+       "seed": "2:20.06"
+      },
+      {
+       "lane": 6,
+       "name": "L. Whittaker",
+       "team": "TOOEL",
+       "seed": "2:30.35"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "L. Yamashita",
+       "team": "STAN",
+       "seed": "2:19.89"
+      },
+      {
+       "lane": 2,
+       "name": "I. Halvorsen",
+       "team": "GHS",
+       "seed": "2:34.45"
+      },
+      {
+       "lane": 3,
+       "name": "C. Bergstrom",
+       "team": "TOOEL",
+       "seed": "2:28.73"
+      },
+      {
+       "lane": 4,
+       "name": "L. Oyelaran",
+       "team": "GHS",
+       "seed": "2:33.69"
+      },
+      {
+       "lane": 5,
+       "name": "J. Whittaker",
+       "team": "GHS",
+       "seed": "2:29.28"
+      },
+      {
+       "lane": 6,
+       "name": "K. Thornbury",
+       "team": "TOOEL",
+       "seed": "2:28.86"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "R. Yamashita",
+       "team": "TOOEL",
+       "seed": "2:30.14"
+      },
+      {
+       "lane": 2,
+       "name": "R. Balogun",
+       "team": "GHS",
+       "seed": "2:26.70"
+      },
+      {
+       "lane": 3,
+       "name": "T. Mwangi",
+       "team": "GHS",
+       "seed": "2:35.62"
+      },
+      {
+       "lane": 4,
+       "name": "F. Oyelaran",
+       "team": "TOOEL",
+       "seed": "2:33.30"
+      },
+      {
+       "lane": 5,
+       "name": "R. Novakovic",
+       "team": "TOOEL",
+       "seed": "2:20.47"
+      },
+      {
+       "lane": 6,
+       "name": "C. Kirkpatrick",
+       "team": "STAN",
+       "seed": "2:34.75"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "no": 14,
+   "name": "Girls 100 Freestyle",
+   "distance": 100,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "Z. Mwangi",
+       "team": "STAN",
+       "seed": "1:01.09"
+      },
+      {
+       "lane": 2,
+       "name": "R. Whittaker",
+       "team": "GHS",
+       "seed": "59.18"
+      },
+      {
+       "lane": 3,
+       "name": "H. Vasquez",
+       "team": "TOOEL",
+       "seed": "1:04.33"
+      },
+      {
+       "lane": 4,
+       "name": "M. Halvorsen",
+       "team": "GHS",
+       "seed": "55.78"
+      },
+      {
+       "lane": 5,
+       "name": "F. Yamashita",
+       "team": "STAN",
+       "seed": "58.40"
+      },
+      {
+       "lane": 6,
+       "name": "F. Donnelly",
+       "team": "STAN",
+       "seed": "1:00.80"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "O. Delacroix",
+       "team": "TOOEL",
+       "seed": "1:04.45"
+      },
+      {
+       "lane": 2,
+       "name": "R. Cavanaugh",
+       "team": "GHS",
+       "seed": "55.65"
+      },
+      {
+       "lane": 3,
+       "name": "Z. Cavanaugh",
+       "team": "STAN",
+       "seed": "1:01.47"
+      },
+      {
+       "lane": 4,
+       "name": "S. Kowalczyk",
+       "team": "STAN",
+       "seed": "57.85"
+      },
+      {
+       "lane": 5,
+       "name": "J. Strand",
+       "team": "GHS",
+       "seed": "58.47"
+      },
+      {
+       "lane": 6,
+       "name": "O. Thornbury",
+       "team": "TOOEL",
+       "seed": "1:01.11"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "R. Halvorsen",
+       "team": "TOOEL",
+       "seed": "1:02.68"
+      },
+      {
+       "lane": 2,
+       "name": "E. Petrosyan",
+       "team": "TOOEL",
+       "seed": "58.98"
+      },
+      {
+       "lane": 3,
+       "name": "N. Ibarra",
+       "team": "STAN",
+       "seed": "55.81"
+      },
+      {
+       "lane": 4,
+       "name": "O. Ramaswamy",
+       "team": "GHS",
+       "seed": "57.78"
+      },
+      {
+       "lane": 5,
+       "name": "E. Kowalczyk",
+       "team": "STAN",
+       "seed": "1:03.64"
+      },
+      {
+       "lane": 6,
+       "name": "L. Cavanaugh",
+       "team": "STAN",
+       "seed": "1:04.86"
+      }
+     ]
+    },
+    {
+     "no": 4,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "S. Strand",
+       "team": "STAN",
+       "seed": "1:04.58"
+      },
+      {
+       "lane": 2,
+       "name": "E. Delacroix",
+       "team": "TOOEL",
+       "seed": "56.51"
+      },
+      {
+       "lane": 3,
+       "name": "S. Nakamura",
+       "team": "TOOEL",
+       "seed": "59.85"
+      },
+      {
+       "lane": 4,
+       "name": "L. Abernathy",
+       "team": "STAN",
+       "seed": "57.82"
+      },
+      {
+       "lane": 5,
+       "name": "E. Bergstrom",
+       "team": "GHS",
+       "seed": "58.69"
+      },
+      {
+       "lane": 6,
+       "name": "L. Vasquez",
+       "team": "TOOEL",
+       "seed": "1:01.90"
+      }
+     ]
+    },
+    {
+     "no": 5,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "C. Donnelly",
+       "team": "GHS",
+       "seed": "1:01.76"
+      },
+      {
+       "lane": 2,
+       "name": "N. Mwangi",
+       "team": "GHS",
+       "seed": "1:02.98"
+      },
+      {
+       "lane": 3,
+       "name": "J. Ramaswamy",
+       "team": "STAN",
+       "seed": "58.94"
+      },
+      {
+       "lane": 4,
+       "name": "R. Achterberg",
+       "team": "STAN",
+       "seed": "55.62"
+      },
+      {
+       "lane": 5,
+       "name": "R. Castellanos",
+       "team": "STAN",
+       "seed": "56.62"
+      },
+      {
+       "lane": 6,
+       "name": "T. Donnelly",
+       "team": "TOOEL",
+       "seed": "56.02"
+      }
+     ]
+    },
+    {
+     "no": 6,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "L. Lindqvist",
+       "team": "GHS",
+       "seed": "56.01"
+      },
+      {
+       "lane": 2,
+       "name": "A. Delacroix",
+       "team": "TOOEL",
+       "seed": "1:01.14"
+      },
+      {
+       "lane": 3,
+       "name": "E. Achterberg",
+       "team": "STAN",
+       "seed": "1:04.55"
+      },
+      {
+       "lane": 4,
+       "name": "B. Thornbury",
+       "team": "STAN",
+       "seed": "56.23"
+      },
+      {
+       "lane": 5,
+       "name": "L. Sandoval",
+       "team": "STAN",
+       "seed": "59.80"
+      },
+      {
+       "lane": 6,
+       "name": "C. Delacroix",
+       "team": "TOOEL",
+       "seed": "56.02"
+      }
+     ]
+    },
+    {
+     "no": 7,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "T. Petrosyan",
+       "team": "STAN",
+       "seed": "59.79"
+      },
+      {
+       "lane": 2,
+       "name": "R. Abernathy",
+       "team": "GHS",
+       "seed": "55.23"
+      },
+      {
+       "lane": 3,
+       "name": "C. Thornbury",
+       "team": "TOOEL",
+       "seed": "1:01.90"
+      },
+      {
+       "lane": 4,
+       "name": "N. Okonkwo",
+       "team": "GHS",
+       "seed": "57.98"
+      },
+      {
+       "lane": 5,
+       "name": "W. Ibarra",
+       "team": "TOOEL",
+       "seed": "1:01.96"
+      },
+      {
+       "lane": 6,
+       "name": "L. Kirkpatrick",
+       "team": "STAN",
+       "seed": "1:04.08"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "no": 15,
+   "name": "Boys 100 Freestyle",
+   "distance": 100,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "F. Novakovic",
+       "team": "TOOEL",
+       "seed": "55.33"
+      },
+      {
+       "lane": 2,
+       "name": "H. Kirkpatrick",
+       "team": "STAN",
+       "seed": "56.36"
+      },
+      {
+       "lane": 3,
+       "name": "B. Aleman",
+       "team": "TOOEL",
+       "seed": "58.06"
+      },
+      {
+       "lane": 4,
+       "name": "A. Ramaswamy",
+       "team": "GHS",
+       "seed": "58.03"
+      },
+      {
+       "lane": 5,
+       "name": "K. Kirkpatrick",
+       "team": "STAN",
+       "seed": "53.56"
+      },
+      {
+       "lane": 6,
+       "name": "A. Okonkwo",
+       "team": "STAN",
+       "seed": "54.72"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "K. Cavanaugh",
+       "team": "GHS",
+       "seed": "59.57"
+      },
+      {
+       "lane": 2,
+       "name": "O. Aleman",
+       "team": "GHS",
+       "seed": "59.88"
+      },
+      {
+       "lane": 3,
+       "name": "F. Delacroix",
+       "team": "TOOEL",
+       "seed": "51.02"
+      },
+      {
+       "lane": 4,
+       "name": "T. Castellanos",
+       "team": "STAN",
+       "seed": "56.24"
+      },
+      {
+       "lane": 5,
+       "name": "R. Donnelly",
+       "team": "TOOEL",
+       "seed": "54.79"
+      },
+      {
+       "lane": 6,
+       "name": "W. Thornbury",
+       "team": "GHS",
+       "seed": "50.85"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "S. Whittaker",
+       "team": "STAN",
+       "seed": "57.82"
+      },
+      {
+       "lane": 2,
+       "name": "H. Castellanos",
+       "team": "STAN",
+       "seed": "58.89"
+      },
+      {
+       "lane": 3,
+       "name": "M. Aleman",
+       "team": "GHS",
+       "seed": "53.33"
+      },
+      {
+       "lane": 4,
+       "name": "P. Petrosyan",
+       "team": "STAN",
+       "seed": "54.63"
+      },
+      {
+       "lane": 5,
+       "name": "Z. Delacroix",
+       "team": "GHS",
+       "seed": "51.59"
+      },
+      {
+       "lane": 6,
+       "name": "E. Okonkwo",
+       "team": "TOOEL",
+       "seed": "55.91"
+      }
+     ]
+    },
+    {
+     "no": 4,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "W. Lindqvist",
+       "team": "GHS",
+       "seed": "58.27"
+      },
+      {
+       "lane": 2,
+       "name": "N. Thornbury",
+       "team": "TOOEL",
+       "seed": "55.49"
+      },
+      {
+       "lane": 3,
+       "name": "A. Aleman",
+       "team": "GHS",
+       "seed": "56.50"
+      },
+      {
+       "lane": 4,
+       "name": "C. Petrosyan",
+       "team": "TOOEL",
+       "seed": "54.34"
+      },
+      {
+       "lane": 5,
+       "name": "L. Castellanos",
+       "team": "TOOEL",
+       "seed": "50.28"
+      },
+      {
+       "lane": 6,
+       "name": "K. Oyelaran",
+       "team": "GHS",
+       "seed": "52.41"
+      }
+     ]
+    },
+    {
+     "no": 5,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "L. Ferreira",
+       "team": "STAN",
+       "seed": "58.34"
+      },
+      {
+       "lane": 2,
+       "name": "N. Quintero",
+       "team": "GHS",
+       "seed": "53.54"
+      },
+      {
+       "lane": 3,
+       "name": "O. Balogun",
+       "team": "GHS",
+       "seed": "58.15"
+      },
+      {
+       "lane": 4,
+       "name": "A. Quintero",
+       "team": "GHS",
+       "seed": "51.31"
+      },
+      {
+       "lane": 5,
+       "name": "E. Kirkpatrick",
+       "team": "GHS",
+       "seed": "50.19"
+      },
+      {
+       "lane": 6,
+       "name": "O. Novakovic",
+       "team": "TOOEL",
+       "seed": "56.09"
+      }
+     ]
+    },
+    {
+     "no": 6,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "H. Aleman",
+       "team": "TOOEL",
+       "seed": "51.72"
+      },
+      {
+       "lane": 2,
+       "name": "Z. Whittaker",
+       "team": "GHS",
+       "seed": "50.62"
+      },
+      {
+       "lane": 3,
+       "name": "S. Kirkpatrick",
+       "team": "GHS",
+       "seed": "55.55"
+      },
+      {
+       "lane": 4,
+       "name": "P. Novakovic",
+       "team": "TOOEL",
+       "seed": "58.83"
+      },
+      {
+       "lane": 5,
+       "name": "N. Nakamura",
+       "team": "TOOEL",
+       "seed": "52.77"
+      },
+      {
+       "lane": 6,
+       "name": "H. Whittaker",
+       "team": "GHS",
+       "seed": "54.52"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "no": 16,
+   "name": "Girls 100 Backstroke",
+   "distance": 100,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "A. Novakovic",
+       "team": "TOOEL",
+       "seed": "1:09.32"
+      },
+      {
+       "lane": 2,
+       "name": "B. Kirkpatrick",
+       "team": "GHS",
+       "seed": "1:10.15"
+      },
+      {
+       "lane": 3,
+       "name": "R. Fitzgerald",
+       "team": "STAN",
+       "seed": "1:10.10"
+      },
+      {
+       "lane": 4,
+       "name": "P. Sandoval",
+       "team": "GHS",
+       "seed": "1:15.30"
+      },
+      {
+       "lane": 5,
+       "name": "R. Kirkpatrick",
+       "team": "STAN",
+       "seed": "1:15.07"
+      },
+      {
+       "lane": 6,
+       "name": "A. Mwangi",
+       "team": "TOOEL",
+       "seed": "1:09.00"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "J. Mwangi",
+       "team": "STAN",
+       "seed": "1:04.87"
+      },
+      {
+       "lane": 2,
+       "name": "I. Bergstrom",
+       "team": "TOOEL",
+       "seed": "1:06.55"
+      },
+      {
+       "lane": 3,
+       "name": "C. Aleman",
+       "team": "TOOEL",
+       "seed": "1:14.76"
+      },
+      {
+       "lane": 4,
+       "name": "E. Cavanaugh",
+       "team": "GHS",
+       "seed": "1:11.92"
+      },
+      {
+       "lane": 5,
+       "name": "E. Fitzgerald",
+       "team": "TOOEL",
+       "seed": "1:15.61"
+      },
+      {
+       "lane": 6,
+       "name": "I. Petrosyan",
+       "team": "TOOEL",
+       "seed": "1:08.78"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "I. Abernathy",
+       "team": "GHS",
+       "seed": "1:09.18"
+      },
+      {
+       "lane": 2,
+       "name": "C. Ramaswamy",
+       "team": "STAN",
+       "seed": "1:09.06"
+      },
+      {
+       "lane": 3,
+       "name": "F. Vasquez",
+       "team": "TOOEL",
+       "seed": "1:12.67"
+      },
+      {
+       "lane": 4,
+       "name": "A. Vasquez",
+       "team": "GHS",
+       "seed": "1:09.50"
+      },
+      {
+       "lane": 5,
+       "name": "R. Okonkwo",
+       "team": "STAN",
+       "seed": "1:07.98"
+      },
+      {
+       "lane": 6,
+       "name": "B. Oyelaran",
+       "team": "GHS",
+       "seed": "1:15.53"
+      }
+     ]
+    },
+    {
+     "no": 4,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "M. Quintero",
+       "team": "TOOEL",
+       "seed": "1:15.66"
+      },
+      {
+       "lane": 2,
+       "name": "M. Delacroix",
+       "team": "STAN",
+       "seed": "1:07.26"
+      },
+      {
+       "lane": 3,
+       "name": "J. Fitzgerald",
+       "team": "TOOEL",
+       "seed": "1:13.84"
+      },
+      {
+       "lane": 4,
+       "name": "L. Quintero",
+       "team": "GHS",
+       "seed": "1:13.83"
+      },
+      {
+       "lane": 5,
+       "name": "L. Ramaswamy",
+       "team": "TOOEL",
+       "seed": "1:10.44"
+      },
+      {
+       "lane": 6,
+       "name": "C. Yamashita",
+       "team": "STAN",
+       "seed": "1:12.41"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "scores": [
+  {
+   "team": "TOOEL",
+   "points": 84
+  },
+  {
+   "team": "STAN",
+   "points": 71
+  },
+  {
+   "team": "GHS",
+   "points": 58
+  }
+ ]
+}

@@ -1,0 +1,1432 @@
+<title>Tooele Meet Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ============ page shell (theme-aware) ============ */
+:root{
+  --ground:#e9efef; --surface:#ffffff; --surface-2:#dde8e9;
+  --text:#0c1e24; --dim:#4c6268; --line:#c2d2d4; --line-soft:#d8e3e4;
+  --accent:#0a6b7c; --accent-ink:#075462; --accent-soft:#d5e7ea;
+  --brass:#8f6716; --danger:#8e2529;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0a1417; --surface:#111f23; --surface-2:#18292e;
+    --text:#e3eded; --dim:#93a9ae; --line:#25393f; --line-soft:#1c2e33;
+    --accent:#54b6c6; --accent-ink:#8fd4df; --accent-soft:#0f2b31;
+    --brass:#cda553; --danger:#e58589;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0a1417; --surface:#111f23; --surface-2:#18292e;
+  --text:#e3eded; --dim:#93a9ae; --line:#25393f; --line-soft:#1c2e33;
+  --accent:#54b6c6; --accent-ink:#8fd4df; --accent-soft:#0f2b31;
+  --brass:#cda553; --danger:#e58589;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--text);
+  font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.62}
+.page{max-width:1180px;margin:0 auto;padding:28px 22px 80px}
+
+/* ============ the board — deliberately single-look ============ */
+.stage{background:#050b0d;border:1px solid var(--line);padding:10px;box-shadow:0 10px 40px -18px rgba(0,0,0,.5)}
+.board{
+  container-type:size; container-name:bd;
+  aspect-ratio:16/9; width:100%; position:relative; overflow:hidden;
+  background:#0b1618; color:#ffffff;
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  display:flex; flex-direction:column;
+}
+@container bd (min-width: 0px){
+  .bhead{height:13%;background:#0a6b7c;display:flex;align-items:center;padding:0 1.6cqw;gap:1.4cqw}
+  .evno{font-size:3.1cqw;font-weight:800;letter-spacing:-.02em;line-height:1}
+  .evname{font-size:1.6cqw;font-weight:600;color:#c6e7ec;line-height:1.1}
+  .bhead .spacer{flex:1}
+  .heatof{font-size:1.25cqw;font-family:"IBM Plex Mono",monospace;color:#c6e7ec;letter-spacing:.1em;text-align:right}
+  .clock{font-size:3.4cqw;font-family:"IBM Plex Mono",monospace;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;text-align:right}
+
+  .bbody{flex:1;display:flex;min-height:0}
+  .colL{width:57%;display:flex;flex-direction:column;min-width:0}
+  .colR{width:43%;display:flex;flex-direction:column;min-width:0;background:#101f22;border-left:.25cqw solid #24393e}
+  .colR .ctitle{border-top:.35cqw solid #d9a441;padding-top:.7cqw}
+  .colR .ctitle .lbl{font-size:1.35cqw;font-weight:600;letter-spacing:.2em}
+
+  .ctitle{display:flex;align-items:baseline;gap:.9cqw;padding:.85cqw 1.6cqw .5cqw}
+  .ctitle .lbl{font-family:"IBM Plex Mono",monospace;font-size:1.05cqw;letter-spacing:.18em;color:#77979e}
+  .ctitle .sub{font-family:"IBM Plex Mono",monospace;font-size:1.05cqw;color:#4f6f76;margin-left:auto}
+  .colR .ctitle .lbl{color:#f0c96a}
+
+  .rows{flex:1;display:flex;flex-direction:column}
+  .row{flex:1;display:flex;align-items:center;gap:.8cqw;padding:0 1.6cqw 0 0;min-height:0;position:relative}
+  .row:nth-child(odd){background:rgba(255,255,255,.035)}
+  .stripe{width:.75cqw;align-self:stretch;flex:0 0 auto}
+  .ln{width:2.6cqw;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:1.75cqw;font-weight:600;color:#7d9aa1;flex:0 0 auto}
+  .nm{flex:1;font-size:2cqw;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tm{font-family:"IBM Plex Mono",monospace;font-size:1.25cqw;font-weight:600;letter-spacing:.06em;flex:0 0 auto;width:6cqw}
+  .tmr{font-family:"IBM Plex Mono",monospace;font-size:1.9cqw;font-variant-numeric:tabular-nums;text-align:right;width:8.6cqw;padding-right:.5cqw;flex:0 0 auto}
+  .pl{font-family:"IBM Plex Mono",monospace;font-size:1.75cqw;font-weight:700;text-align:center;width:2.4cqw;flex:0 0 auto;color:#7d9aa1}
+  .row.lead .tmr,.row.lead .pl{color:#7fe0ab}
+
+  .colR .nm{font-size:1.75cqw}
+  .colR .ln{font-size:1.5cqw;width:2.3cqw}
+  .colR .tm{font-size:1.15cqw;width:5.4cqw}
+  .colR .seed{font-family:"IBM Plex Mono",monospace;font-size:1.3cqw;color:#6f9099;width:5.6cqw;text-align:right;flex:0 0 auto}
+
+  .colhead{display:flex;align-items:center;gap:.8cqw;padding:0 1.6cqw .45cqw 1.75cqw;
+    font-family:"IBM Plex Mono",monospace;font-size:.82cqw;letter-spacing:.14em;color:#4f6f76}
+  .colhead .c1{width:2.3cqw;text-align:center;flex:0 0 auto}
+  .colhead .c2{flex:1}
+  .colhead .c3{width:5.4cqw;flex:0 0 auto}
+  .colhead .c4{width:5.6cqw;text-align:right;flex:0 0 auto}
+  .then{border-top:.2cqw solid #24393e;padding:.8cqw 1.6cqw;display:flex;align-items:baseline;gap:.8cqw}
+  .then .lbl{font-family:"IBM Plex Mono",monospace;font-size:.95cqw;letter-spacing:.16em;color:#5d7d84}
+  .then .txt{font-size:1.35cqw;font-weight:600;color:#b7cace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .bfoot{height:12%;background:#8a6620;display:flex;align-items:center;padding:0 1.6cqw;gap:1.6cqw}
+  .bfoot .meet{font-size:1.35cqw;font-weight:700;color:#ffffff;white-space:nowrap}
+  .bfoot .sc{margin-left:auto;display:flex;align-items:center;gap:1.4cqw}
+  .scitem{display:flex;align-items:center;gap:.5cqw}
+  .scdot{width:1cqw;height:1cqw;flex:0 0 auto}
+  .scab{font-family:"IBM Plex Mono",monospace;font-size:1.15cqw;font-weight:600;color:#f6e6c4;letter-spacing:.05em}
+  .scpt{font-family:"IBM Plex Mono",monospace;font-size:1.7cqw;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums}
+  .flag{font-family:"IBM Plex Mono",monospace;font-size:.9cqw;letter-spacing:.14em;color:#f6e6c4;
+    border:.12cqw solid rgba(255,255,255,.45);padding:.25cqw .6cqw;flex:0 0 auto}
+}
+body.live .stagebar{display:none}
+body.live .flag{display:none}
+.stagebar{display:flex;align-items:center;gap:14px;margin-top:10px;flex-wrap:wrap}
+.stagebar .tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--dim);border:1px solid var(--line);padding:3px 8px}
+.stagebar button{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--surface);color:var(--text);border:1px solid var(--line);padding:6px 12px;cursor:pointer}
+.stagebar button:hover{border-color:var(--accent);color:var(--accent-ink)}
+.stagebar .note{font-size:13.5px;color:var(--dim);margin-left:auto}
+
+/* ============ documentation below ============ */
+h1{font-family:Archivo,sans-serif;font-weight:700;font-size:clamp(1.9rem,4.4vw,2.9rem);line-height:1;
+  letter-spacing:-.025em;margin:0 0 12px;text-wrap:balance}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:500;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+.standfirst{font-size:1.12rem;color:var(--dim);max-width:62ch;margin:0 0 26px}
+h2{font-family:Archivo,sans-serif;font-weight:700;font-size:1.5rem;letter-spacing:-.02em;margin:44px 0 10px}
+h3{font-family:Archivo,sans-serif;font-weight:600;font-size:1.1rem;margin:26px 0 6px}
+p{margin:0 0 14px;max-width:70ch}
+ul,ol{margin:0 0 14px;padding-left:1.35em;max-width:70ch}
+li{margin-bottom:6px}
+a{color:var(--accent-ink);text-underline-offset:2px}
+code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--surface-2);padding:.1em .38em}
+pre{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+  padding:16px 18px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.6;margin:16px 0}
+pre code{background:none;padding:0;font-size:inherit}
+.tscroll{overflow-x:auto;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:520px}
+th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+thead th{font-family:Archivo,sans-serif;font-weight:600;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--dim);background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+.sw{display:inline-block;width:34px;height:14px;vertical-align:-2px;margin-right:8px;border:1px solid rgba(128,128,128,.35)}
+.mono{font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.call{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);padding:16px 20px;margin:20px 0}
+.call.key{border-left-color:var(--brass)}
+.call.warn{border-left-color:var(--danger)}
+.call>:last-child{margin-bottom:0}
+.call-label{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 6px;display:block}
+.call.key .call-label{color:var(--brass)}
+.call.warn .call-label{color:var(--danger)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="page">
+
+<p class="eyebrow">Spectator display &middot; sample data</p>
+<h1>Tooele Meet Board</h1>
+<p class="standfirst">The heat in the water on the left, the heat your kid is in on the right. Team colors so a parent can find their school from the back row without reading a word.</p>
+
+<div class="stage">
+  <div class="board" id="bd">
+    <div class="bhead">
+      <div>
+        <div class="evno" id="evno">EVENT 14</div>
+        <div class="evname" id="evname">GIRLS 100 FREESTYLE</div>
+      </div>
+      <div class="spacer"></div>
+      <div>
+        <div class="heatof" id="heatof">HEAT 3 OF 7</div>
+        <div class="clock" id="clock">0:00.00</div>
+      </div>
+    </div>
+
+    <div class="bbody">
+      <div class="colL">
+        <div class="ctitle"><span class="lbl">IN THE WATER</span><span class="sub" id="subL"></span></div>
+        <div class="rows" id="rowsL"></div>
+      </div>
+      <div class="colR">
+        <div class="ctitle"><span class="lbl">UP NEXT</span><span class="sub" id="subR"></span></div>
+        <div class="colhead"><span class="c1"></span><span class="c2">SWIMMER</span><span class="c3">TEAM</span><span class="c4">SEED TIME</span></div>
+        <div class="rows" id="rowsR"></div>
+        <div class="then"><span class="lbl">THEN</span><span class="txt" id="thenTxt"></span></div>
+      </div>
+    </div>
+
+    <div class="bfoot">
+      <div class="flag">SAMPLE</div>
+      <div class="meet" id="meetName"></div>
+      <div class="sc" id="scores"></div>
+    </div>
+  </div>
+</div>
+
+<div class="stagebar">
+  <span class="tag">Preview</span>
+  <button id="btnPrev" type="button">&larr; Prev heat</button>
+  <button id="btnNext" type="button">Next heat &rarr;</button>
+  <button id="btnPlay" type="button">Pause</button>
+  <span class="note">Auto-advancing through a sample session. The deployed board has no controls.</span>
+</div>
+<script type="application/json" id="meetdata">
+{
+ "meet": "Tooele County Tri-Meet",
+ "venue": "Tooele High School Natatorium",
+ "date": "2026-12-11",
+ "laneCount": 6,
+ "homeTeam": "TOOEL",
+ "teams": {
+  "TOOEL": {
+   "name": "Tooele",
+   "mascot": "Buffaloes",
+   "color": "#D18AE0",
+   "alt": "#E8EEEE",
+   "colorName": "purple"
+  },
+  "STAN": {
+   "name": "Stansbury",
+   "mascot": "Stallions",
+   "color": "#3D8BF5",
+   "alt": "#9AA6AB",
+   "colorName": "royal blue"
+  },
+  "GHS": {
+   "name": "Grantsville",
+   "mascot": "Cowboys",
+   "color": "#F0546A",
+   "alt": "#E8EEEE",
+   "colorName": "red"
+  }
+ },
+ "events": [
+  {
+   "no": 13,
+   "name": "Girls 200 IM",
+   "distance": 200,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "T. Lindqvist",
+       "team": "STAN",
+       "seed": "2:30.72"
+      },
+      {
+       "lane": 2,
+       "name": "R. Kowalczyk",
+       "team": "GHS",
+       "seed": "2:20.69"
+      },
+      {
+       "lane": 3,
+       "name": "L. Halvorsen",
+       "team": "GHS",
+       "seed": "2:22.86"
+      },
+      {
+       "lane": 4,
+       "name": "R. Bergstrom",
+       "team": "STAN",
+       "seed": "2:20.26"
+      },
+      {
+       "lane": 5,
+       "name": "R. Ferreira",
+       "team": "STAN",
+       "seed": "2:20.06"
+      },
+      {
+       "lane": 6,
+       "name": "L. Whittaker",
+       "team": "TOOEL",
+       "seed": "2:30.35"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "L. Yamashita",
+       "team": "STAN",
+       "seed": "2:19.89"
+      },
+      {
+       "lane": 2,
+       "name": "I. Halvorsen",
+       "team": "GHS",
+       "seed": "2:34.45"
+      },
+      {
+       "lane": 3,
+       "name": "C. Bergstrom",
+       "team": "TOOEL",
+       "seed": "2:28.73"
+      },
+      {
+       "lane": 4,
+       "name": "L. Oyelaran",
+       "team": "GHS",
+       "seed": "2:33.69"
+      },
+      {
+       "lane": 5,
+       "name": "J. Whittaker",
+       "team": "GHS",
+       "seed": "2:29.28"
+      },
+      {
+       "lane": 6,
+       "name": "K. Thornbury",
+       "team": "TOOEL",
+       "seed": "2:28.86"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "R. Yamashita",
+       "team": "TOOEL",
+       "seed": "2:30.14"
+      },
+      {
+       "lane": 2,
+       "name": "R. Balogun",
+       "team": "GHS",
+       "seed": "2:26.70"
+      },
+      {
+       "lane": 3,
+       "name": "T. Mwangi",
+       "team": "GHS",
+       "seed": "2:35.62"
+      },
+      {
+       "lane": 4,
+       "name": "F. Oyelaran",
+       "team": "TOOEL",
+       "seed": "2:33.30"
+      },
+      {
+       "lane": 5,
+       "name": "R. Novakovic",
+       "team": "TOOEL",
+       "seed": "2:20.47"
+      },
+      {
+       "lane": 6,
+       "name": "C. Kirkpatrick",
+       "team": "STAN",
+       "seed": "2:34.75"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "no": 14,
+   "name": "Girls 100 Freestyle",
+   "distance": 100,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "Z. Mwangi",
+       "team": "STAN",
+       "seed": "1:01.09"
+      },
+      {
+       "lane": 2,
+       "name": "R. Whittaker",
+       "team": "GHS",
+       "seed": "59.18"
+      },
+      {
+       "lane": 3,
+       "name": "H. Vasquez",
+       "team": "TOOEL",
+       "seed": "1:04.33"
+      },
+      {
+       "lane": 4,
+       "name": "M. Halvorsen",
+       "team": "GHS",
+       "seed": "55.78"
+      },
+      {
+       "lane": 5,
+       "name": "F. Yamashita",
+       "team": "STAN",
+       "seed": "58.40"
+      },
+      {
+       "lane": 6,
+       "name": "F. Donnelly",
+       "team": "STAN",
+       "seed": "1:00.80"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "O. Delacroix",
+       "team": "TOOEL",
+       "seed": "1:04.45"
+      },
+      {
+       "lane": 2,
+       "name": "R. Cavanaugh",
+       "team": "GHS",
+       "seed": "55.65"
+      },
+      {
+       "lane": 3,
+       "name": "Z. Cavanaugh",
+       "team": "STAN",
+       "seed": "1:01.47"
+      },
+      {
+       "lane": 4,
+       "name": "S. Kowalczyk",
+       "team": "STAN",
+       "seed": "57.85"
+      },
+      {
+       "lane": 5,
+       "name": "J. Strand",
+       "team": "GHS",
+       "seed": "58.47"
+      },
+      {
+       "lane": 6,
+       "name": "O. Thornbury",
+       "team": "TOOEL",
+       "seed": "1:01.11"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "R. Halvorsen",
+       "team": "TOOEL",
+       "seed": "1:02.68"
+      },
+      {
+       "lane": 2,
+       "name": "E. Petrosyan",
+       "team": "TOOEL",
+       "seed": "58.98"
+      },
+      {
+       "lane": 3,
+       "name": "N. Ibarra",
+       "team": "STAN",
+       "seed": "55.81"
+      },
+      {
+       "lane": 4,
+       "name": "O. Ramaswamy",
+       "team": "GHS",
+       "seed": "57.78"
+      },
+      {
+       "lane": 5,
+       "name": "E. Kowalczyk",
+       "team": "STAN",
+       "seed": "1:03.64"
+      },
+      {
+       "lane": 6,
+       "name": "L. Cavanaugh",
+       "team": "STAN",
+       "seed": "1:04.86"
+      }
+     ]
+    },
+    {
+     "no": 4,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "S. Strand",
+       "team": "STAN",
+       "seed": "1:04.58"
+      },
+      {
+       "lane": 2,
+       "name": "E. Delacroix",
+       "team": "TOOEL",
+       "seed": "56.51"
+      },
+      {
+       "lane": 3,
+       "name": "S. Nakamura",
+       "team": "TOOEL",
+       "seed": "59.85"
+      },
+      {
+       "lane": 4,
+       "name": "L. Abernathy",
+       "team": "STAN",
+       "seed": "57.82"
+      },
+      {
+       "lane": 5,
+       "name": "E. Bergstrom",
+       "team": "GHS",
+       "seed": "58.69"
+      },
+      {
+       "lane": 6,
+       "name": "L. Vasquez",
+       "team": "TOOEL",
+       "seed": "1:01.90"
+      }
+     ]
+    },
+    {
+     "no": 5,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "C. Donnelly",
+       "team": "GHS",
+       "seed": "1:01.76"
+      },
+      {
+       "lane": 2,
+       "name": "N. Mwangi",
+       "team": "GHS",
+       "seed": "1:02.98"
+      },
+      {
+       "lane": 3,
+       "name": "J. Ramaswamy",
+       "team": "STAN",
+       "seed": "58.94"
+      },
+      {
+       "lane": 4,
+       "name": "R. Achterberg",
+       "team": "STAN",
+       "seed": "55.62"
+      },
+      {
+       "lane": 5,
+       "name": "R. Castellanos",
+       "team": "STAN",
+       "seed": "56.62"
+      },
+      {
+       "lane": 6,
+       "name": "T. Donnelly",
+       "team": "TOOEL",
+       "seed": "56.02"
+      }
+     ]
+    },
+    {
+     "no": 6,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "L. Lindqvist",
+       "team": "GHS",
+       "seed": "56.01"
+      },
+      {
+       "lane": 2,
+       "name": "A. Delacroix",
+       "team": "TOOEL",
+       "seed": "1:01.14"
+      },
+      {
+       "lane": 3,
+       "name": "E. Achterberg",
+       "team": "STAN",
+       "seed": "1:04.55"
+      },
+      {
+       "lane": 4,
+       "name": "B. Thornbury",
+       "team": "STAN",
+       "seed": "56.23"
+      },
+      {
+       "lane": 5,
+       "name": "L. Sandoval",
+       "team": "STAN",
+       "seed": "59.80"
+      },
+      {
+       "lane": 6,
+       "name": "C. Delacroix",
+       "team": "TOOEL",
+       "seed": "56.02"
+      }
+     ]
+    },
+    {
+     "no": 7,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "T. Petrosyan",
+       "team": "STAN",
+       "seed": "59.79"
+      },
+      {
+       "lane": 2,
+       "name": "R. Abernathy",
+       "team": "GHS",
+       "seed": "55.23"
+      },
+      {
+       "lane": 3,
+       "name": "C. Thornbury",
+       "team": "TOOEL",
+       "seed": "1:01.90"
+      },
+      {
+       "lane": 4,
+       "name": "N. Okonkwo",
+       "team": "GHS",
+       "seed": "57.98"
+      },
+      {
+       "lane": 5,
+       "name": "W. Ibarra",
+       "team": "TOOEL",
+       "seed": "1:01.96"
+      },
+      {
+       "lane": 6,
+       "name": "L. Kirkpatrick",
+       "team": "STAN",
+       "seed": "1:04.08"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "no": 15,
+   "name": "Boys 100 Freestyle",
+   "distance": 100,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "F. Novakovic",
+       "team": "TOOEL",
+       "seed": "55.33"
+      },
+      {
+       "lane": 2,
+       "name": "H. Kirkpatrick",
+       "team": "STAN",
+       "seed": "56.36"
+      },
+      {
+       "lane": 3,
+       "name": "B. Aleman",
+       "team": "TOOEL",
+       "seed": "58.06"
+      },
+      {
+       "lane": 4,
+       "name": "A. Ramaswamy",
+       "team": "GHS",
+       "seed": "58.03"
+      },
+      {
+       "lane": 5,
+       "name": "K. Kirkpatrick",
+       "team": "STAN",
+       "seed": "53.56"
+      },
+      {
+       "lane": 6,
+       "name": "A. Okonkwo",
+       "team": "STAN",
+       "seed": "54.72"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "K. Cavanaugh",
+       "team": "GHS",
+       "seed": "59.57"
+      },
+      {
+       "lane": 2,
+       "name": "O. Aleman",
+       "team": "GHS",
+       "seed": "59.88"
+      },
+      {
+       "lane": 3,
+       "name": "F. Delacroix",
+       "team": "TOOEL",
+       "seed": "51.02"
+      },
+      {
+       "lane": 4,
+       "name": "T. Castellanos",
+       "team": "STAN",
+       "seed": "56.24"
+      },
+      {
+       "lane": 5,
+       "name": "R. Donnelly",
+       "team": "TOOEL",
+       "seed": "54.79"
+      },
+      {
+       "lane": 6,
+       "name": "W. Thornbury",
+       "team": "GHS",
+       "seed": "50.85"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "S. Whittaker",
+       "team": "STAN",
+       "seed": "57.82"
+      },
+      {
+       "lane": 2,
+       "name": "H. Castellanos",
+       "team": "STAN",
+       "seed": "58.89"
+      },
+      {
+       "lane": 3,
+       "name": "M. Aleman",
+       "team": "GHS",
+       "seed": "53.33"
+      },
+      {
+       "lane": 4,
+       "name": "P. Petrosyan",
+       "team": "STAN",
+       "seed": "54.63"
+      },
+      {
+       "lane": 5,
+       "name": "Z. Delacroix",
+       "team": "GHS",
+       "seed": "51.59"
+      },
+      {
+       "lane": 6,
+       "name": "E. Okonkwo",
+       "team": "TOOEL",
+       "seed": "55.91"
+      }
+     ]
+    },
+    {
+     "no": 4,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "W. Lindqvist",
+       "team": "GHS",
+       "seed": "58.27"
+      },
+      {
+       "lane": 2,
+       "name": "N. Thornbury",
+       "team": "TOOEL",
+       "seed": "55.49"
+      },
+      {
+       "lane": 3,
+       "name": "A. Aleman",
+       "team": "GHS",
+       "seed": "56.50"
+      },
+      {
+       "lane": 4,
+       "name": "C. Petrosyan",
+       "team": "TOOEL",
+       "seed": "54.34"
+      },
+      {
+       "lane": 5,
+       "name": "L. Castellanos",
+       "team": "TOOEL",
+       "seed": "50.28"
+      },
+      {
+       "lane": 6,
+       "name": "K. Oyelaran",
+       "team": "GHS",
+       "seed": "52.41"
+      }
+     ]
+    },
+    {
+     "no": 5,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "L. Ferreira",
+       "team": "STAN",
+       "seed": "58.34"
+      },
+      {
+       "lane": 2,
+       "name": "N. Quintero",
+       "team": "GHS",
+       "seed": "53.54"
+      },
+      {
+       "lane": 3,
+       "name": "O. Balogun",
+       "team": "GHS",
+       "seed": "58.15"
+      },
+      {
+       "lane": 4,
+       "name": "A. Quintero",
+       "team": "GHS",
+       "seed": "51.31"
+      },
+      {
+       "lane": 5,
+       "name": "E. Kirkpatrick",
+       "team": "GHS",
+       "seed": "50.19"
+      },
+      {
+       "lane": 6,
+       "name": "O. Novakovic",
+       "team": "TOOEL",
+       "seed": "56.09"
+      }
+     ]
+    },
+    {
+     "no": 6,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "H. Aleman",
+       "team": "TOOEL",
+       "seed": "51.72"
+      },
+      {
+       "lane": 2,
+       "name": "Z. Whittaker",
+       "team": "GHS",
+       "seed": "50.62"
+      },
+      {
+       "lane": 3,
+       "name": "S. Kirkpatrick",
+       "team": "GHS",
+       "seed": "55.55"
+      },
+      {
+       "lane": 4,
+       "name": "P. Novakovic",
+       "team": "TOOEL",
+       "seed": "58.83"
+      },
+      {
+       "lane": 5,
+       "name": "N. Nakamura",
+       "team": "TOOEL",
+       "seed": "52.77"
+      },
+      {
+       "lane": 6,
+       "name": "H. Whittaker",
+       "team": "GHS",
+       "seed": "54.52"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "no": 16,
+   "name": "Girls 100 Backstroke",
+   "distance": 100,
+   "heats": [
+    {
+     "no": 1,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "A. Novakovic",
+       "team": "TOOEL",
+       "seed": "1:09.32"
+      },
+      {
+       "lane": 2,
+       "name": "B. Kirkpatrick",
+       "team": "GHS",
+       "seed": "1:10.15"
+      },
+      {
+       "lane": 3,
+       "name": "R. Fitzgerald",
+       "team": "STAN",
+       "seed": "1:10.10"
+      },
+      {
+       "lane": 4,
+       "name": "P. Sandoval",
+       "team": "GHS",
+       "seed": "1:15.30"
+      },
+      {
+       "lane": 5,
+       "name": "R. Kirkpatrick",
+       "team": "STAN",
+       "seed": "1:15.07"
+      },
+      {
+       "lane": 6,
+       "name": "A. Mwangi",
+       "team": "TOOEL",
+       "seed": "1:09.00"
+      }
+     ]
+    },
+    {
+     "no": 2,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "J. Mwangi",
+       "team": "STAN",
+       "seed": "1:04.87"
+      },
+      {
+       "lane": 2,
+       "name": "I. Bergstrom",
+       "team": "TOOEL",
+       "seed": "1:06.55"
+      },
+      {
+       "lane": 3,
+       "name": "C. Aleman",
+       "team": "TOOEL",
+       "seed": "1:14.76"
+      },
+      {
+       "lane": 4,
+       "name": "E. Cavanaugh",
+       "team": "GHS",
+       "seed": "1:11.92"
+      },
+      {
+       "lane": 5,
+       "name": "E. Fitzgerald",
+       "team": "TOOEL",
+       "seed": "1:15.61"
+      },
+      {
+       "lane": 6,
+       "name": "I. Petrosyan",
+       "team": "TOOEL",
+       "seed": "1:08.78"
+      }
+     ]
+    },
+    {
+     "no": 3,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "I. Abernathy",
+       "team": "GHS",
+       "seed": "1:09.18"
+      },
+      {
+       "lane": 2,
+       "name": "C. Ramaswamy",
+       "team": "STAN",
+       "seed": "1:09.06"
+      },
+      {
+       "lane": 3,
+       "name": "F. Vasquez",
+       "team": "TOOEL",
+       "seed": "1:12.67"
+      },
+      {
+       "lane": 4,
+       "name": "A. Vasquez",
+       "team": "GHS",
+       "seed": "1:09.50"
+      },
+      {
+       "lane": 5,
+       "name": "R. Okonkwo",
+       "team": "STAN",
+       "seed": "1:07.98"
+      },
+      {
+       "lane": 6,
+       "name": "B. Oyelaran",
+       "team": "GHS",
+       "seed": "1:15.53"
+      }
+     ]
+    },
+    {
+     "no": 4,
+     "lanes": [
+      {
+       "lane": 1,
+       "name": "M. Quintero",
+       "team": "TOOEL",
+       "seed": "1:15.66"
+      },
+      {
+       "lane": 2,
+       "name": "M. Delacroix",
+       "team": "STAN",
+       "seed": "1:07.26"
+      },
+      {
+       "lane": 3,
+       "name": "J. Fitzgerald",
+       "team": "TOOEL",
+       "seed": "1:13.84"
+      },
+      {
+       "lane": 4,
+       "name": "L. Quintero",
+       "team": "GHS",
+       "seed": "1:13.83"
+      },
+      {
+       "lane": 5,
+       "name": "L. Ramaswamy",
+       "team": "TOOEL",
+       "seed": "1:10.44"
+      },
+      {
+       "lane": 6,
+       "name": "C. Yamashita",
+       "team": "STAN",
+       "seed": "1:12.41"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "scores": [
+  {
+   "team": "TOOEL",
+   "points": 84
+  },
+  {
+   "team": "STAN",
+   "points": 71
+  },
+  {
+   "team": "GHS",
+   "points": 58
+  }
+ ]
+}</script>
+<script>
+(function(){
+"use strict";
+
+/* ---------- data: prefer a live meet.json beside the page, else the embedded sample ---------- */
+var MEET = JSON.parse(document.getElementById('meetdata').textContent);
+try{
+  fetch('meet.json',{cache:'no-store'}).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ if(j && j.events){ MEET = j; assignColors(); render(); } }).catch(function(){});
+}catch(e){}
+
+/* ---------- OKLab distance, so the collision rule is computed rather than eyeballed ---------- */
+function srgbToLinear(c){ c/=255; return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4); }
+function hexToOklab(hex){
+  var r=srgbToLinear(parseInt(hex.slice(1,3),16)),
+      g=srgbToLinear(parseInt(hex.slice(3,5),16)),
+      b=srgbToLinear(parseInt(hex.slice(5,7),16));
+  var l=Math.cbrt(0.4122214708*r+0.5363325363*g+0.0514459929*b),
+      m=Math.cbrt(0.2119034982*r+0.6806995451*g+0.1073969566*b),
+      s=Math.cbrt(0.0883024619*r+0.2817188376*g+0.6299787005*b);
+  return [0.2104542553*l+0.7936177850*m-0.0040720468*s,
+          1.9779984951*l-2.4285922050*m+0.4505937099*s,
+          0.0259040371*l+0.7827717662*m-0.8086757660*s];
+}
+function deltaE(a,b){
+  var A=hexToOklab(a), B=hexToOklab(b);
+  return Math.sqrt(Math.pow(A[0]-B[0],2)+Math.pow(A[1]-B[1],2)+Math.pow(A[2]-B[2],2))*100;
+}
+var MIN_SEPARATION = 15;
+
+/* Home team keeps its primary. Anyone too close to an already-assigned color falls back to
+   its alternate. If the alternate is no better, the primary stands — the team abbreviation
+   beside every stripe is what actually guarantees identity. */
+var COLOR = {};
+function assignColors(){
+  COLOR = {};
+  var codes = Object.keys(MEET.teams);
+  var home = MEET.homeTeam;
+  if(codes.indexOf(home) > 0){ codes.splice(codes.indexOf(home),1); codes.unshift(home); }
+  var taken = [];
+  codes.forEach(function(code){
+    var t = MEET.teams[code];
+    var pick = t.color;
+    var clash = taken.some(function(c){ return deltaE(c, t.color) < MIN_SEPARATION; });
+    if(clash && t.alt){
+      var altOk = taken.every(function(c){ return deltaE(c, t.alt) >= MIN_SEPARATION; });
+      if(altOk) pick = t.alt;
+    }
+    COLOR[code] = pick; taken.push(pick);
+  });
+}
+assignColors();
+
+/* ---------- state ---------- */
+var DEMO_SPEED = 2.6;
+var evIdx = 1, heatIdx = 2, elapsed = 0, phase = 'race', playing = true, last = null;
+
+/* Live mode: when the board server is reachable it drives everything and the
+   demo loop stands down. When the link drops we keep the last known position,
+   so the UP NEXT panel — which comes from meet.json, not the console — keeps
+   working. That is the whole point of the two-source design. */
+var LIVEMODE = false, LIVE = null, liveSeen = 0;
+function ev(){ return MEET.events[evIdx]; }
+function heat(){ return ev().heats[heatIdx]; }
+function raceSeconds(){ return Math.max(28, ev().distance * 0.62); }
+
+function findPos(evNo, htNo){
+  for(var i=0;i<MEET.events.length;i++){
+    if(MEET.events[i].no === evNo){
+      for(var j=0;j<MEET.events[i].heats.length;j++){
+        if(MEET.events[i].heats[j].no === htNo) return [i,j];
+      }
+      return [i,0];
+    }
+  }
+  return null;
+}
+
+function nextPos(e,h){
+  if(h+1 < MEET.events[e].heats.length) return [e,h+1];
+  if(e+1 < MEET.events.length) return [e+1,0];
+  return [0,0];
+}
+function advance(){ var p = nextPos(evIdx,heatIdx); evIdx=p[0]; heatIdx=p[1]; elapsed=0; phase='race'; render(); }
+function retreat(){
+  if(heatIdx>0){ heatIdx--; }
+  else { evIdx = (evIdx-1+MEET.events.length)%MEET.events.length; heatIdx = ev().heats.length-1; }
+  elapsed=0; phase='race'; render();
+}
+
+function fmt(t){
+  var m=Math.floor(t/60), s=t-m*60;
+  return (m? m+':'+(s<10?'0':'')+s.toFixed(2) : s.toFixed(2));
+}
+
+/* Deterministic per-swimmer pace so the demo looks like a race rather than noise. */
+function paceOf(l){
+  var k=0; for(var i=0;i<l.name.length;i++) k=(k*31+l.name.charCodeAt(i))%997;
+  return 0.94 + (k%120)/1000;
+}
+
+function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+
+function currentRows(){
+  var box=document.getElementById('rowsL'); box.textContent='';
+  var lanes=heat().lanes, total=raceSeconds(), standings;
+
+  if(LIVEMODE && LIVE){
+    standings = lanes.map(function(l){
+      var d = (LIVE.lanes && LIVE.lanes[l.lane]) || {};
+      return {l:l, done: d.time, finished: !!d.final, place: d.place || null,
+              progress: d.final ? 1 : (LIVE.running>0 ? 0.5 : 0)};
+    });
+  } else {
+    standings = lanes.map(function(l){
+      var pace=paceOf(l), done=total*pace;
+      return {l:l, done:done, finished: elapsed>=done, place:null, progress: Math.min(elapsed/done,1)};
+    });
+  }
+  var ranked=standings.slice().sort(function(a,b){
+    if(b.progress!==a.progress) return b.progress-a.progress;
+    return (a.done==null?1e9:a.done)-(b.done==null?1e9:b.done);
+  });
+  standings.forEach(function(s){
+    var place = s.place || (ranked.indexOf(s)+1);
+    var r=el('div','row'+(place===1&&elapsed>0?' lead':''));
+    var st=el('div','stripe'); st.style.background=COLOR[s.l.team]||'#7d9aa1'; r.appendChild(st);
+    r.appendChild(el('div','ln',String(s.l.lane)));
+    r.appendChild(el('div','nm',s.l.name));
+    var tm=el('div','tm',s.l.team); tm.style.color=COLOR[s.l.team]||'#7d9aa1'; r.appendChild(tm);
+    var showTime = s.finished && typeof s.done === 'number';
+    var showPlace = LIVEMODE ? (s.place != null) : (elapsed > 0);
+    r.appendChild(el('div','tmr', showTime ? fmt(s.done) : '—'));
+    r.appendChild(el('div','pl', showPlace ? String(place) : ''));
+    box.appendChild(r);
+  });
+}
+
+function nextRows(){
+  var box=document.getElementById('rowsR'); box.textContent='';
+  var p=nextPos(evIdx,heatIdx), ne=MEET.events[p[0]], nh=ne.heats[p[1]];
+  document.getElementById('subR').textContent='EVENT '+ne.no+' · HEAT '+nh.no+' OF '+ne.heats.length;
+  nh.lanes.forEach(function(l){
+    var r=el('div','row');
+    var st=el('div','stripe'); st.style.background=COLOR[l.team]||'#7d9aa1'; r.appendChild(st);
+    r.appendChild(el('div','ln',String(l.lane)));
+    r.appendChild(el('div','nm',l.name));
+    var tm=el('div','tm',l.team); tm.style.color=COLOR[l.team]||'#7d9aa1'; r.appendChild(tm);
+    r.appendChild(el('div','seed',l.seed));
+    box.appendChild(r);
+  });
+  var q=nextPos(p[0],p[1]), qe=MEET.events[q[0]], qh=qe.heats[q[1]];
+  document.getElementById('thenTxt').textContent='EVENT '+qe.no+' · '+qe.name.toUpperCase()+' · HEAT '+qh.no;
+}
+
+function render(){
+  var e=ev();
+  document.getElementById('evno').textContent='EVENT '+e.no;
+  document.getElementById('evname').textContent=e.name.toUpperCase();
+  document.getElementById('heatof').textContent='HEAT '+heat().no+' OF '+e.heats.length;
+  document.getElementById('clock').textContent = elapsed>0 ? fmt(elapsed) : '0:00.00';
+  var subL;
+  if(LIVEMODE){
+    if(LIVE && LIVE.link === 'down') subL = 'NO TIMING LINK';
+    else if(LIVE && LIVE.running > 0) subL = 'RACING';
+    else subL = 'ON THE BLOCKS';
+  } else {
+    subL = phase==='results' ? 'OFFICIAL' : (elapsed>0?'RACING':'ON THE BLOCKS');
+  }
+  document.getElementById('subL').textContent = subL;
+  currentRows(); nextRows();
+
+  document.getElementById('meetName').textContent=MEET.meet;
+  var sc=document.getElementById('scores'); sc.textContent='';
+  (MEET.scores||[]).forEach(function(s){
+    var it=el('div','scitem');
+    var d=el('div','scdot'); d.style.background=COLOR[s.team]||'#fff'; it.appendChild(d);
+    it.appendChild(el('div','scab',s.team));
+    it.appendChild(el('div','scpt',String(s.points)));
+    sc.appendChild(it);
+  });
+}
+
+/* ---------- demo clock ---------- */
+function tick(ts){
+  if(last==null) last=ts;
+  var dt=(ts-last)/1000*DEMO_SPEED; last=ts;
+  if(playing && !LIVEMODE){
+    if(phase==='race'){
+      elapsed+=dt;
+      if(elapsed > raceSeconds()*1.14){ phase='results'; elapsed=raceSeconds()*1.14; }
+    } else {
+      elapsed+=dt;
+      if(elapsed > raceSeconds()*1.14 + 5){ advance(); }
+    }
+    render();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---------- live link ---------- */
+function applyLive(d){
+  LIVE = d; liveSeen = Date.now();
+  if(!LIVEMODE){ LIVEMODE = true; document.body.classList.add('live'); }
+  if(d.mode === 'meet' && d.event != null && d.heat != null){
+    var p = findPos(d.event, d.heat);
+    if(p){ evIdx = p[0]; heatIdx = p[1]; }
+  }
+  elapsed = d.running || 0;
+  document.getElementById('clock').textContent = elapsed>0 ? fmt(elapsed) : '0:00.00';
+  render();
+}
+
+function connectLive(){
+  if(location.protocol === 'file:') return;          // opened as a file, stay in demo
+  var url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/live';
+  var ws;
+  try { ws = new WebSocket(url); } catch(e){ return setTimeout(connectLive, 5000); }
+  ws.onmessage = function(ev){
+    try { applyLive(JSON.parse(ev.data)); } catch(e){}
+  };
+  ws.onclose = function(){
+    // Do NOT drop back to the demo — freeze on the last real state and keep
+    // the UP NEXT panel alive. A board showing invented times is worse than
+    // a board that is visibly waiting.
+    if(LIVE){ LIVE.link = 'down'; render(); }
+    setTimeout(connectLive, 4000);
+  };
+  ws.onerror = function(){ try{ ws.close(); }catch(e){} };
+}
+connectLive();
+
+document.getElementById('btnNext').addEventListener('click',function(){ advance(); });
+document.getElementById('btnPrev').addEventListener('click',function(){ retreat(); });
+var pb=document.getElementById('btnPlay');
+pb.addEventListener('click',function(){ playing=!playing; pb.textContent = playing?'Pause':'Play'; });
+
+render();
+})();
+</script>
+
+<h2>How it works</h2>
+<p>Your observation is the one that makes this buildable: <strong>once the session starts, the entry data doesn't change.</strong> That splits the board into two sources with very different demands.</p>
+
+<div class="tscroll">
+<table>
+  <thead><tr><th>Source</th><th>What it carries</th><th>Changes</th></tr></thead>
+  <tbody>
+    <tr><td><code>meet.json</code><span class="mono"> — the flat file</span></td><td>Every event, every heat, every lane: swimmer, team, seed time. Plus the team table and colors.</td><td>Written once at session start. Re-export only on a deck change.</td></tr>
+    <tr><td>The CTS console</td><td>Current event, current heat, running time, lane times, places.</td><td>Continuously, over the scoreboard serial link.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The board joins them on <code>event + heat</code>. Everything on the right-hand panel &mdash; the whole reason parents look up &mdash; comes from the flat file alone and needs no live feed at all. Which means <strong>the up-next panel works even if the console link drops.</strong></p>
+
+<div class="call key">
+  <span class="call-label">This sidesteps the Meet Maestro problem</span>
+  <p>Tooele's swim program runs on SwimTopia, and Meet Maestro's only scoreboard integration is a one-way start-list export &mdash; which is why the earlier "live up-next" designs were dead ends. But a one-way export at session start is <em>exactly</em> what this architecture wants. The limitation stops mattering. Re-export whenever you make deck changes, heat and lane edits included.</p>
+</div>
+
+<h3>The flat file</h3>
+<pre><code>{
+  "meet": "Tooele County Tri-Meet",
+  "venue": "Tooele High School Natatorium",
+  "date": "2026-12-11",
+  "laneCount": 6,
+  "homeTeam": "TOOEL",
+
+  "teams": {
+    "TOOEL": { "name":"Tooele", "mascot":"Buffaloes",
+               "color":"#D18AE0", "alt":"#E8EEEE", "colorName":"purple" },
+    "STAN":  { "name":"Stansbury", "mascot":"Stallions",
+               "color":"#3D8BF5", "alt":"#9AA6AB", "colorName":"royal blue" }
+  },
+
+  "events": [
+    { "no":14, "name":"Girls 100 Freestyle", "distance":100,
+      "heats": [
+        { "no":1, "lanes":[
+            { "lane":1, "name":"S. Strand", "team":"STAN", "seed":"1:04.58" }
+        ]}
+      ]}
+  ],
+
+  "scores": [ { "team":"TOOEL", "points":84 } ]
+}</code></pre>
+
+<p>Producing it takes one step in Meet Manager and a short converter:</p>
+<ol>
+  <li><strong>Meet Manager</strong> &rarr; <code>File &gt; Export &gt; Start Lists for Scoreboard &gt; Start Lists for CTS</code>. You get one <code>.scb</code> per event, each carrying the event name and number, the heat count, and per-lane athlete and team abbreviation. Meet Maestro exports the same family of files.</li>
+  <li>A converter walks that folder and emits <code>meet.json</code>. It's a small script &mdash; the <code>.scb</code> format is fixed-width text and well documented, and <a href="https://github.com/wbcrowell/OpenSwimScoreboard">OpenSwimScoreboard</a> already contains a working parser you can lift.</li>
+  <li>Drop <code>meet.json</code> next to this page. The board picks it up automatically; with no file present it falls back to the sample data you're looking at.</li>
+</ol>
+
+<h2>Team colors</h2>
+<p>Tooele High is <strong>4A Region 11</strong> under the UHSAA 2025&ndash;27 alignment, and for this cycle swimming uses the same region map as everything else. That's a change from 2023&ndash;25, when Tooele swam in a Salt Lake&ndash;based Region 10 &mdash; Wikipedia and the 2025 UHSAA region swim guide both still show the old grouping.</p>
+<p>Region 11 is geographically split: three Tooele County schools and five in Cache Valley, about a hundred miles away. In practice you'll render <strong>Tooele, Stansbury, Grantsville and Deseret Peak</strong> most weeks, Salt Lake Valley opponents next, and the Cache Valley schools only at invitationals and the region championship.</p>
+
+<div class="tscroll">
+<table>
+  <thead><tr><th>School</th><th>Abbr</th><th>Class / Region</th><th>Colors</th><th>Board primary</th><th>Alternate</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Tooele</strong> <span class="mono">Buffaloes</span></td><td class="mono">TOOEL</td><td>4A R11</td><td>Purple, white</td><td><span class="sw" style="background:#D18AE0"></span><span class="mono">#D18AE0</span></td><td><span class="sw" style="background:#E8EEEE"></span><span class="mono">#E8EEEE</span></td></tr>
+    <tr><td><strong>Stansbury</strong> <span class="mono">Stallions</span></td><td class="mono">STAN</td><td>4A R11</td><td>Royal blue, black, white</td><td><span class="sw" style="background:#3D8BF5"></span><span class="mono">#3D8BF5</span></td><td><span class="sw" style="background:#9AA6AB"></span><span class="mono">#9AA6AB</span></td></tr>
+    <tr><td><strong>Grantsville</strong> <span class="mono">Cowboys</span></td><td class="mono">GHS</td><td>3A R12</td><td>Black, red, white</td><td><span class="sw" style="background:#F0546A"></span><span class="mono">#F0546A</span></td><td><span class="sw" style="background:#E8EEEE"></span><span class="mono">#E8EEEE</span></td></tr>
+    <tr><td><strong>Deseret Peak</strong> <span class="mono">Golden Eagles</span></td><td class="mono">DPEAK</td><td>4A R11</td><td>Black, Vegas gold</td><td><span class="sw" style="background:#D9C46E"></span><span class="mono">#D9C46E</span></td><td><span class="sw" style="background:#BFC7CA"></span><span class="mono">#BFC7CA</span></td></tr>
+    <tr><td><strong>Bear River</strong> <span class="mono">Bears</span></td><td class="mono">BRHS</td><td>4A R11</td><td>Black, white</td><td><span class="sw" style="background:#E8EEEE"></span><span class="mono">#E8EEEE</span></td><td><span class="sw" style="background:#9AA6AB"></span><span class="mono">#9AA6AB</span></td></tr>
+    <tr><td><strong>Sky View</strong> <span class="mono">Bobcats</span></td><td class="mono">SVHS</td><td>4A R11</td><td>Blue, gold</td><td><span class="sw" style="background:#3E9BD6"></span><span class="mono">#3E9BD6</span></td><td><span class="sw" style="background:#FFD24D"></span><span class="mono">#FFD24D</span></td></tr>
+    <tr><td><strong>Mountain Crest</strong> <span class="mono">Mustangs</span></td><td class="mono">MCHS</td><td>4A R11</td><td>Blue, orange, white</td><td><span class="sw" style="background:#FF8C42"></span><span class="mono">#FF8C42</span></td><td><span class="sw" style="background:#5B8FE8"></span><span class="mono">#5B8FE8</span></td></tr>
+    <tr><td><strong>Ridgeline</strong> <span class="mono">Riverhawks</span></td><td class="mono">RIDGE</td><td>4A R11</td><td>Midnight blue, action green, silver</td><td><span class="sw" style="background:#7ACC3E"></span><span class="mono">#7ACC3E</span></td><td><span class="sw" style="background:#A5ACAF"></span><span class="mono">#A5ACAF</span></td></tr>
+    <tr><td><strong>Green Canyon</strong> <span class="mono">Wolves</span></td><td class="mono">GCHS</td><td>4A R11</td><td>Silver, green</td><td><span class="sw" style="background:#3FB58A"></span><span class="mono">#3FB58A</span></td><td><span class="sw" style="background:#BFC7CA"></span><span class="mono">#BFC7CA</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="call warn">
+  <span class="call-label">Every hex above is my approximation &mdash; go get the real ones</span>
+  <p>I could not find a single authoritative brand hex for any of these schools. The colors are correct as <em>words</em> (verified from school sites and UHSAA); the hex values are my rendering of those words, then tuned for legibility on a dark board.</p>
+  <p>Tooele County School District publishes a spreadsheet, <em>"TCSD School Info, Colors, Mascot,"</em> on its <a href="https://www.tooeleschools.org/departments/communications/logos-and-style-guide">logos and style guide page</a>. That almost certainly has authoritative values for Tooele, Stansbury, Grantsville and Deseret Peak &mdash; four of the five schools you'll actually render. Five minutes with it in a browser and you can replace the top four rows. The abbreviations come from the 2026 4A state psych sheet, which is the right source since they're Hy-Tek team codes &mdash; but confirm them against the raw PDF, and note Deseret Peak has no code yet (brand-new program).</p>
+</div>
+
+<h3>Why the colors aren't simply the school colors</h3>
+<p>Two constraints turn "use the team colors" into a real design problem.</p>
+<p><strong>Half these schools wear black or navy.</strong> On a dark board those disappear. Each school's board color is therefore a <em>display tint</em> &mdash; the school's hue, lifted until it clears 3:1 contrast against the board background. Bear River, whose colors are black and white, correctly gets white.</p>
+<p><strong>And four of the nine wear blue.</strong> Checked with a contrast validator, Tooele's purple against Stansbury's royal blue lands at &Delta;E 17.7 for normal vision &mdash; fine &mdash; but only 6.6 under protanopia. Purple against blue is genuinely hard for red-blind viewers; that's optics, not a fixable palette. So the board never uses color alone: <strong>the team abbreviation sits beside every stripe</strong>, in the team color, on every row of both panels. Color is how you find your school in half a second; the abbreviation is what makes it certain.</p>
+<p>Where two teams in the same meet really are too close, the board resolves it at load time rather than at design time:</p>
+<pre><code>Home team keeps its primary color.
+For each other team, in order:
+  if ΔE(primary, every color already assigned) < 15
+     and the alternate clears 15 → use the alternate
+  otherwise → keep the primary
+</code></pre>
+<p>&Delta;E is computed in OKLab in the page itself, so the rule runs on whatever teams actually show up &mdash; including opponents from outside the region that you add to the file later. Give every school an <code>alt</code> drawn from its real secondary color and the rule has something to work with.</p>
+
+<h2>Putting it on the wall</h2>
+<ul>
+  <li><strong>Serve it over HTTP from the timing-table PC</strong>, not from the filesystem &mdash; browsers block a local page from reading a local JSON file. Any tiny static server will do.</li>
+  <li><strong>One PoE signage player per TV</strong>, in kiosk mode, pointed at that URL. They stay powered and stay on the page; a switch-port bounce reboots one from the equipment closet.</li>
+  <li><strong>Delete the preview controls.</strong> The buttons under the board exist for this page only.</li>
+  <li><strong>The layout is eight rows and holds at 65&Prime; from about 39 ft.</strong> Two panels side by side rather than stacked is what keeps it inside that budget &mdash; twelve swimmers on screen, still only six rows tall. Measure the farthest seat from the nearer screen before you buy panels.</li>
+  <li><strong>Serve a fallback page</strong> &mdash; facility logo, session schedule, pool records &mdash; so the screens never read "No Signal" between sessions.</li>
+</ul>
+
+<p style="margin-top:34px;color:var(--dim);font-size:14px">Sources: <a href="https://uhsaa.org/realignment/202527/final/">UHSAA 2025&ndash;27 alignment</a> &middot; <a href="https://www.deseret.com/sports/2026/02/01/high-school-swimming-4a-region-results/">4A region swim results, Feb 2026</a> &middot; <a href="https://uhsaa.org/swim/2026/4APsychSheets.pdf">2026 4A psych sheets</a> &middot; <a href="https://www.tooeleschools.org/departments/communications/logos-and-style-guide">TCSD logos and style guide</a> &middot; <a href="https://github.com/wbcrowell/OpenSwimScoreboard">OpenSwimScoreboard</a> &middot; <a href="https://help.swimtopia.com/hc/en-us/articles/360008453992-Meet-Maestro-Settings-Timing-Setup-Scoreboards">Meet Maestro scoreboard export</a>. Swimmer names and results shown are sample data.</p>
+
+</div>
