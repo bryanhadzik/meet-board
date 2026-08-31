@@ -19,6 +19,8 @@ services:
       # For a bench test with no hardware, comment BOARD_TCP out and use:
       # BOARD_SOURCE: "mock"
       # BOARD_MEET: "/app/public/meet.json"
+      # Uncomment to require a token for the upload page:
+      # BOARD_ADMIN_TOKEN: "change-me"
       TZ: "America/Denver"
     logging:
       driver: json-file

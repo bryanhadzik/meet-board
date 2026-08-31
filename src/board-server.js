@@ -27,6 +27,7 @@
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
+const { convert } = require('./scb');
 
 // ---------------------------------------------------------------- args
 const argv = process.argv.slice(2);
@@ -42,6 +43,7 @@ const TCP       = arg('tcp',    env.BOARD_TCP || null);
 const SNIFF     = has('sniff');
 const MOCK      = has('mock') || env.BOARD_SOURCE === 'mock';
 const BAUD      = parseInt(arg('baud', env.BOARD_BAUD || 9600), 10);
+const ADMIN_TOK = env.BOARD_ADMIN_TOKEN || arg('admin-token', null);
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -289,6 +291,77 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify(MEET));
   }
 
+  // ---------------- start-list upload ----------------
+  // The Meet Manager laptop is at the timing table; this server is in the rack.
+  // Rather than move files by hand, the admin page reads the .scb files in the
+  // browser and posts them as JSON — small text files, so no multipart parser
+  // and no extra dependency.
+  if (url === '/api/upload' && req.method === 'POST') {
+    if (ADMIN_TOK && req.headers['x-admin-token'] !== ADMIN_TOK) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, errors: ['bad or missing admin token'] }));
+    }
+    let body = '', tooBig = false;
+    req.on('data', (c) => {
+      body += c;
+      if (body.length > 8 * 1024 * 1024) { tooBig = true; req.destroy(); }
+    });
+    req.on('end', () => {
+      if (tooBig) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, errors: ['upload too large (8 MB cap)'] }));
+      }
+      let payload;
+      try { payload = JSON.parse(body); }
+      catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, errors: ['malformed request body'] }));
+      }
+
+      const files = Array.isArray(payload.files) ? payload.files : [];
+      // Filenames only ever appear in messages, but strip paths anyway so a
+      // crafted name can never reach the filesystem.
+      for (const f of files) f.name = path.basename(String(f.name || 'unnamed'));
+
+      const r = convert(files, payload.opts || {});
+      const out = { ok: r.ok, warnings: r.warnings, errors: r.errors, summary: r.summary || null, committed: false };
+
+      if (r.ok && payload.commit) {
+        try {
+          fs.mkdirSync(path.dirname(MEET_FILE), { recursive: true });
+          if (fs.existsSync(MEET_FILE)) fs.copyFileSync(MEET_FILE, MEET_FILE + '.bak');
+          fs.writeFileSync(MEET_FILE, JSON.stringify(r.meet, null, 1));
+          loadMeet();
+          out.committed = true;
+          log(`meet.json replaced via upload — ${r.summary.events} events, ${r.summary.entries} entries`);
+          publish();
+        } catch (e) {
+          out.ok = false; out.errors = [...out.errors, `could not write ${MEET_FILE}: ${e.message}`];
+        }
+      }
+      res.writeHead(out.ok ? 200 : 422, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(out));
+    });
+    return;
+  }
+
+  // Restore the previous meet.json — the undo for "I uploaded the wrong session".
+  if (url === '/api/rollback' && req.method === 'POST') {
+    if (ADMIN_TOK && req.headers['x-admin-token'] !== ADMIN_TOK) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: 'bad or missing admin token' }));
+    }
+    if (!fs.existsSync(MEET_FILE + '.bak')) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: 'no previous meet.json to restore' }));
+    }
+    fs.copyFileSync(MEET_FILE + '.bak', MEET_FILE);
+    loadMeet(); publish();
+    log('meet.json rolled back to previous version');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, meet: MEET && MEET.meet }));
+  }
+
   if (url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, link: LIVE.link, meet: !!MEET, clients: clients.size }));
@@ -327,6 +400,8 @@ setInterval(() => { publish(); }, 5000);
 
 server.listen(PORT, () => {
   log(`board server on http://0.0.0.0:${PORT}  (serving ${PUBLIC})`);
+  log(`upload page at http://0.0.0.0:${PORT}/admin.html`);
+  if (!ADMIN_TOK) log('WARNING: BOARD_ADMIN_TOKEN not set — anyone who can reach this port can replace meet.json');
   if (SNIFF) log('SNIFF MODE — dumping raw bytes, parsing nothing');
   if (TCP)         openTcp(TCP);
   else if (SERIAL) openSerial(SERIAL);

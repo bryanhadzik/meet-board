@@ -68,12 +68,22 @@ Open `http://<host>:8080/` — that is the URL the TVs point at.
 1. **Meet Manager → seed the session first**, then
    `File > Export > Start List for Scoreboard > Start Lists for CTS`
    Export into a **fresh dated folder** — see the stale-file guard below.
-2. Convert:
+2. Load them, either way:
+
+   **From a browser** — `http://<host>:8080/admin.html`. Fill in the session
+   details, drop in every `.scb` at once, press **Read files** to see what was
+   parsed, then **Apply to the board**. Nothing is written until you apply, and
+   the previous `meet.json` is kept as `.bak` so **Undo** always works. This is
+   the path to use from the Meet Manager laptop.
+
+   **From a shell** on the host:
 
        node src/scb2meet.js .\export\2026-12-11 -o data\meet.json \
          --home TOOEL --pool-lanes 6 --name "Tooele County Tri-Meet"
 
-3. That's it. The server watches the file and reloads within a second.
+   Both share the same parser (`src/scb.js`), so they cannot drift.
+
+3. That's it. The board picks it up within a second — no restart.
 
 
 ---
@@ -137,6 +147,18 @@ to the internet.
 
 ---
 
+## Securing the upload page
+
+`/admin.html` replaces `meet.json`. On a dedicated camera VLAN behind the gateway
+that is defensible, but set a token anyway:
+
+    BOARD_ADMIN_TOKEN: "something-long"
+
+With it set, `POST /api/upload` and `/api/rollback` require an `X-Admin-Token`
+header. With it unset the server logs a warning at startup. The browser page
+posts no token, so if you set one, use the CLI or add the header via a reverse
+proxy.
+
 ## Configuration
 
 | Env | Default | Meaning |
@@ -147,11 +169,15 @@ to the internet.
 | `BOARD_SOURCE` | — | `mock` to run a simulated meet |
 | `BOARD_MEET` | `/data/meet.json` | path to the flat file |
 | `BOARD_BAUD` | `9600` | console baud (8-E-1 is assumed) |
+| `BOARD_ADMIN_TOKEN` | — | if set, required to upload or roll back |
 
 ## Endpoints
 
     GET  /              the board
-    GET  /meet.json     the flat file
+    GET  /admin.html    start-list upload page
+    GET  /meet.json     the flat file the server parsed
+    POST /api/upload    { commit, opts, files:[{name,text,lastModified}] }
+    POST /api/rollback  restore the previous meet.json
     GET  /api/live      current state (polling fallback)
     GET  /api/health    { ok, link, meet, clients }
     WS   /live          state pushed on change, plus a 5s heartbeat
