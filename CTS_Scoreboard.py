@@ -385,7 +385,7 @@ def main_thread_worker():
                         l = []
                     l.append(c)
                 if n % 96 == 0:
-                    socketio.sleep(0.01 / max(in_speed, 0.01))
+                    socketio.sleep(0.1 / max(in_speed, 0.01))   # 96 bytes = 0.1 s at 9600 baud (8N1 ~ 960 B/s)
             socketio.sleep(2.0)  # loop the recording
     elif in_file:
         delay = 0.0
@@ -809,6 +809,8 @@ def send_event_info():
     update["meet_teams"] = meet_teams
     update["team_colors"] = meet_board.team_colors(settings, meet_teams)
     update["color_palette"] = meet_board.FALLBACK_PALETTE
+    update["resolved_colors"] = meet_board.resolved_colors(
+        update["team_colors"], meet_teams, update.get("home_team") or settings.get('board_home_team') or settings.get('team_home_tag', ''))
     update["home_team"] = settings.get('board_home_team') or settings.get('team_home_tag', '')
     update["meet_title"] = settings.get('meet_title', '')
     update["board_style"] = settings.get('board_style', 'classic')
@@ -1778,6 +1780,7 @@ def route_site_map():
     board = _pop(web_links, 'meetboard')
     if board:
         view_items.append(board)
+    view_items.append(('/overlay/race?test', 'Stream overlay (OBS Browser Source: /overlay/race, 1920x1080)'))
     for key in sorted(web_links.keys()):
         view_items.append(web_links[key])
     if view_items:

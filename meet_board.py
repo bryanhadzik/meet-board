@@ -142,3 +142,54 @@ def board_payload(event_info, settings, current):
         payload.update({'then_event': e, 'then_heat': h,
                         'then_event_name': event_info.get_event_name(e)})
     return payload
+
+
+# ---------------------------------------------------------------- colour clash rule
+def _lin(c):
+    c /= 255.0
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def _oklab(hexc):
+    r, g, b = (_lin(int(hexc[i:i + 2], 16)) for i in (1, 3, 5))
+    l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
+    m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3)
+    s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)
+    return (0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s)
+
+
+def delta_e(a, b):
+    A, B = _oklab(a), _oklab(b)
+    return 100 * sum((x - y) ** 2 for x, y in zip(A, B)) ** 0.5
+
+
+MIN_SEPARATION = 15
+_HEX = __import__('re').compile(r'^#[0-9a-fA-F]{6}$')
+
+
+def resolved_colors(colors, meet_teams, home=''):
+    """Same rule as the meet board page: home team keeps its primary; a team
+    too close (OKLab dE < 15) to one already assigned takes its alternate if
+    that clears, and an auto-colored team takes the palette color farthest
+    from everything assigned. Returns {code: hex} for the meet's teams."""
+    order = list(meet_teams)
+    if home in order:
+        order.remove(home)
+        order.insert(0, home)
+    taken, out = [], {}
+    for code in order:
+        t = colors.get(code) or {}
+        pick = t.get('color', '')
+        if not _HEX.match(pick or ''):
+            continue
+        if any(delta_e(c, pick) < MIN_SEPARATION for c in taken):
+            alt = t.get('alt', '')
+            if _HEX.match(alt or '') and all(delta_e(c, alt) >= MIN_SEPARATION for c in taken):
+                pick = alt
+            elif t.get('auto'):
+                pick = max(FALLBACK_PALETTE, key=lambda c: min(delta_e(x, c) for x in taken))
+        taken.append(pick)
+        out[code] = pick
+    return out

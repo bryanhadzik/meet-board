@@ -44,6 +44,33 @@ associated with CTS or Hy-Tek.
 4. Point each TV's browser/signage player at `http://<timing-pc>:5000/web/meetboard` in kiosk mode.
    OBS browser source: `http://localhost:5000/overlay/1080p`.
 
+### OBS stream overlay
+
+Add a **Browser** source to the camera scene:
+
+| Field | Value |
+|---|---|
+| URL | `http://localhost:5000/overlay/race` |
+| Width × Height | 1920 × 1080 |
+| Custom CSS | leave the default (the page background is transparent) |
+
+It follows the console: **start list** when a heat is on the blocks, the running clock with each
+lane's time and place popping in as they touch, **results** sorted by place with the top three
+marked once everyone has finished, and it fades out when the console blanks. Team colors come from
+the Team Colors page.
+
+Options go on the URL, e.g. `http://localhost:5000/overlay/race?pos=br&scale=0.9`:
+
+| Option | Values | Default |
+|---|---|---|
+| `pos` | `bl` `br` `tl` `tr` (corner) | `bl` |
+| `scale` | size multiplier, 0.4–2.5 | `1` |
+| `running` | `list` (lanes during the race) or `clock` (clock bar only) | `list` |
+| `results` | `place` or `lane` order | `place` |
+| `test` | shows a pool photo behind it, for positioning in a normal browser | off |
+
+The older CTS_Scoreboard overlays are still at `/overlay/1080p` and `/overlay/1080p_states`.
+
 ### Loading start lists
 
 **CTS start lists (.scb)** — in Meet Manager: *File → Export → Start Lists for Scoreboard → Start Lists

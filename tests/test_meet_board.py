@@ -75,3 +75,12 @@ def test_old_settings_migrate_to_8_lanes(monkeypatch):
     C.settings['num_lanes'] = 6          # user chose 6 later: leave it alone
     C.migrate_settings()
     assert C.settings['num_lanes'] == 6
+
+
+def test_resolved_colors_separate_close_teams():
+    colors = {'A': {'color': '#3D8BF5', 'alt': '#9AA6AB'}, 'B': {'color': '#3E8CF4', 'alt': '#F0546A'},
+              'C': {'color': '#3D8BF6', 'alt': '', 'auto': True}}
+    out = meet_board.resolved_colors(colors, ['B', 'A', 'C'], home='A')
+    assert out['A'] == '#3D8BF5'          # home keeps primary
+    assert out['B'] == '#F0546A'          # clash -> alternate
+    assert meet_board.delta_e(out['C'], out['A']) >= 15   # auto -> distinct palette color
