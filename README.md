@@ -35,7 +35,8 @@ associated with CTS or Hy-Tek.
    `settings.json` is created beside the exe.
 2. Start it. The console window prints the URLs. Allow it through Windows Firewall (private networks)
    so the TVs can reach it.
-3. Open `http://localhost:5000/settings` (default login `admin` / `password` — change it), then:
+3. Open `http://localhost:5000/settings` (no login: every page, including Settings and Software
+   Update, is open to anyone who can reach the PC on the network), then:
    - pick the serial port for the CTS Y-cable,
    - set **Number of Lanes**,
    - load start lists (below),

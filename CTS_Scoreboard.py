@@ -446,6 +446,10 @@ def main_thread_worker():
 login_manager = flask_login.LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "route_login"
+# No authentication: the admin pages are open to anyone on the network
+# (Bryan's call - the timing PC sits on the pool's private network).
+# Flask-Login's LOGIN_DISABLED turns every @login_required into a no-op.
+app.config['LOGIN_DISABLED'] = True
 
 
 # simple user model
@@ -1627,6 +1631,9 @@ def route_schedule_preview():
 # somewhere to login
 @app.route("/login", methods=["GET", "POST"])
 def route_login():
+    if app.config.get('LOGIN_DISABLED'):
+        nxt = flask.request.args.get("next") or ''
+        return flask.redirect(nxt if nxt.startswith('/') and not nxt.startswith('//') else '/settings')
     if flask.request.method == 'POST':
         if ((flask.request.form['username']==settings['username']) and
             (flask.request.form['password']==settings['password'])):        
