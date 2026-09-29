@@ -1,0 +1,21 @@
+{# Tab bar shared by the admin pages. `active` = settings | music | colors | update #}
+<style>
+  .mbnav { display:flex; gap:2px; flex-wrap:wrap; align-items:flex-end; background:#0b1618; padding:10px 16px 0;
+           font:600 14px/1 "Segoe UI", system-ui, sans-serif; position:sticky; top:0; z-index:50; }
+  .mbnav .brand { color:#bfe6ec; margin-right:14px; padding-bottom:11px; letter-spacing:.04em; }
+  .mbnav a { color:#9fb6bb; text-decoration:none; padding:10px 16px; border-radius:8px 8px 0 0; }
+  .mbnav a:hover { color:#fff; background:#16282c; text-decoration:none; }
+  .mbnav a.on { color:#0b1618; background:#f4f6f6; }
+  .mbnav .sp { flex:1; }
+  .mbnav a.ext { font-weight:500; font-size:13px; }
+</style>
+<nav class="mbnav">
+  <span class="brand">meet-board</span>
+  <a href="/settings" class="{{ 'on' if active == 'settings' else '' }}">Settings</a>
+  <a href="/music" class="{{ 'on' if active == 'music' else '' }}">Music</a>
+  <a href="/team_colors" class="{{ 'on' if active == 'colors' else '' }}">Team Colors</a>
+  <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}">Software Update</a>
+  <span class="sp"></span>
+  <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
+  <a href="/overlay/race?test" class="ext" target="_blank">Overlay &#8599;</a>
+</nav>

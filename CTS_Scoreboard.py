@@ -29,6 +29,7 @@ import scb_loader
 import meet_board
 import updater
 import obs_client
+import music
 from _version import __version__
 
 DEBUG = False
@@ -1393,6 +1394,105 @@ def debug_status():
     return {'ok': True, 'event': e, 'heat': h, 'event_name': event_info.get_event_name(e),
             'race_state': race_fsm.state_name, 'auto': _dbg['auto'], 'speed': _dbg['speed'],
             'status': _dbg['status'], 'heats': [list(k) for k in meet_board.heat_order(event_info)]}
+
+
+# ---------------------------------------------------------------------------
+# Music tab: playlist in DATA_DIR/music, played by /music?speaker=1 on the
+# streaming PC, controlled from any /music page.
+# ---------------------------------------------------------------------------
+music_state = music.MusicState()
+
+def _music_folder():
+    return music.music_dir(app_paths.data_path)
+
+def _music_songs():
+    return music.list_songs(_music_folder())
+
+def _music_broadcast(include_songs=False):
+    socketio.emit('music_state', music_state.as_dict(_music_songs() if include_songs else None),
+                  namespace='/music')
+
+@app.route('/music')
+def route_music():
+    return flask.render_template('music.html', speaker='speaker' in flask.request.args,
+                                 songs=_music_songs(), music_folder=_music_folder())
+
+@app.route('/music/file/<path:name>')
+def route_music_file(name):
+    safe = music.safe_filename(name)
+    if not safe or safe != name:
+        return flask.abort(404)
+    return flask.send_from_directory(_music_folder(), safe, conditional=True)
+
+@app.route('/music/upload', methods=['POST'])
+@flask_login.login_required
+def route_music_upload():
+    saved, skipped = [], []
+    folder = _music_folder()
+    for f in flask.request.files.getlist('songs'):
+        name = music.safe_filename(f.filename)
+        if not name:
+            skipped.append(f.filename)
+            continue
+        f.save(os.path.join(folder, name))
+        saved.append(name)
+    _music_broadcast(include_songs=True)
+    return flask.jsonify({'saved': saved, 'skipped': skipped, 'songs': _music_songs()})
+
+@app.route('/music/delete', methods=['POST'])
+@flask_login.login_required
+def route_music_delete():
+    name = (flask.request.get_json(silent=True) or {}).get('file', '')
+    safe = music.safe_filename(name)
+    if not safe or safe != name or not os.path.isfile(os.path.join(_music_folder(), safe)):
+        return flask.jsonify({'error': 'not found'}), 404
+    if music_state.track == safe:
+        music_state.command('stop')
+    os.remove(os.path.join(_music_folder(), safe))
+    _music_broadcast(include_songs=True)
+    return flask.jsonify({'songs': _music_songs()})
+
+@socketio.on('connect', namespace='/music')
+def ws_music_connect():
+    flask_socketio.emit('music_state', music_state.as_dict(_music_songs()))
+
+@socketio.on('disconnect', namespace='/music')
+def ws_music_disconnect(*args):
+    if flask.request.sid == music_state.speaker_sid:
+        music_state.speaker_sid = None
+        music_state.speaker_ready = False
+        _music_broadcast()
+
+@socketio.on('speaker_hello', namespace='/music')
+def ws_music_speaker(d=None):
+    # Newest speaker tab wins; an older one is told to stand by.
+    old = music_state.speaker_sid
+    music_state.speaker_sid = flask.request.sid
+    music_state.speaker_ready = bool((d or {}).get('ready'))
+    if old and old != flask.request.sid:
+        socketio.emit('speaker_standby', {}, namespace='/music', to=old)
+    _music_broadcast()
+
+@socketio.on('speaker_report', namespace='/music')
+def ws_music_report(d=None):
+    if flask.request.sid != music_state.speaker_sid:
+        return
+    ended = music_state.report(d or {})
+    if ended:
+        _music_broadcast()
+    else:
+        socketio.emit('music_progress', {'position': music_state.position, 'duration': music_state.duration,
+                                         'track': music_state.track}, namespace='/music')
+
+@socketio.on('music_cmd', namespace='/music')
+def ws_music_cmd(d=None):
+    d = d or {}
+    err = music_state.command(d.get('action'), d.get('track'), d.get('volume'),
+                              [x['file'] for x in _music_songs()])
+    if err:
+        flask_socketio.emit('music_error', {'error': err})
+        return
+    _music_broadcast()
 
 # Scoreboard Templates
 @app.route('/overlay/<name>')

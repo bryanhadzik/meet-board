@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.11
+
+### Added
+- **Music** tab (`/music`): a button per song (anthem pinned first and
+  highlighted), pause/resume, stop, volume, progress. Songs are your own audio
+  files in the `music` folder next to meet-board.exe - upload them on the tab.
+- Sound comes from the **speaker tab** (`/music?speaker=1`) on the streaming PC,
+  so it plays through that PC's speakers/PA. Any phone, tablet or PC on the pool
+  network can use `/music` as the remote. Click *Enable sound* once on the
+  speaker tab (browser rule). The launcher has a *Music Speaker* link.
+- Tab bar across the admin pages: Settings | Music | Team Colors | Software Update.
+
 ## 0.2.10
 
 ### Fixed

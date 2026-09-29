@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meet-board: Music{{ ' (speaker)' if speaker else '' }}</title>
+{% include '_admin_style.html' %}
+<style>
+  .wrap { max-width:760px; }
+  .now { background:#0b1618; color:#e8eeee; border-radius:12px; padding:16px 18px; margin:14px 0; }
+  .now .k { font-size:11px; letter-spacing:.14em; color:#8fa3a8; text-transform:uppercase; }
+  .now .t { font-size:22px; font-weight:700; margin:4px 0 10px; min-height:1.2em; }
+  .bar { height:8px; background:#26383c; border-radius:4px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:#3ddc84; transition:width .4s linear; }
+  .times { display:flex; justify-content:space-between; font:12px Consolas, monospace; color:#8fa3a8; margin-top:4px; }
+  .transport { display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap; }
+  .tbtn { font:700 16px "Segoe UI", sans-serif; padding:12px 20px; border-radius:10px; border:0; cursor:pointer; background:#26383c; color:#e8eeee; min-width:110px; }
+  .tbtn.stop { background:#ff5a6e; color:#2a0508; }
+  .tbtn[disabled] { opacity:.4; cursor:default; }
+  .vol { display:flex; align-items:center; gap:8px; margin-left:auto; color:#8fa3a8; font-size:13px; }
+  .vol input { width:160px; }
+  .songs { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+  .song { position:relative; text-align:left; padding:16px 16px 16px 50px; border-radius:10px; border:1px solid var(--line);
+          background:#fff; cursor:pointer; font:600 16px "Segoe UI", sans-serif; color:var(--ink); min-height:64px; }
+  .song::before { content:'\25B6'; position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--accent); font-size:18px; }
+  .song:hover { border-color:var(--accent); }
+  .song.anthem { background:#10233a; color:#fff; border-color:#10233a; grid-column:1 / -1; font-size:19px; }
+  .song.anthem::before { color:#ffd24d; }
+  .song.cur { border-color:#3ddc84; box-shadow:0 0 0 3px rgba(61,220,132,.35); }
+  .song.cur.playing::before { content:'\266B'; color:#3ddc84; }
+  .song .x { position:absolute; right:8px; top:6px; font-size:12px; color:var(--dim); display:none; }
+  .editing .song .x { display:block; }
+  .alert { border-radius:8px; padding:10px 14px; margin:12px 0; font-size:14px; }
+  .alert.warn { background:#fff4d6; border:1px solid #f0c96a; }
+  .alert.ok { background:#e2f6ea; border:1px solid #9fdab5; }
+  .alert.bad { background:#fde3e6; border:1px solid #f1a1aa; }
+  .speaker-gate { position:fixed; inset:0; background:rgba(11,22,24,.92); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .speaker-gate button { font:700 22px "Segoe UI", sans-serif; padding:24px 36px; border-radius:14px; border:0; background:#3ddc84; cursor:pointer; }
+  .speaker-gate p { color:#bfe6ec; text-align:center; max-width:520px; margin:18px auto 0; }
+  .small { font-size:13px; color:var(--dim); }
+</style>
+</head>
+<body>
+{% set active = 'music' %}{% include '_nav.html' %}
+<div class="wrap">
+  <h1>Music{% if speaker %} &mdash; speaker{% endif %}</h1>
+  <div id="speakerNote"></div>
+
+  <div class="now">
+    <div class="k" id="nowK">Now playing</div>
+    <div class="t" id="nowT">&mdash;</div>
+    <div class="bar"><i id="barI"></i></div>
+    <div class="times"><span id="posT">0:00</span><span id="durT">0:00</span></div>
+    <div class="transport">
+      <button class="tbtn" id="pauseBtn" type="button" disabled>Pause</button>
+      <button class="tbtn stop" id="stopBtn" type="button" disabled>Stop</button>
+      <label class="vol">Volume <input type="range" id="vol" min="0" max="100" value="80"> <span id="volT">80%</span></label>
+    </div>
+  </div>
+
+  <div class="songs" id="songs"></div>
+  <p class="small" id="empty" hidden>No songs yet. Add MP3s below (or copy them into <span class="mono">{{ music_folder }}</span>).</p>
+
+  <h2>Songs</h2>
+  <div class="card">
+    <form id="up"><input type="file" name="songs" multiple accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac">
+      <button class="btn primary" type="submit">Add songs</button>
+      <button class="btn" type="button" id="editBtn">Remove songs&hellip;</button></form>
+    <p class="small" style="margin-top:10px">Files are kept in <span class="mono">{{ music_folder }}</span>. A file with
+      &ldquo;anthem&rdquo; or &ldquo;star spangled&rdquo; in its name is pinned to the top. Songs are ordered by file name, so
+      prefix them <span class="mono">01 &ndash; </span>, <span class="mono">02 &ndash; </span>&hellip; to set the order.</p>
+    <div id="upMsg"></div>
+  </div>
+
+  {% if not speaker %}
+  <p class="small">The music comes out of the <strong>speaker tab</strong>: on the streaming PC open
+    <a href="/music?speaker=1" target="_blank">/music?speaker=1</a> and click <em>Enable sound</em> once. Leave that tab open.
+    This page (on any phone, tablet or PC) is the remote.</p>
+  {% endif %}
+</div>
+
+{% if speaker %}
+<div class="speaker-gate" id="gate">
+  <div>
+    <button id="gateBtn" type="button">Enable sound on this PC</button>
+    <p>Browsers only allow sound after a click. Leave this tab open &mdash; music tapped on any Music page plays here,
+       through this PC's speakers / PA.</p>
+  </div>
+</div>
+<audio id="player" preload="auto"></audio>
+{% endif %}
+
+<script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
+<script>
+(function () {
+"use strict";
+var SPEAKER = {{ 'true' if speaker else 'false' }};
+var songs = {{ songs | tojson }}, st = {status: "stopped", volume: 0.8};
+var socket = io.connect(location.protocol + '//' + location.host + '/music');
+function $(id) { return document.getElementById(id); }
+function fmt(t) { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
+function titleOf(f) { for (var i = 0; i < songs.length; i++) if (songs[i].file === f) return songs[i].title; return f || ''; }
+function cmd(action, extra) { var d = extra || {}; d.action = action; socket.emit('music_cmd', d); }
+
+function renderSongs() {
+  var box = $('songs'); box.textContent = '';
+  $('empty').hidden = songs.length > 0;
+  songs.forEach(function (s) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'song' + (s.anthem ? ' anthem' : '') + (st.track === s.file ? ' cur' : '') +
+                  (st.track === s.file && st.status === 'playing' ? ' playing' : '');
+    b.textContent = s.title;
+    var x = document.createElement('span'); x.className = 'x'; x.textContent = 'remove';
+    x.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (!confirm('Remove "' + s.title + '"?')) return;
+      fetch('/music/delete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file: s.file})});
+    });
+    b.appendChild(x);
+    b.addEventListener('click', function () {
+      if (document.body.classList.contains('editing')) return;
+      cmd('play', {track: s.file});
+    });
+    box.appendChild(b);
+  });
+}
+
+function renderNow() {
+  var playing = st.status === 'playing', paused = st.status === 'paused';
+  $('nowK').textContent = playing ? 'Now playing' : paused ? 'Paused' : 'Stopped';
+  $('nowT').textContent = st.track && st.status !== 'stopped' ? titleOf(st.track) : '—';
+  $('pauseBtn').disabled = !(playing || paused);
+  $('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+  $('stopBtn').disabled = !(playing || paused);
+  if (document.activeElement !== $('vol')) { $('vol').value = Math.round(st.volume * 100); }
+  $('volT').textContent = Math.round(st.volume * 100) + '%';
+  progress(st.position, st.duration);
+  var n = $('speakerNote');
+  if (SPEAKER) { n.innerHTML = ''; }
+  else if (!st.speaker) n.innerHTML = '<div class="alert warn"><strong>No speaker connected.</strong> Open ' +
+      '<a href="/music?speaker=1" target="_blank">/music?speaker=1</a> on the streaming PC and click Enable sound.</div>';
+  else if (!st.speaker_ready) n.innerHTML = '<div class="alert warn">The speaker tab is open but its sound is not enabled yet &mdash; ' +
+      'click <em>Enable sound</em> on the streaming PC.</div>';
+  else n.innerHTML = '<div class="alert ok">Speaker ready on the streaming PC.</div>';
+}
+function progress(pos, dur) {
+  $('posT').textContent = fmt(pos); $('durT').textContent = fmt(dur);
+  $('barI').style.width = dur ? Math.min(100, pos / dur * 100) + '%' : '0';
+}
+
+socket.on('music_state', function (d) {
+  for (var k in d) if (d[k] !== null && d[k] !== undefined) st[k] = d[k];
+  if (d.songs) songs = d.songs;
+  renderSongs(); renderNow();
+  if (SPEAKER) follow();
+});
+socket.on('music_progress', function (d) { st.position = d.position; st.duration = d.duration; progress(d.position, d.duration); });
+socket.on('music_error', function (d) { alert('Music: ' + d.error); });
+
+$('pauseBtn').addEventListener('click', function () { cmd(st.status === 'paused' ? 'resume' : 'pause'); });
+$('stopBtn').addEventListener('click', function () { cmd('stop'); });
+$('vol').addEventListener('input', function () { $('volT').textContent = this.value + '%'; cmd('volume', {volume: this.value / 100}); });
+$('editBtn').addEventListener('click', function () {
+  document.body.classList.toggle('editing');
+  this.textContent = document.body.classList.contains('editing') ? 'Done removing' : 'Remove songs…';
+});
+$('up').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var fd = new FormData(this);
+  $('upMsg').innerHTML = '<div class="alert">Uploading…</div>';
+  fetch('/music/upload', {method: 'POST', body: fd}).then(function (r) { return r.json(); }).then(function (d) {
+    $('upMsg').innerHTML = '<div class="alert ' + (d.skipped.length ? 'warn' : 'ok') + '">Added ' + d.saved.length + ' song(s)' +
+      (d.skipped.length ? '; skipped (not audio): ' + d.skipped.join(', ') : '') + '</div>';
+    $('up').reset();
+  }).catch(function () { $('upMsg').innerHTML = '<div class="alert bad">Upload failed.</div>'; });
+});
+
+/* ---------------- speaker: the tab that makes sound ---------------- */
+function follow() {}
+if (SPEAKER) {
+  var player = $('player'), ready = false, loadedPlay = -1, lastReport = 0;
+  socket.on('connect', function () { socket.emit('speaker_hello', {ready: ready}); });
+  socket.on('speaker_standby', function () {
+    player.pause(); ready = false;
+    $('speakerNote').innerHTML = '<div class="alert warn">Another speaker tab took over. Reload this page to make it the speaker again.</div>';
+    socket.disconnect();
+  });
+  $('gateBtn').addEventListener('click', function () {
+    // Unlock audio with a user gesture; after this the remotes are in charge.
+    player.muted = true;
+    var p = player.play(); if (p && p.catch) p.catch(function () {});
+    player.pause(); player.muted = false;
+    ready = true; $('gate').style.display = 'none';
+    socket.emit('speaker_hello', {ready: true});
+    follow();
+  });
+  follow = function () {
+    if (!ready) return;
+    player.volume = st.volume;
+    if (st.status === 'stopped') {
+      if (!player.paused) player.pause();
+      if (player.getAttribute('src')) { player.removeAttribute('src'); player.removeAttribute('data-track'); player.load(); }
+      return;
+    }
+    if (st.play_id !== loadedPlay) {                 // a new "play" tap: start that song from the top
+      loadedPlay = st.play_id;
+      player.setAttribute('data-track', st.track);
+      player.src = '/music/file/' + encodeURIComponent(st.track);
+      player.currentTime = 0;
+    }
+    if (st.status === 'playing' && player.paused) {
+      var p = player.play(); if (p && p.catch) p.catch(function (e) { console.log('play failed', e); });
+    } else if (st.status === 'paused' && !player.paused) {
+      player.pause();
+    }
+  };
+  function report(ended) {
+    socket.emit('speaker_report', {track: player.getAttribute('data-track'), position: player.currentTime || 0,
+                                   duration: isFinite(player.duration) ? player.duration : 0, ended: !!ended});
+  }
+  player.addEventListener('timeupdate', function () {
+    var now = Date.now(); if (now - lastReport > 900) { lastReport = now; report(false); }
+  });
+  player.addEventListener('ended', function () { report(true); });
+  player.addEventListener('error', function () {
+    if (!player.getAttribute('src')) return;
+    $('speakerNote').innerHTML = '<div class="alert bad">This PC could not play "' + titleOf(player.getAttribute('data-track')) +
+      '" (unsupported or damaged file).</div>';
+  });
+}
+renderSongs(); renderNow();
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>meet-board: Software Update</title>
 {% include '_admin_style.html' %}
-</head><body><div class="wrap">
+</head><body>{% set active = "update" %}{% include "_nav.html" %}<div class="wrap">
 <h1>Software update</h1>
 <p class="lead">Installed version: <strong class="mono">{{ app_version }}</strong> &middot; releases from
 <a href="https://github.com/{{ repo }}/releases" target="_blank" class="mono">{{ repo }}</a></p>

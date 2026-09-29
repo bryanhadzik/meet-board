@@ -84,6 +84,17 @@ dropped frames). In OBS: *Tools → WebSocket Server Settings → Enable WebSock
 talks to OBS directly — meet-board does, so the password stays on the PC. If OBS is closed the
 card just says so and reconnects every 5 seconds. Stopping a live stream takes two taps.
 
+### Meet music
+
+The **Music** tab plays a short playlist - the national anthem plus a few swim songs.
+
+1. On the Music tab, **Add songs** (MP3, M4A, WAV, OGG, FLAC). They're stored in the `music`
+   folder next to `meet-board.exe`. A file with "anthem" or "star spangled" in its name goes to the
+   top; the rest sort by file name (`01 - ...`, `02 - ...`).
+2. On the streaming PC open `/music?speaker=1` (launcher: *Music Speaker*) and click
+   **Enable sound**. Leave that tab open - it plays through the PC's speakers/PA.
+3. Tap songs on `/music` from any device. Pause, stop and volume apply to the speaker tab.
+
 ### Loading start lists
 
 **CTS start lists (.scb)** — in Meet Manager: *File → Export → Start Lists for Scoreboard → Start Lists

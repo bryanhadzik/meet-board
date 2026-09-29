@@ -268,6 +268,7 @@ function Update-Status {
     $btnStop.Enabled  = $running
     $linkSettings.Enabled = $running
     $linkBoard.Enabled = $running
+    $linkMusic.Enabled = $running
 
     $verText = 'Installed: '
     if ($installed) { $verText += $installed } else { $verText += '(none)' }
@@ -332,7 +333,7 @@ function New-DesktopShortcut {
 $form = New-Object System.Windows.Forms.Form
 if ($AppIcon) { $form.Icon = $AppIcon }
 $form.Text = 'meet-board'
-$form.Size = New-Object System.Drawing.Size(560, 430)
+$form.Size = New-Object System.Drawing.Size(560, 470)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedSingle'
 $form.MaximizeBox = $false
@@ -390,6 +391,12 @@ $linkFolder.Location = New-Object System.Drawing.Point(280, 132)
 $linkFolder.AutoSize = $true
 $form.Controls.Add($linkFolder)
 
+$linkMusic = New-Object System.Windows.Forms.LinkLabel
+$linkMusic.Text = 'Music Speaker'
+$linkMusic.Location = New-Object System.Drawing.Point(18, 400)
+$linkMusic.AutoSize = $true
+$form.Controls.Add($linkMusic)
+
 $linkShortcut = New-Object System.Windows.Forms.LinkLabel
 $linkShortcut.Text = 'Desktop Shortcut'
 $linkShortcut.Location = New-Object System.Drawing.Point(390, 132)
@@ -419,6 +426,8 @@ $linkSettings.Add_LinkClicked({ Start-Process ('http://localhost:' + (Get-Port) 
 $linkBoard.Add_LinkClicked({ Start-Process ('http://localhost:' + (Get-Port) + '/web/meetboard') })
 $linkFolder.Add_LinkClicked({ Start-Process explorer.exe $AppDir })
 $linkShortcut.Add_LinkClicked({ New-DesktopShortcut })
+# The tab that actually plays meet music through this PC's speakers
+$linkMusic.Add_LinkClicked({ Start-Process ('http://localhost:' + (Get-Port) + '/music?speaker=1') })
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 3000
