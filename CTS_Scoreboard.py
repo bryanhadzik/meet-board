@@ -1,4 +1,7 @@
 #! /usr/bin/python3
+import warnings
+# hytek-parser's old attrs warns on Python 3.13; harmless, keep the console clean
+warnings.filterwarnings('ignore', message='Running interpreter doesn')
 import flask
 import flask_login
 import flask_socketio
@@ -1662,6 +1665,10 @@ def page_not_found(e):
     return flask.render_template('login.html', login_failed=True)
     
 
+@app.route('/favicon.ico')
+def route_favicon():
+    return flask.send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
 @app.route('/team_colors', methods=['GET', 'POST'])
 @flask_login.login_required
 def route_team_colors():
@@ -1746,7 +1753,7 @@ def route_site_map():
             if title in ['login', 'logout', 'site map']:
                 continue
             # Hide these action-style endpoints from the site map
-            if title in ['schedule clear', 'schedule undo', 'standards clear', 'update check', 'update status', 'health']:
+            if title in ['favicon', 'schedule clear', 'schedule undo', 'standards clear', 'update check', 'update status', 'health']:
                 continue
             all_links[title] = (url, title.title())
 
@@ -1805,6 +1812,12 @@ def load_user(userid):
     
 def main():
     global in_file, out_file, in_speed, debug_console
+
+    import sys
+    if '--version' in sys.argv[1:]:
+        # Answer before touching settings.json: the launcher asks this while the server runs
+        print(__version__)
+        return
 
     load_settings()
     migrate_settings()
