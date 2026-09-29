@@ -50,6 +50,51 @@ function Get-InstalledVersion {
     return 'unknown'
 }
 
+function Get-GitHubToken {
+    # Needed only while the repo is private. Order: GITHUB_TOKEN, settings.json
+    # github_token, then the GitHub CLI login (gh auth login) if gh is installed.
+    if ($env:GITHUB_TOKEN) { return $env:GITHUB_TOKEN }
+    try {
+        $s = Get-Content $Settings -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($s.github_token) { return [string]$s.github_token }
+    } catch { }
+    if (Get-Command gh -ErrorAction SilentlyContinue) {
+        try {
+            $t = (& gh auth token 2>$null | Select-Object -First 1)
+            if ($t) { return $t.Trim() }
+        } catch { }
+    }
+    return $null
+}
+
+function Get-ApiHeaders {
+    $h = @{ 'User-Agent' = 'meet-board-launcher'; 'Accept' = 'application/vnd.github+json' }
+    $tok = Get-GitHubToken
+    if ($tok) { $h['Authorization'] = "Bearer $tok" }
+    return $h
+}
+
+function Save-ReleaseAsset($asset, [string]$outFile) {
+    $tok = Get-GitHubToken
+    if (-not $tok) {
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $outFile -UseBasicParsing `
+            -Headers @{ 'User-Agent' = 'meet-board-launcher' }
+        return
+    }
+    # Private repo: ask the API for the asset, then follow the redirect to the
+    # signed download URL WITHOUT the token (storage rejects it).
+    $req = [System.Net.HttpWebRequest]::Create($asset.url)
+    $req.Headers.Add('Authorization', "Bearer $tok")
+    $req.Accept = 'application/octet-stream'
+    $req.UserAgent = 'meet-board-launcher'
+    $req.AllowAutoRedirect = $false
+    $resp = $req.GetResponse()
+    $loc = $resp.Headers['Location']
+    $resp.Close()
+    if (-not $loc) { throw 'GitHub did not return a download location.' }
+    Invoke-WebRequest -Uri $loc -OutFile $outFile -UseBasicParsing -Headers @{ 'User-Agent' = 'meet-board-launcher' }
+}
+
 function Compare-Version([string]$a, [string]$b) {
     # Returns 1 if a > b, -1 if a < b, 0 if equal. Non-numeric parts ignored.
     $pa = @([regex]::Matches($a, '\d+') | ForEach-Object { [int]$_.Value })
@@ -99,12 +144,22 @@ function Stop-Server {
 function Check-Latest {
     try {
         $script:Latest = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" `
-            -Headers @{ 'User-Agent' = 'meet-board-launcher'; 'Accept' = 'application/vnd.github+json' } -TimeoutSec 20
+            -Headers (Get-ApiHeaders) -TimeoutSec 20
         $asset = $script:Latest.assets | Where-Object { $_.name -eq 'meet-board.exe' } | Select-Object -First 1
         if (-not $asset) { Log 'Latest release has no meet-board.exe attached.'; $script:Latest = $null }
     } catch {
         $script:Latest = $null
-        Log ('Could not reach GitHub: ' + $_.Exception.Message)
+        $code = $null
+        try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+        if ($code -eq 404) {
+            if (Get-GitHubToken) {
+                Log "No release published yet for $Repo (the first GitHub Actions build creates one)."
+            } else {
+                Log "No release visible for $Repo. If the repo is private, sign in with 'gh auth login' or add github_token to settings.json."
+            }
+        } else {
+            Log ('Could not reach GitHub: ' + $_.Exception.Message)
+        }
     }
     Update-Status
 }
@@ -123,8 +178,7 @@ function Update-App {
         $asset = $script:Latest.assets | Where-Object { $_.name -eq 'meet-board.exe' } | Select-Object -First 1
         $tmp = $Exe + '.new'
         Log "Downloading meet-board $latestVer ..."
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmp -UseBasicParsing `
-            -Headers @{ 'User-Agent' = 'meet-board-launcher' }
+        Save-ReleaseAsset $asset $tmp
 
         # Sanity check: a real Windows exe starts with "MZ"
         $head = [System.IO.File]::ReadAllBytes($tmp)[0..1]

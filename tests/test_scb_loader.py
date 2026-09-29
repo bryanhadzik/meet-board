@@ -47,7 +47,8 @@ def test_parse_e010():
     ('MCALLISTER, BENJAMIN', 'Benjamin McAllister'),
     ("O'BRIEN, SEAN", "Sean O'Brien"),
     ('SMITH-JONES, ANNA', 'Anna Smith-Jones'),
-    ('TOOELE  A', 'Tooele A'),
+    ('TOOELE  A', 'TOOELE A'),
+    ('UHS   C', 'UHS C'),
     ('', ''),
 ])
 def test_name_format(raw, expected):
@@ -127,3 +128,28 @@ def test_folder_signature_changes(tmp_path):
     (tmp_path / 'E010.scb').write_text(read('E010.scb'))
     assert scb_loader.folder_signature(str(tmp_path)) != a
     assert scb_loader.folder_signature(str(tmp_path / 'missing')) is None
+
+
+def test_lane_block_detection_8():
+    # An 8-line-per-heat export (other scoreboard settings) must not be split as 10
+    lines = ['#7 GIRLS 50 FREE'] + ['%-20s--%-16s' % ('A%d, B' % i if i % 8 in (2, 3) else '', 'TOOEL' if i % 8 in (2, 3) else '') for i in range(16)]
+    loader = HytekEventLoader()
+    n_ev, n_heats, warns = scb_loader.load_scb_into(loader, [('E007.scb', '\r\n'.join(lines))])
+    assert (n_ev, n_heats) == (1, 2)
+    assert sorted(loader.events) == [(7, 1), (7, 2)]
+    assert loader.get_display_string(7, 2, 3) == 'B A10'
+
+
+def test_stale_export_guard():
+    texts = [(n, t, 1000.0) for n, t, _ in scb_loader.read_scb_folder(SCB_DIR)]
+    texts[1] = (texts[1][0], texts[1][1], 1000.0 + 7 * 3600)
+    with pytest.raises(scb_loader.StaleExportError):
+        scb_loader.load_scb_into(HytekEventLoader(), texts)
+    n_ev, _, warns = scb_loader.load_scb_into(HytekEventLoader(), texts, force=True)
+    assert n_ev == 2 and any('7.0 hours' in w for w in warns)
+
+
+def test_duplicate_event_warning():
+    t = read('E003.scb')
+    _, _, warns = scb_loader.load_scb_into(HytekEventLoader(), [('E003.scb', t), ('old/E003.scb', t)])
+    assert any('duplicate' in w for w in warns)

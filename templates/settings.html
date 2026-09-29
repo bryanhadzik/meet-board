@@ -378,7 +378,7 @@
                         <div class="input-group">
                             <input id="meet_schedule" name="meet_schedule" value="{{ meet_schedule }}"
                                 class="form-control" aria-label="..."
-                                oninput="document.getElementById('meet_schedule_submit').disabled=false;" type="file" multiple
+                                oninput="document.getElementById('meet_schedule_submit').disabled=false; recordMtimes(this);" type="file" multiple
                                 accept=".hy3,.scb,.zip"></input>
                             <span class="input-group-btn">
                                 <button class="btn btn-default" type="submit" id="meet_schedule_submit">Upload</button>
@@ -386,8 +386,24 @@
                                     onclick="location.href = '/schedule_clear';">Clear</button>
                                 <button class="btn btn-default" type="button"
                                     onclick="location.href = '/schedule_preview';">Preview</button>
+                                {% if can_undo_schedule %}
+                                <button class="btn btn-warning" type="button" title="Restore: {{ schedule_prev_name }}"
+                                    onclick="location.href = '/schedule_undo';">Undo last load</button>
+                                {% endif %}
                             </span>
                         </div>
+                        <input type="hidden" name="file_mtimes" id="file_mtimes" value="{}">
+                        <label style="font-weight:normal; margin-top:4px;">
+                            <input type="checkbox" name="force_timestamps"> ignore timestamps
+                            <span class="text-muted">(.scb files more than 6 hours apart are refused &mdash; usually last week's export mixed in)</span>
+                        </label>
+                        <script>
+                        function recordMtimes(input) {
+                            var m = {};
+                            for (var i = 0; i < input.files.length; i++) m[input.files[i].name] = input.files[i].lastModified;
+                            document.getElementById('file_mtimes').value = JSON.stringify(m);
+                        }
+                        </script>
                     </div>
                 </form>
             </div>

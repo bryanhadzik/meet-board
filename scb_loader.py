@@ -75,8 +75,8 @@ def format_swimmer_name(raw, style='first_last'):
     if not raw or style == 'raw':
         return raw
     if ',' not in raw:
-        # Relay names: keep the relay letter uppercase ("Tooele A")
-        return title_name(raw)
+        # Relay designations ("UHS   C") are team codes + letter: keep as-is
+        return ' '.join(raw.split())
     last, first = [p.strip() for p in raw.split(',', 1)]
     last, first = title_name(last), title_name(first)
     if style == 'last_first':
@@ -145,7 +145,7 @@ def parse_event_name(raw):
     return ' '.join(out), meta
 
 
-def parse_scb(text, filename=None):
+def parse_scb(text, filename=None, lanes_per_heat=None):
     """Parse one .scb file. Returns dict:
     {event_number, event_name, meta, heats: {heat: {lane: (raw_name, team)}}}
     or raises ValueError."""
@@ -174,28 +174,61 @@ def parse_scb(text, filename=None):
     while body and not body[-1].strip():
         body.pop()
 
-    heats = {}
-    for idx, line in enumerate(body):
-        heat = idx // LANES_PER_HEAT + 1
-        lane = idx % LANES_PER_HEAT + 1
-        if '--' in line:
+    entries = []
+    for line in body:
+        if line[NAME_WIDTH:NAME_WIDTH + 2] == '--':      # the documented fixed columns
+            name_part, team = line[:NAME_WIDTH], line[NAME_WIDTH + 2:]
+        elif '--' in line:                               # tolerate odd padding
             name_part, team = line.split('--', 1)
         else:
             name_part, team = line[:NAME_WIDTH], line[NAME_WIDTH:]
-        swimmer = name_part.strip()
-        team = team.strip()
-        if not swimmer and not team:
-            continue
-        heats.setdefault(heat, {})[lane] = (swimmer, team)
+        entries.append((' '.join(name_part.split()), ' '.join(team.split())))
 
     display_name, meta = parse_event_name(name)
-    return {
+    ev = {
         'event_number': event_number,
         'event_name': display_name,
         'raw_event_name': name,
         'meta': meta,
-        'heats': heats,
+        'entries': entries,
+        'file': filename,
     }
+    ev['heats'] = group_heats(entries, lanes_per_heat or LANES_PER_HEAT)
+    return ev
+
+
+def group_heats(entries, lanes_per_heat):
+    """Split entry lines into {heat: {lane: (name, team)}}; empty lanes and
+    all-empty heats are dropped."""
+    heats = {}
+    for idx, (swimmer, team) in enumerate(entries):
+        if not swimmer and not team:
+            continue
+        heats.setdefault(idx // lanes_per_heat + 1, {})[idx % lanes_per_heat + 1] = (swimmer, team)
+    return heats
+
+
+def detect_lanes_per_heat(parsed):
+    """Meet Manager writes a fixed block of lines per heat (10 for CTS, even in
+    an 8-lane pool). Pick the largest common block size that divides every
+    file's line count. Returns (n, warning or None)."""
+    counts = [len(p['entries']) for p in parsed if p['entries']]
+    if not counts:
+        return LANES_PER_HEAT, None
+    for n in (10, 8, 6, 5, 4, 3):
+        if all(c % n == 0 for c in counts):
+            return n, None
+    return LANES_PER_HEAT, ('could not detect lanes per heat from line counts (%s) - assuming %d'
+                            % (', '.join(map(str, sorted(set(counts)))), LANES_PER_HEAT))
+
+
+STALE_HOURS = 6
+
+
+def stale_spread_hours(mtimes):
+    """Hours between the oldest and newest export file, or 0."""
+    ts = [t for t in (mtimes or []) if t]
+    return (max(ts) - min(ts)) / 3600.0 if len(ts) > 1 else 0.0
 
 
 def _decode(data):
@@ -226,12 +259,13 @@ def expand_uploads(files):
 
 
 def read_scb_folder(folder):
-    """Read every .scb in a folder. Returns list of (filename, text)."""
+    """Read every .scb in a folder. Returns list of (filename, text, mtime)."""
     out = []
     for name in sorted(os.listdir(folder)):
         if name.lower().endswith('.scb'):
-            with open(os.path.join(folder, name), 'rb') as f:
-                out.append((name, _decode(f.read())))
+            path = os.path.join(folder, name)
+            with open(path, 'rb') as f:
+                out.append((name, _decode(f.read()), os.path.getmtime(path)))
     return out
 
 
@@ -248,21 +282,49 @@ def folder_signature(folder):
     return tuple(sig)
 
 
-def load_scb_into(loader, scb_texts, name_style='first_last', keep_combined=True):
+class StaleExportError(ValueError):
+    """Export files span more than STALE_HOURS - probably two sessions mixed."""
+
+
+def load_scb_into(loader, scb_texts, name_style='first_last', keep_combined=True, force=False):
     """Replace the contents of a HytekEventLoader with parsed .scb files.
 
-    scb_texts: list of (filename, text). Raises ValueError if nothing parsed.
-    Returns (event_count, heat_count, errors) where errors lists files skipped.
-    Existing combine-events choices are re-applied where the heats still exist.
+    scb_texts: list of (filename, text) or (filename, text, mtime_seconds).
+    Raises ValueError if nothing parsed, StaleExportError if the file times
+    span more than STALE_HOURS (unless force). Returns
+    (event_count, heat_count, warnings). Existing combine-events choices are
+    re-applied where the heats still exist.
     """
-    parsed, errors = [], []
-    for fname, text in scb_texts:
+    warnings = []
+    spread = stale_spread_hours([t[2] for t in scb_texts if len(t) > 2])
+    if spread > STALE_HOURS:
+        msg = ('file timestamps span %.1f hours - this looks like a mix of sessions. '
+               'Export into a fresh folder, or tick "ignore timestamps".' % spread)
+        if not force:
+            raise StaleExportError(msg)
+        warnings.append(msg)
+
+    parsed = []
+    for item in scb_texts:
+        fname, text = item[0], item[1]
         try:
             parsed.append(parse_scb(text, fname))
         except ValueError as e:
-            errors.append(str(e))
+            warnings.append(str(e))
     if not parsed:
-        raise ValueError('No .scb start lists found' + (': ' + '; '.join(errors) if errors else ''))
+        raise ValueError('No .scb start lists found' + (': ' + '; '.join(warnings) if warnings else ''))
+
+    lanes_per_heat, w = detect_lanes_per_heat(parsed)
+    if w:
+        warnings.append(w)
+    for ev in parsed:
+        ev['heats'] = group_heats(ev['entries'], lanes_per_heat)
+        if len(ev['entries']) % lanes_per_heat:
+            warnings.append('%s: %d lines is not a multiple of %d' % (ev['file'], len(ev['entries']), lanes_per_heat))
+    nums = [ev['event_number'] for ev in parsed]
+    dupes = sorted({n for n in nums if nums.count(n) > 1})
+    if dupes:
+        warnings.append('duplicate event number(s) %s - two exports in one folder?' % ', '.join(map(str, dupes)))
 
     previous_combined = dict(loader.combined) if keep_combined else {}
     loader.clear()
@@ -297,7 +359,7 @@ def load_scb_into(loader, scb_texts, name_style='first_last', keep_combined=True
                    if s in loader.events_uncombined and d in loader.events_uncombined}
     if still_valid:
         loader.combine_events(still_valid)
-    return len(parsed), heat_count, errors
+    return len({ev['event_number'] for ev in parsed}), heat_count, warnings
 
 
 if __name__ == '__main__':

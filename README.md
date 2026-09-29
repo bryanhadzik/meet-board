@@ -57,8 +57,19 @@ seed times or ages. For seed times, age codes, records and standards matching by
 
 Settings shows **Software Update**; the button turns green when a newer release exists. Updating
 restarts the app (boards blank for ~15 s and reconnect on their own), so do it between sessions.
-If the repo is ever made private, put a GitHub token with read access in `settings.json` as
-`"github_token"`.
+The repo is private, so update checks need a GitHub token. Both the launcher and the in-app
+updater find one automatically if the GitHub CLI is signed in on that PC (`gh auth login`);
+otherwise set `GITHUB_TOKEN` or add `"github_token"` (read-only, fine-grained) to `settings.json`.
+
+## History
+
+Version 1 was a Node.js/Docker board (Aug 2026). It is preserved on the
+[`docker`](https://github.com/bryanhadzik/meet-board/tree/docker) branch and tag `docker-v1`.
+It was replaced because Docker on Windows can't open a COM port (it needed a serial-to-Ethernet
+box) and its CTS reader assumed a text protocol: on a recorded console stream it decoded 0 of 522
+records, where the CTS_Scoreboard parser decodes every event/heat. Its best ideas are carried over
+here: preview-safe loading with **Undo last load**, the **6-hour stale-export guard**, lanes-per-heat
+auto-detection, duplicate-event warnings, and `/api/health`.
 
 ## Development
 

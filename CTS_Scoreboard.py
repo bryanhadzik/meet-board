@@ -4,6 +4,7 @@ import flask_login
 import flask_socketio
 import datetime
 import traceback
+import copy
 import ctypes
 import serial
 import serial.tools.list_ports
@@ -137,6 +138,12 @@ def load_settings():
 
 _settings_lock = threading.Lock()
 
+def backup_schedule():
+    """Keep the schedule we're about to replace, so Undo can restore it."""
+    if event_info.event_names:
+        settings['event_info_prev'] = event_info.to_object()
+        settings['schedule_filename_prev'] = settings.get('schedule_filename', '')
+
 def save_settings():
     with _settings_lock:
         tmp = settings_file + '.tmp'
@@ -162,8 +169,13 @@ def scb_watch_worker():
                 sig = scb_loader.folder_signature(folder)
                 try:
                     texts = scb_loader.read_scb_folder(folder)
+                    staged = copy.deepcopy(event_info)  # load into a copy; keep the board on failure
                     n_events, n_heats, errs = scb_loader.load_scb_into(
-                        event_info, texts, settings.get('scb_name_style', 'first_last'))
+                        staged, texts, settings.get('scb_name_style', 'first_last'))
+                    backup_schedule()
+                    event_info.from_object(staged.to_object())
+                except scb_loader.StaleExportError as e:
+                    _scb_watch['message'] = 'Watch folder NOT loaded: %s' % e
                 except Exception as e:
                     _scb_watch['message'] = 'Watch folder load failed: %s' % e
                 else:
@@ -1144,16 +1156,26 @@ def route_settings():
         if scb_uploads:
             try:
                 texts = scb_loader.expand_uploads([(f.filename, f.stream.read()) for f in scb_uploads])
+                # The browser fills file_mtimes with each file's lastModified (ms)
+                try:
+                    mt = json.loads(flask.request.form.get('file_mtimes') or '{}')
+                except ValueError:
+                    mt = {}
+                texts = [(n, t, (mt.get(n) or 0) / 1000.0) for n, t in texts]
+                staged = copy.deepcopy(event_info)
                 n_events, n_heats, errs = scb_loader.load_scb_into(
-                    event_info, texts, settings.get('scb_name_style', 'first_last'))
+                    staged, texts, settings.get('scb_name_style', 'first_last'),
+                    force='force_timestamps' in flask.request.form)
+                backup_schedule()
+                event_info.from_object(staged.to_object())
             except Exception as e:
-                schedule_error = 'Failed to load the start lists: %s' % e
+                schedule_error = 'Start lists NOT loaded (the board is unchanged): %s' % e
             else:
                 settings['event_info'] = event_info.to_object()
                 settings['schedule_filename'] = '%d CTS start lists (%d events, %d heats)' % (
                     len(texts), n_events, n_heats)
                 if errs:
-                    schedule_error = 'Some files were skipped: ' + '; '.join(errs)
+                    schedule_error = 'Loaded, with warnings: ' + '; '.join(errs)
                 send_event_info()
                 modified = True
 
@@ -1163,6 +1185,7 @@ def route_settings():
             # submit a empty part without filename
             if file and file.filename and file.filename.lower().endswith('.hy3'):
                 try:
+                    backup_schedule()
                     event_info.load_from_bytestream(file.stream)
                 except Exception as e:
                     detail = str(e)
@@ -1440,6 +1463,8 @@ def route_settings():
                 team_guest3=settings.get('team_guest3', ''),
                 team_guest3_tag=settings.get('team_guest3_tag', ''),
                 scb_folder=settings.get('scb_folder', ''),
+                can_undo_schedule=bool(settings.get('event_info_prev')),
+                schedule_prev_name=settings.get('schedule_filename_prev', ''),
                 scb_watch_status=_scb_watch.get('message', ''),
                 app_version=__version__,
                 can_self_update=app_paths.FROZEN and os.name == 'nt',
@@ -1454,6 +1479,32 @@ def route_schedule_clear():
     with open(settings_file, "wt") as f:
         json.dump(settings, f, sort_keys=True, indent=4)
     return flask.redirect('/settings')
+
+@app.route('/schedule_undo')
+@flask_login.login_required
+def route_schedule_undo():
+    prev = settings.get('event_info_prev')
+    if prev:
+        cur, cur_name = event_info.to_object(), settings.get('schedule_filename', '')
+        event_info.from_object(prev)
+        settings['event_info'] = prev
+        settings['schedule_filename'] = settings.get('schedule_filename_prev', '')
+        settings['event_info_prev'], settings['schedule_filename_prev'] = cur, cur_name  # undo the undo
+        save_settings()
+        send_event_info()
+    return flask.redirect('/settings')
+
+@app.route('/api/health')
+def route_health():
+    return flask.jsonify({
+        'ok': True, 'version': __version__,
+        'serial_port': settings.get('serial_port'),
+        'race_state': race_fsm.state_name,
+        'event': last_event_sent[0], 'heat': last_event_sent[1],
+        'schedule_events': len(event_info.event_names),
+        'schedule': settings.get('schedule_filename', ''),
+        'watch': _scb_watch.get('message', ''),
+    })
 
 @app.route('/standards_clear')
 @flask_login.login_required
@@ -1650,7 +1701,7 @@ def route_site_map():
             if title in ['login', 'logout', 'site map']:
                 continue
             # Hide these action-style endpoints from the site map
-            if title in ['schedule clear', 'standards clear', 'update check', 'update status']:
+            if title in ['schedule clear', 'schedule undo', 'standards clear', 'update check', 'update status', 'health']:
                 continue
             all_links[title] = (url, title.title())
 
