@@ -1169,6 +1169,225 @@ def _sim_clock_tick():
         socketio.emit('update_scoreboard', tick_update, namespace='/scoreboard')
 
         
+
+# ---------------------------------------------------------------------------
+# Debug simulator (Settings > Debug): drive the boards and the OBS overlay
+# from the loaded start lists without a console. Real console data, if any
+# arrives, still wins - unplug the console or expect the two to fight.
+# ---------------------------------------------------------------------------
+import random as _random
+
+_dbg = {'token': 0, 'auto': False, 'speed': 4.0, 'status': 'idle'}
+
+_TYPICAL_SECONDS = {25: 15, 50: 30, 100: 66, 200: 140, 400: 300, 500: 370,
+                    800: 610, 1000: 760, 1500: 1150, 1650: 1260}
+
+def _dbg_emit(update):
+    update['current_event'] = str(last_event_sent[0])
+    update['current_heat'] = str(last_event_sent[1])
+    update['race_state'] = race_fsm.state_name
+    socketio.emit('update_scoreboard', update, namespace='/scoreboard')
+
+def _dbg_blank_lanes(update):
+    global running_time
+    running_time = '        '
+    update['running_time'] = ''
+    for i in range(1, 11):
+        channel_running[i - 1] = False
+        update['lane_running%d' % i] = False
+        update['lane_time%d' % i] = '        '
+        update['lane_place%d' % i] = ' '
+
+def _dbg_occupied_lanes():
+    e, h = last_event_sent
+    return [l for l in range(1, 11)
+            if event_info.get_display_string(e, h, l) or event_info.get_team_code(e, h, l)]
+
+def debug_goto(event, heat):
+    """Put a heat on the blocks: start list showing, lanes blank."""
+    global last_event_sent
+    _dbg['token'] += 1                      # cancels a race in progress
+    last_event_sent = (int(event), int(heat))
+    race_fsm.to_PreRace()
+    update = {}
+    _dbg_blank_lanes(update)
+    send_event_info()
+    _dbg_emit(update)
+    _dbg['status'] = 'Event %d heat %d on the blocks' % last_event_sent
+
+def debug_step(delta):
+    order = meet_board.heat_order(event_info)
+    if not order:
+        return False
+    cur = last_event_sent
+    if cur in order:
+        i = order.index(cur) + delta
+    else:
+        i = next((n for n, k in enumerate(order) if k > cur), len(order)) + (delta - 1 if delta > 0 else delta)
+    i = max(0, min(len(order) - 1, i))
+    debug_goto(*order[i])
+    return True
+
+def _dbg_finish_times():
+    """A plausible time per swimmer: seed time if we have one, otherwise a
+    typical time for the distance, spread +/- 8%."""
+    e, h = last_event_sent
+    meta = event_info.event_meta.get(e, {}) or {}
+    dist = meta.get('distance') or 100
+    base = _TYPICAL_SECONDS.get(dist, dist * 0.7)
+    if meta.get('relay'):
+        base *= 0.92
+    out = {}
+    for lane in _dbg_occupied_lanes():
+        seed = event_info.get_seed_time(e, h, lane)
+        t = (seed or base) * _random.uniform(0.94, 1.08)
+        out[lane] = round(t, 2)
+    return out
+
+def _dbg_race(token):
+    global running_time
+    finishes = _dbg_finish_times()
+    order = sorted(finishes, key=lambda l: finishes[l])
+    place = {l: i + 1 for i, l in enumerate(order)}
+    done = set()
+    t = 0.0
+    step = 0.1
+    while _dbg['token'] == token:
+        socketio.sleep(step)
+        if _dbg['token'] != token:
+            return
+        t += step * _dbg['speed']
+        if _dbg.pop('finish_now', False) and finishes:
+            t = max(t, max(finishes.values()))
+        update = {}
+        running_time = _format_lane_time(t, final=False)
+        update['running_time'] = running_time
+        for lane in range(1, 11):
+            if lane in finishes and lane not in done and t >= finishes[lane]:
+                done.add(lane)
+                channel_running[lane - 1] = False
+                update['lane_running%d' % lane] = False
+                update['lane_time%d' % lane] = _format_lane_time(finishes[lane])
+                update['lane_place%d' % lane] = str(place[lane])
+            elif lane in finishes and lane not in done:
+                update['lane_time%d' % lane] = running_time
+        if len(done) == len(finishes):
+            race_fsm.to_Finished()
+            update['running_time'] = _format_lane_time(max(finishes.values())) if finishes else ''
+            _dbg_emit(update)
+            _dbg['status'] = 'Event %d heat %d finished' % last_event_sent
+            return
+        _dbg_emit(update)
+
+def debug_start():
+    _dbg['token'] += 1
+    token = _dbg['token']
+    race_fsm.to_Running()
+    update = {}
+    for lane in _dbg_occupied_lanes():
+        channel_running[lane - 1] = True
+        update['lane_running%d' % lane] = True
+        update['lane_place%d' % lane] = ' '
+    _dbg_emit(update)
+    _dbg['status'] = 'Event %d heat %d racing' % last_event_sent
+    socketio.start_background_task(_dbg_race, token)
+
+def debug_finish_now():
+    """Everyone touches now."""
+    if race_fsm.state_name != 'Running':
+        debug_start()
+    _dbg['finish_now'] = True
+
+def debug_clear():
+    _dbg['token'] += 1
+    race_fsm.to_Clear()
+    update = {}
+    _dbg_blank_lanes(update)
+    _dbg_emit(update)
+    _dbg['status'] = 'Lanes cleared'
+
+def debug_blank():
+    _dbg['token'] += 1
+    _dbg['auto'] = False
+    race_fsm.to_TotalBlank()
+    update = {}
+    _dbg_blank_lanes(update)
+    update['current_event'] = '   '
+    update['current_heat'] = '   '
+    update['race_state'] = race_fsm.state_name
+    socketio.emit('update_scoreboard', update, namespace='/scoreboard')
+    _dbg['status'] = 'Board blank'
+
+def _dbg_auto_loop():
+    while _dbg['auto']:
+        if not debug_step(+1) and not event_info.events:
+            _dbg['status'] = 'Auto-run needs start lists'
+            _dbg['auto'] = False
+            return
+        for _ in range(60):                  # 6 s on the blocks
+            socketio.sleep(0.1)
+            if not _dbg['auto']:
+                return
+        debug_start()
+        while _dbg['auto'] and race_fsm.state_name == 'Running':
+            socketio.sleep(0.2)
+        for _ in range(80):                  # 8 s of results
+            socketio.sleep(0.1)
+            if not _dbg['auto']:
+                return
+        order = meet_board.heat_order(event_info)
+        if order and last_event_sent == order[-1]:
+            _dbg['status'] = 'Auto-run reached the last heat'
+            _dbg['auto'] = False
+            return
+
+@app.route('/debug/<action>', methods=['POST'])
+@flask_login.login_required
+def route_debug(action):
+    data = flask.request.get_json(silent=True) or flask.request.form or {}
+    if 'speed' in data:
+        try:
+            _dbg['speed'] = max(0.5, min(50.0, float(data['speed'])))
+        except (TypeError, ValueError):
+            pass
+    if action == 'goto':
+        try:
+            debug_goto(int(data.get('event')), int(data.get('heat', 1)))
+        except (TypeError, ValueError):
+            return flask.jsonify({'ok': False, 'message': 'event and heat must be numbers'}), 400
+    elif action == 'next':
+        debug_step(+1)
+    elif action == 'prev':
+        debug_step(-1)
+    elif action == 'startlist':
+        debug_goto(*last_event_sent)
+    elif action == 'start':
+        debug_start()
+    elif action == 'finish':
+        debug_finish_now()
+    elif action == 'clear':
+        debug_clear()
+    elif action == 'blank':
+        debug_blank()
+    elif action == 'auto':
+        on = str(data.get('on', '1')).lower() in ('1', 'true', 'on', 'yes')
+        if on and not _dbg['auto']:
+            _dbg['auto'] = True
+            _dbg['status'] = 'Auto-run started'
+            socketio.start_background_task(_dbg_auto_loop)
+        elif not on:
+            _dbg['auto'] = False
+            _dbg['status'] = 'Auto-run stopped'
+    elif action != 'status':
+        return flask.jsonify({'ok': False, 'message': 'unknown action'}), 404
+    return flask.jsonify(debug_status())
+
+def debug_status():
+    e, h = last_event_sent
+    return {'ok': True, 'event': e, 'heat': h, 'event_name': event_info.get_event_name(e),
+            'race_state': race_fsm.state_name, 'auto': _dbg['auto'], 'speed': _dbg['speed'],
+            'status': _dbg['status'], 'heats': [list(k) for k in meet_board.heat_order(event_info)]}
+
 # Scoreboard Templates
 @app.route('/overlay/<name>')
 def route_overlay(name):

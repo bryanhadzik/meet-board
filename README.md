@@ -69,6 +69,11 @@ Options go on the URL, e.g. `http://localhost:5000/overlay/race?pos=br&scale=0.9
 | `results` | `place` or `lane` order | `place` |
 | `test` | shows a pool photo behind it, for positioning in a normal browser | off |
 
+**Testing without the console:** Settings → **Debug / test** puts any heat from the loaded start
+lists on the blocks, runs a race with made-up times (seed times when you loaded a `.hy3`), and can
+auto-run the meet heat after heat. The meet board and the overlay react exactly as they would to
+the console. Use it with the console off, or the two will fight.
+
 The older CTS_Scoreboard overlays are still at `/overlay/1080p` and `/overlay/1080p_states`.
 
 ### Loading start lists
