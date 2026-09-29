@@ -60,7 +60,8 @@ settings = {
     'scb_folder': '',            # watch folder for Meet Manager CTS start lists
     'scb_name_style': 'first_last',
     'team_colors': {},           # {code: {name, color, alt}} overrides
-    'board_home_team': '',       # team that keeps its primary color on the board
+    'board_home_team': '',
+    'board_style': 'classic',    # classic | lanes | pool | light       # team that keeps its primary color on the board
     'github_token': '',          # only needed if the repo is private
     }
 in_file = None
@@ -807,6 +808,7 @@ def send_event_info():
     update["color_palette"] = meet_board.FALLBACK_PALETTE
     update["home_team"] = settings.get('board_home_team') or settings.get('team_home_tag', '')
     update["meet_title"] = settings.get('meet_title', '')
+    update["board_style"] = settings.get('board_style', 'classic')
 
     socketio.emit('update_scoreboard', update, namespace='/scoreboard')
 
@@ -1685,6 +1687,9 @@ def route_team_colors():
             if entry['color']:
                 saved[code] = entry
         settings['team_colors'] = saved
+        style = flask.request.form.get('board_style', '')
+        if style in meet_board.BOARD_STYLES:
+            settings['board_style'] = style
         home = flask.request.form.get('board_home_team', '').strip()
         settings['board_home_team'] = home
         save_settings()
@@ -1694,7 +1699,9 @@ def route_team_colors():
     order = teams_in_meet + sorted(c for c in colors if c not in teams_in_meet)
     return flask.render_template('team_colors.html', colors=colors, order=order,
                                  in_meet=set(teams_in_meet),
-                                 home_team=settings.get('board_home_team') or settings.get('team_home_tag', ''))
+                                 home_team=settings.get('board_home_team') or settings.get('team_home_tag', ''),
+                                 board_style=settings.get('board_style', 'classic'),
+                                 board_styles=meet_board.BOARD_STYLES)
 
 @app.route('/software_update')
 @flask_login.login_required

@@ -31,44 +31,96 @@
   .clock { font-size:3.4cqw; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; text-align:right; min-width:14cqw; }
 
   .bbody { flex:1; display:flex; min-height:0; }
-  .colL { width:57%; display:flex; flex-direction:column; min-width:0; }
-  .colR { width:43%; display:flex; flex-direction:column; min-width:0; background:#101f22; border-left:.25cqw solid #24393e; }
-  .colR .ctitle { border-top:.35cqw solid #d9a441; padding-top:.7cqw; }
+  /* 75 / 25: the heat in the water is the main event; up next is a sidebar */
+  .colL { width:75%; display:flex; flex-direction:column; min-width:0; }
+  .colR { width:25%; display:flex; flex-direction:column; min-width:0; background:#101f22; border-left:.25cqw solid #24393e; }
+  .colR .ctitle { border-top:.35cqw solid #d9a441; padding-top:.7cqw; flex-direction:column; align-items:stretch; gap:.2cqw; padding-left:1.2cqw; padding-right:1.2cqw; }
 
   .ctitle { display:flex; align-items:baseline; gap:.9cqw; padding:.85cqw 1.6cqw .5cqw; }
-  .ctitle .lbl { font-size:1.05cqw; letter-spacing:.18em; color:#77979e; }
-  .colR .ctitle .lbl { font-size:1.35cqw; font-weight:600; letter-spacing:.2em; color:#f0c96a; }
-  .ctitle .lbl { white-space:nowrap; flex:0 0 auto; }
+  .ctitle .lbl { font-size:1.05cqw; letter-spacing:.18em; color:#77979e; white-space:nowrap; flex:0 0 auto; }
+  .colR .ctitle .lbl { font-size:1.3cqw; font-weight:600; letter-spacing:.2em; color:#f0c96a; }
   .ctitle .sub { font-size:1.05cqw; color:#6f9099; margin-left:auto; letter-spacing:.08em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .colR .ctitle .sub { margin-left:0; font-size:.95cqw; color:#9fb6bb; }
+  .colR .ctitle .sub2 { font-size:.85cqw; color:#6f9099; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sub.warn { color:#f0a36a; }
 
   .rows { flex:1; display:flex; flex-direction:column; min-height:0; }
-  .row { flex:1; display:flex; align-items:center; gap:.8cqw; padding:0 1.6cqw 0 0; min-height:0; }
+  .row { flex:1; display:flex; align-items:center; gap:1cqw; padding:0 1.8cqw 0 0; min-height:0; position:relative; }
   .row:nth-child(odd) { background:rgba(255,255,255,.035); }
-  .stripe { width:.75cqw; align-self:stretch; flex:0 0 auto; }
-  .ln { width:2.6cqw; text-align:center; font-size:1.75cqw; font-weight:600; color:#7d9aa1; flex:0 0 auto; }
-  .nm { flex:1; font-size:2cqw; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stripe { width:.9cqw; align-self:stretch; flex:0 0 auto; background:var(--tc, transparent); }
+  .ln { width:3cqw; text-align:center; font-size:2.1cqw; font-weight:600; color:#7d9aa1; flex:0 0 auto; }
+  .nm { flex:1; font-size:2.6cqw; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
   .nm.empty { color:#3d575d; font-weight:400; }
-  .tm { font-size:1.25cqw; font-weight:600; letter-spacing:.06em; flex:0 0 auto; width:6cqw; }
-  .tmr { font-size:1.9cqw; font-variant-numeric:tabular-nums; text-align:right; width:9cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
-  .pl { font-size:1.75cqw; font-weight:700; text-align:center; width:2.4cqw; flex:0 0 auto; color:#7d9aa1; }
+  .tm { font-size:1.5cqw; font-weight:700; letter-spacing:.06em; flex:0 0 auto; width:8cqw; color:var(--tc, #7d9aa1); }
+  .tmr { font-size:2.6cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
+  .pl { font-size:2.3cqw; font-weight:700; text-align:center; width:3cqw; flex:0 0 auto; color:#7d9aa1; }
   .row.lead .tmr, .row.lead .pl { color:#7fe0ab; }
 
-  .colR .nm { font-size:1.75cqw; }
-  .colR .ln { font-size:1.5cqw; width:2.3cqw; }
-  .colR .tm { font-size:1.15cqw; width:5.4cqw; }
-  .colR .seed { font-size:1.3cqw; color:#6f9099; width:5.6cqw; text-align:right; flex:0 0 auto; }
+  .colR .row { gap:.6cqw; padding-right:1.1cqw; }
+  .colR .stripe { width:.55cqw; }
+  .colR .nm { font-size:1.4cqw; }
+  .colR .ln { font-size:1.2cqw; width:1.9cqw; }
+  .colR .tm { font-size:.95cqw; width:4.2cqw; text-align:right; }
+  .colR .seed { font-size:1cqw; color:#6f9099; width:4.4cqw; text-align:right; flex:0 0 auto; }
+  .noseed .seed { display:none; }
 
-  .colhead { display:flex; align-items:center; gap:.8cqw; padding:0 1.6cqw .45cqw 1.55cqw; font-size:.82cqw; letter-spacing:.14em; color:#4f6f76; }
-  .colhead .c1 { width:2.3cqw; flex:0 0 auto; } .colhead .c2 { flex:1; }
-  .colhead .c3 { width:5.4cqw; flex:0 0 auto; } .colhead .c4 { width:5.6cqw; text-align:right; flex:0 0 auto; }
-  .noseed .seed, .noseed .c4 { display:none; }
+  .then { border-top:.2cqw solid #24393e; padding:.7cqw 1.2cqw; display:flex; align-items:baseline; gap:.6cqw; flex:0 0 auto; }
+  .then .lbl { font-size:.85cqw; letter-spacing:.16em; color:#5d7d84; }
+  .then .txt { font-size:1cqw; font-weight:600; color:#b7cace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  .then { border-top:.2cqw solid #24393e; padding:.8cqw 1.6cqw; display:flex; align-items:baseline; gap:.8cqw; flex:0 0 auto; }
-  .then .lbl { font-size:.95cqw; letter-spacing:.16em; color:#5d7d84; }
-  .then .txt { font-size:1.35cqw; font-weight:600; color:#b7cace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .empty-panel { flex:1; display:flex; align-items:center; justify-content:center; color:#5d7d84; font-size:1.3cqw; text-align:center; padding:1.5cqw; }
 
-  .empty-panel { flex:1; display:flex; align-items:center; justify-content:center; color:#5d7d84; font-size:1.6cqw; text-align:center; padding:2cqw; }
+  /* ================= styles (Settings > Team Colors, or ?style=) ================= */
+
+  /* LANES: each occupied lane is filled with its team color */
+  .style-lanes .rows { gap:.35cqw; padding:.2cqw 0; }
+  .style-lanes .row:nth-child(odd) { background:transparent; }
+  .style-lanes .row.has-team { background:var(--tc); color:var(--ink); }
+  .style-lanes .row.has-team .ln,
+  .style-lanes .row.has-team .tm,
+  .style-lanes .row.has-team .tmr,
+  .style-lanes .row.has-team .pl,
+  .style-lanes .row.has-team .seed { color:var(--ink); }
+  .style-lanes .row.has-team .ln { background:rgba(0,0,0,.16); align-self:stretch; display:flex; align-items:center; justify-content:center; }
+  .style-lanes .row.lead .tmr, .style-lanes .row.lead .pl { color:var(--ink); }
+  .style-lanes .row.lead { box-shadow:inset 0 0 0 .3cqw #ffffff, 0 0 1.2cqw rgba(255,255,255,.35); }
+  .style-lanes .row.lead .pl::after { content:''; }
+  .style-lanes .stripe { display:none; }
+  .style-lanes .row:not(.has-team) { background:rgba(255,255,255,.03); }
+
+  /* POOL: blue water, lane ropes between rows, team shown as a chip */
+  .style-pool .board { background:linear-gradient(180deg,#0d4f7a 0%,#0a3d63 100%); }
+  .style-pool .colR { background:rgba(4,30,52,.55); border-left-color:#0b2e4a; }
+  .style-pool .row:nth-child(odd) { background:transparent; }
+  .style-pool .rows .row + .row::before {
+    content:''; position:absolute; left:0; right:0; top:-.2cqw; height:.4cqw;
+    background:repeating-linear-gradient(90deg,#e53935 0 1.6cqw,#ffffff 1.6cqw 3.2cqw,#1e5bd8 3.2cqw 4.8cqw,#ffffff 4.8cqw 6.4cqw);
+    opacity:.85; border-radius:.2cqw;
+  }
+  .style-pool .stripe { display:none; }
+  .style-pool .ln { color:#cfe6f5; }
+  .style-pool .tm { background:var(--tc); color:var(--ink); border-radius:.5cqw; text-align:center; padding:.25cqw 0; }
+  .style-pool .row:not(.has-team) .tm { background:transparent; }
+  .style-pool .ctitle .lbl, .style-pool .ctitle .sub { color:#bfe0f5; }
+  .style-pool .nm.empty { color:#3f7aa3; }
+
+  /* LIGHT: for bright rooms / glare. Team colors become chips so pale tints still read */
+  .style-light .board { background:#f4f6f7; color:#10202a; }
+  .style-light .bhead { background:#0a6b7c; color:#fff; }
+  .style-light .colR { background:#e6ecee; border-left-color:#c9d4d7; }
+  .style-light .row:nth-child(odd) { background:rgba(0,0,0,.04); }
+  .style-light .ln { color:#51666d; }
+  .style-light .nm.empty { color:#b3c1c5; }
+  .style-light .tmr { color:#10202a; }
+  .style-light .pl { color:#51666d; }
+  .style-light .row.lead .tmr, .style-light .row.lead .pl { color:#127a3f; }
+  .style-light .tm { background:var(--tc); color:var(--ink); border-radius:.5cqw; text-align:center; padding:.25cqw 0; }
+  .style-light .row:not(.has-team) .tm { background:transparent; }
+  .style-light .stripe { width:1.2cqw; }
+  .style-light .ctitle .lbl { color:#51666d; }
+  .style-light .colR .ctitle .lbl { color:#9a6b12; }
+  .style-light .ctitle .sub, .style-light .colR .ctitle .sub { color:#51666d; }
+  .style-light .then { border-top-color:#c9d4d7; } .style-light .then .txt { color:#10202a; }
 
   .bfoot { height:10%; background:#8a6620; display:flex; align-items:center; padding:0 1.6cqw; gap:1.6cqw; flex:0 0 auto; }
   .bfoot .meet { font-size:1.45cqw; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -101,8 +153,7 @@
       <div class="rows" id="rowsL"></div>
     </div>
     <div class="colR" id="colR">
-      <div class="ctitle"><span class="lbl mono">UP NEXT</span><span class="sub mono" id="subR"></span></div>
-      <div class="colhead mono"><span class="c1"></span><span class="c2">SWIMMER</span><span class="c3">TEAM</span><span class="c4">SEED</span></div>
+      <div class="ctitle"><span class="lbl mono">UP NEXT</span><span class="sub mono" id="subR"></span><span class="sub2 mono" id="subR2"></span></div>
       <div class="rows" id="rowsR"></div>
       <div class="then" id="then"><span class="lbl mono">THEN</span><span class="txt" id="thenTxt"></span></div>
     </div>
@@ -174,6 +225,28 @@ function assignColors(){
   });
 }
 function colorOf(team){ return COLOR[team] || '#7d9aa1'; }
+// Dark or light text on a team-colored background, whichever reads better
+function inkOf(hex){
+  if (!/^#[0-9a-f]{6}$/i.test(hex || '')) return '#ffffff';
+  var L = 0.2126*lin(parseInt(hex.slice(1,3),16)) + 0.7152*lin(parseInt(hex.slice(3,5),16)) + 0.0722*lin(parseInt(hex.slice(5,7),16));
+  return (L + 0.05) / 0.05 > 1.05 / (L + 0.05) ? '#0b1618' : '#ffffff';
+}
+function paint(row, team){
+  if (!team) return;
+  var c = colorOf(team);
+  row.classList.add('has-team');
+  row.style.setProperty('--tc', c);
+  row.style.setProperty('--ink', inkOf(c));
+}
+
+var STYLES = ['classic', 'lanes', 'pool', 'light'];
+var URL_STYLE = (new URLSearchParams(location.search).get('style') || '').toLowerCase();
+function applyStyle(){
+  var st = STYLES.indexOf(URL_STYLE) >= 0 ? URL_STYLE : (s.board_style || 'classic');
+  if (STYLES.indexOf(st) < 0) st = 'classic';
+  var cls = 'style-' + st;
+  if (document.body.className !== cls) document.body.className = cls;
+}
 
 function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
 function trim(v){ return (v == null ? '' : String(v)).trim(); }
@@ -222,10 +295,11 @@ function renderCurrent(){
     var t = running ? '' : trim(s['lane_time'+i]);
     var place = trim(s['lane_place'+i]);
     var r = el('div', 'row' + (place === '1' && t ? ' lead' : ''));
-    var st = el('div','stripe'); st.style.background = team ? colorOf(team) : 'transparent'; r.appendChild(st);
+    paint(r, team);
+    r.appendChild(el('div','stripe'));
     r.appendChild(el('div','ln mono', String(i)));
     r.appendChild(el('div', 'nm' + (name ? '' : ' empty'), name || (team ? '' : '—')));
-    var tm = el('div','tm mono', team); tm.style.color = colorOf(team); r.appendChild(tm);
+    r.appendChild(el('div','tm mono', team));
     r.appendChild(el('div','tmr mono', t));
     r.appendChild(el('div','pl mono', t ? place : ''));
     box.appendChild(r);
@@ -238,7 +312,7 @@ function renderNext(){
   var lanes = s.next_lanes || [];
   var subR = document.getElementById('subR');
   if (!lanes.length){
-    subR.textContent = '';
+    subR.textContent = ''; document.getElementById('subR2').textContent = '';
     var msg = s.schedule_has_names === false || !s.meet_teams || !s.meet_teams.length
       ? 'Waiting for start lists'
       : (s.current_in_schedule === false ? 'Event ' + trim(s.current_event) + ' is not in the loaded start lists'
@@ -250,21 +324,18 @@ function renderNext(){
   var nhc = parseInt(s.next_heat_count, 10) || 0;
   var sameEvent = String(s.next_event) === trim(s.current_event);
   subR.textContent = 'EVENT ' + s.next_event + ' · HEAT ' + s.next_heat + (nhc ? ' OF ' + nhc : '');
+  // New event coming: name it, since the header still shows the current one
+  document.getElementById('subR2').textContent = sameEvent ? '' : trim(s.next_event_name).toUpperCase();
   var anySeed = lanes.some(function(l){ return l.seed !== '' && l.seed != null; });
   col.classList.toggle('noseed', !anySeed);
-  if (!sameEvent && s.next_event_name){
-    // New event coming: say which, since the header still shows the current one
-    // Heat first so a long event name is what gets truncated
-    subR.textContent = 'HEAT ' + s.next_heat + (nhc ? '/' + nhc : '') + ' · EV ' + s.next_event +
-      ' · ' + s.next_event_name.toUpperCase();
-  }
   var n = numLanes();
   lanes.slice(0, n).forEach(function(l){
     var r = el('div','row');
-    var st = el('div','stripe'); st.style.background = l.team ? colorOf(l.team) : 'transparent'; r.appendChild(st);
+    paint(r, l.team);
+    r.appendChild(el('div','stripe'));
     r.appendChild(el('div','ln mono', String(l.lane)));
     r.appendChild(el('div', 'nm' + (l.name ? '' : ' empty'), l.name || (l.team ? '' : '—')));
-    var tm = el('div','tm mono', l.team || ''); tm.style.color = colorOf(l.team); r.appendChild(tm);
+    r.appendChild(el('div','tm mono', l.team || ''));
     r.appendChild(el('div','seed mono', fmtSeed(l.seed)));
     box.appendChild(r);
   });
@@ -272,7 +343,8 @@ function renderNext(){
   if (s.then_event !== '' && s.then_event != null){
     then.style.display = '';
     document.getElementById('thenTxt').textContent =
-      'EVENT ' + s.then_event + ' · ' + trim(s.then_event_name).toUpperCase() + ' · HEAT ' + s.then_heat;
+      'EV ' + s.then_event + ' · HEAT ' + s.then_heat +
+      (String(s.then_event) !== String(s.next_event) ? ' · ' + trim(s.then_event_name).toUpperCase() : '');
   } else {
     then.style.display = 'none';
   }
@@ -296,7 +368,7 @@ function render(){
   if (pending) return; pending = true;
   requestAnimationFrame(function(){
     pending = false;
-    assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores();
+    applyStyle(); assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores();
     document.getElementById('link').classList.toggle('on', !connected);
   });
 }

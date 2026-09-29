@@ -3,13 +3,24 @@
 <title>meet-board: Team Colors</title>
 {% include '_admin_style.html' %}
 </head><body><div class="wrap">
-<h1>Team colors</h1>
+<h1>Meet board &amp; team colors</h1>
 <p class="lead">Colors used on the spectator meet board. Teams in the loaded meet are listed first; anything marked
 <span class="tag">auto</span> got a placeholder color because nobody has set one yet. The team abbreviation is always
 shown beside the color, so two similar colors are never ambiguous.</p>
 <p><a href="/settings">&larr; Settings</a> &middot; <a href="/web/meetboard" target="_blank">Open meet board</a></p>
 
 <form method="POST">
+<div class="card">
+  <strong>Board style</strong>
+  <div style="margin:6px 0 4px">
+  {% for key, desc in board_styles.items() %}
+    <label style="display:block;margin:3px 0"><input type="radio" name="board_style" value="{{ key }}" {% if key == board_style %}checked{% endif %}>
+      {{ desc }} &middot; <a href="/web/meetboard?style={{ key }}" target="_blank">preview</a></label>
+  {% endfor %}
+  </div>
+  <span style="color:var(--dim);font-size:13px">Every TV switches when you save. To give one TV a different look, point it at
+  <span class="mono">/web/meetboard?style=lanes</span> (or classic, pool, light).</span>
+</div>
 <div class="card">
   <label><strong>Home team</strong> (keeps its primary color when two teams clash):
   <input type="text" name="board_home_team" value="{{ home_team }}" style="width:120px" class="mono"></label>

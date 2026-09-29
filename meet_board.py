@@ -5,6 +5,14 @@ that swims next (from the loaded start lists alone, so it keeps working if the
 console link drops).
 """
 
+# Meet board looks, chosen on the Team Colors page (or ?style= per TV)
+BOARD_STYLES = {
+    'classic': 'Classic - dark board, team color stripe beside each lane',
+    'lanes':   'Lanes - each lane filled with its team color',
+    'pool':    'Pool - blue water with lane ropes, team chips',
+    'light':   'Light - white board for bright rooms, team chips',
+}
+
 # Region 11 (UHSAA 2025-27) plus Grantsville. Board tints, not raw school
 # colors: each is lifted to clear 3:1 against the #0b1618 board background.
 # Every hex is an approximation - override them on the Team Colors page.
