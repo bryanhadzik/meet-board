@@ -1,7 +1,7 @@
 [project]
-name = "cts-scoreboard"
-version = "0.1.0"
-description = "HTML display of CTS (Colorado Time Systems) scoreboard data"
+name = "meet-board"
+version = "0.2.0"
+description = "CTS (Colorado Time Systems) scoreboard overlay and spectator meet board"
 requires-python = ">=3.13"
 dependencies = [
     "flask",
@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
+meet-board = "CTS_Scoreboard:main"
 cts-scoreboard = "CTS_Scoreboard:main"
 
 [build-system]
@@ -28,4 +29,15 @@ only-include = [
     "hytek_rec_parser.py",
     "hytek_st2_parser.py",
     "race_state_machine.py",
+    "app_paths.py",
+    "scb_loader.py",
+    "meet_board.py",
+    "updater.py",
+    "_version.py",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.22.3",
+    "pytest>=9.1.1",
 ]
