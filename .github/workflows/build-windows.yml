@@ -67,7 +67,10 @@ jobs:
           body: |
             ${{ github.event.head_commit.message }}
 
-            Install: download meet-board.exe into a folder like C:\MeetBoard and run it.
-            Update: Settings > Software Update on the timing PC.
-          files: dist/meet-board.exe
+            Install: download meet-board.exe (and optionally the launcher files) into a folder like C:\MeetBoard.
+            Update: double-click meet-board-launcher.cmd and click Update, or Settings > Software Update.
+          files: |
+            dist/meet-board.exe
+            tools/meet-board-launcher.ps1
+            tools/meet-board-launcher.cmd
           make_latest: true

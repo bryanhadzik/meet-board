@@ -26,9 +26,14 @@ associated with CTS or Hy-Tek.
 
 ## Install on the timing PC (Windows)
 
-1. Download `meet-board.exe` from the [latest release](https://github.com/bryanhadzik/meet-board/releases/latest)
-   into its own folder, e.g. `C:\MeetBoard\`. `settings.json` is created beside it.
-2. Run it. The console window prints the URLs. Allow it through Windows Firewall (private networks)
+1. Download `meet-board-launcher.cmd` and `meet-board-launcher.ps1` from the
+   [latest release](https://github.com/bryanhadzik/meet-board/releases/latest) into their own folder,
+   e.g. `C:\MeetBoard\`, and double-click the `.cmd`. The launcher window has **Start**, **Stop**,
+   **Install/Update** (downloads the newest `meet-board.exe` from GitHub Releases into the same folder)
+   and links to Settings and the board. Closing the launcher leaves the server running.
+   Or skip the launcher: download `meet-board.exe` into the folder and run it directly.
+   `settings.json` is created beside the exe.
+2. Start it. The console window prints the URLs. Allow it through Windows Firewall (private networks)
    so the TVs can reach it.
 3. Open `http://localhost:5000/settings` (default login `admin` / `password` — change it), then:
    - pick the serial port for the CTS Y-cable,
