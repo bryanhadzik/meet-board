@@ -100,6 +100,20 @@
         .obsc-warn{color:#ffc447}
         .obsc-msg{margin-top:12px;font-size:12px;color:var(--obsc-dim);min-height:1.2em}
         .obsc-msg[data-err="1"]{color:#ff8d9b}
+        .obsc-hint{font-size:12px;color:#ffc447;margin-top:4px}
+        .obsc-hint:empty{display:none}
+        .obsc-row{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+        .obsc-sm{background:#1d2c30;color:var(--obsc-fg);border:1px solid var(--obsc-line);border-radius:7px;
+          padding:6px 12px;font:600 12px system-ui,sans-serif;cursor:pointer}
+        .obsc-sm[disabled]{opacity:.5;cursor:wait}
+        .obsc-meta{font-size:11px;color:var(--obsc-dim)}
+        .obsc-steps{margin:12px 0 0;padding-left:0;list-style:none;font-size:13px}
+        .obsc-steps li{padding:5px 0;border-top:1px solid var(--obsc-line)}
+        .obsc-steps li b{display:inline-block;width:18px}
+        .obsc-steps .ok b{color:#6ee7a8} .obsc-steps .bad b{color:#ff8d9b}
+        .obsc-steps .d{color:var(--obsc-dim)} .obsc-steps .h{display:block;color:#ffc447;margin-left:18px;font-size:12px}
+        .obsc-log{margin-top:12px;max-height:220px;overflow:auto;background:#0b1416;border:1px solid var(--obsc-line);
+          border-radius:8px;padding:8px 10px;font:12px/1.4 Consolas,monospace;color:#b7cace;white-space:pre-wrap}
         </style>
         <div class="row">
             <div class="col-lg-8">
@@ -115,6 +129,14 @@
                         <div class="obsc-stat"><b id="obsc-drop">&mdash;</b><span>Dropped</span></div>
                     </div>
                     <div class="obsc-msg" id="obsc-msg"></div>
+                    <div class="obsc-hint" id="obsc-hint"></div>
+                    <div class="obsc-row">
+                        <button class="obsc-sm" id="obsc-test" type="button">Test connection</button>
+                        <button class="obsc-sm" id="obsc-logbtn" type="button">Connection log</button>
+                        <span class="obsc-meta" id="obsc-meta"></span>
+                    </div>
+                    <ol class="obsc-steps" id="obsc-steps" hidden></ol>
+                    <pre class="obsc-log" id="obsc-log" hidden></pre>
                 </section>
                 <form action="/settings#obs" method="POST" class="form-inline" style="margin-bottom:6px;">
                     <input type="hidden" name="obs_url_form" value="1">
@@ -162,8 +184,46 @@
             var d = s ? (s.droppedPct || 0) : 0;
             elDrop.textContent = live ? d.toFixed(2) + '%' : '—';
             elDrop.className = (live && d >= 1) ? 'obsc-warn' : '';
-            if (s && s.error && !busy) { elMsg.textContent = s.error; elMsg.setAttribute('data-err', '1'); }
+            if (s && s.error && !busy && !up) { elMsg.textContent = s.error; elMsg.setAttribute('data-err', '1'); }
+            if (up && elMsg.getAttribute('data-err') === '1' && s && !s.error) note('');
+            document.getElementById('obsc-hint').textContent = (!up && s && s.hint) ? s.hint : '';
+            var meta = [];
+            if (s && s.url) meta.push(s.url);
+            if (s && s.password_set === false) meta.push('no password saved');
+            if (up && s.ws_version) meta.push('obs-websocket ' + s.ws_version);
+            if (up && s.obs_version) meta.push('OBS ' + s.obs_version);
+            if (!up && s && s.attempts) meta.push('attempt ' + s.attempts + (s.last_attempt ? ' at ' + s.last_attempt : ''));
+            if (up && s.connected_since) meta.push('connected since ' + s.connected_since);
+            document.getElementById('obsc-meta').textContent = meta.join(' \u00b7 ');
           }
+          var elSteps = document.getElementById('obsc-steps'), elLog = document.getElementById('obsc-log');
+          var elTest = document.getElementById('obsc-test');
+          elTest.addEventListener('click', function () {
+            elTest.disabled = true; elTest.textContent = 'Testing\u2026';
+            elSteps.hidden = false; elSteps.innerHTML = '';
+            fetch('/api/obs/test', {method: 'POST'}).then(function (r) { return r.json(); }).then(function (d) {
+              (d.steps || []).forEach(function (x) {
+                var li = document.createElement('li'); li.className = x.ok ? 'ok' : 'bad';
+                var b = document.createElement('b'); b.textContent = x.ok ? '\u2713' : '\u2717'; li.appendChild(b);
+                li.appendChild(document.createTextNode(x.step + ' '));
+                var sp = document.createElement('span'); sp.className = 'd'; sp.textContent = x.detail || ''; li.appendChild(sp);
+                if (x.hint) { var h = document.createElement('span'); h.className = 'h'; h.textContent = x.hint; li.appendChild(h); }
+                elSteps.appendChild(li);
+              });
+            }).catch(function () {
+              elSteps.innerHTML = '<li class="bad"><b>\u2717</b>Could not reach meet-board</li>';
+            }).then(function () { elTest.disabled = false; elTest.textContent = 'Test connection'; poll(); });
+          });
+          function loadLog() {
+            fetch('/api/obs/diagnostics', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
+              elLog.textContent = (d.log || []).map(function (e) { return e.t + '  ' + e.msg; }).join('\n') || 'No connection events yet.';
+              elLog.scrollTop = elLog.scrollHeight;
+            });
+          }
+          document.getElementById('obsc-logbtn').addEventListener('click', function () {
+            elLog.hidden = !elLog.hidden; if (!elLog.hidden) loadLog();
+          });
+          setInterval(function () { if (!elLog.hidden) loadLog(); }, 3000);
           function note(text, isErr) { elMsg.textContent = text || ''; elMsg.setAttribute('data-err', isErr ? '1' : '0'); }
           function poll() {
             fetch('/api/obs', {cache: 'no-store'}).then(function (r) { return r.json(); })

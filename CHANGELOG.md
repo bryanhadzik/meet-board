@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.10
+
+### Fixed
+- OBS never connected with the default URL `ws://127.0.0.1:4455`: with no path
+  the WebSocket request line was malformed ("Illegal target characters"). URLs
+  are now normalized (`ws://host:port/`; bare `localhost` or `ip:port` work too).
+
+### Added
+- OBS troubleshooting on the Stream card: plain-language error with a hint,
+  **Test connection** (URL, resolve, TCP port, WebSocket handshake, obs-websocket
+  Hello and version, password, OBS version, stream destination/key, stream
+  status - stops at the first failure and says what to fix), and a
+  **Connection log** of recent connect/disconnect events.
+- `GET /api/obs/diagnostics`, `POST /api/obs/test`.
+
 ## 0.2.9
 
 ### Added

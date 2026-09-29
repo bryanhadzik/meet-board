@@ -1915,6 +1915,23 @@ def route_obs_status():
     st['password_set'] = bool(settings.get('obs_password'))
     return flask.jsonify(st)
 
+@app.route('/api/obs/diagnostics')
+def route_obs_diagnostics():
+    d = obs.diagnostics()
+    d['status']['password_set'] = bool(settings.get('obs_password'))
+    return flask.jsonify(d)
+
+@app.route('/api/obs/test', methods=['POST'])
+@flask_login.login_required
+def route_obs_test():
+    """Step-by-step connection test with the saved settings."""
+    steps = obs_client.diagnose(settings.get('obs_url'), settings.get('obs_password'))
+    obs.note('Test connection: ' + ('all steps passed' if all(x['ok'] for x in steps)
+                                    else 'failed at "%s"' % next(x['step'] for x in steps if not x['ok'])))
+    if all(x['ok'] for x in steps):
+        obs.reconnect()          # a passing test means the link should come up now
+    return flask.jsonify({'steps': steps})
+
 @app.route('/api/obs/stream', methods=['POST'])
 @flask_login.login_required
 def route_obs_stream():
