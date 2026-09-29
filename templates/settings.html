@@ -57,9 +57,19 @@
 
     <div class="container">
         <div class="jumbotron">
-            <h1>CTS Scoreboard</h1>
+            <h1>meet-board</h1>
             <h2>Settings</h2>
             <a href="/" class="btn btn-default">Back to Site Map</a>
+            <a href="/team_colors" class="btn btn-default">Team Colors</a>
+            <a href="/software_update" class="btn btn-primary" id="update-btn">Software Update</a>
+            <span class="text-muted" style="margin-left:8px;">meet-board {{ app_version }}</span>
+            <script>
+            // Flag the Update button when a newer release exists
+            fetch('/update_check').then(r => r.json()).then(d => {
+                if (d.newer) { var b = document.getElementById('update-btn');
+                    b.textContent = 'Update available: ' + d.latest; b.className = 'btn btn-success'; }
+            }).catch(() => {});
+            </script>
         </div>
 
         <h3>Meet Settings</h3>
@@ -350,7 +360,7 @@
             <div class="col-lg-8">
                 <form action="/settings" method="POST" enctype="multipart/form-data">
                     <div class="input-group">
-                        <label for="meet_schedule">Hytek Schedule (.hy3)</label>
+                        <label for="meet_schedule">Meet Manager start lists: .hy3 entries, or CTS start lists (.scb files / .zip of them)</label>
                         {% if schedule_error %}
                         <div class="alert alert-danger" style="margin-bottom: 5px; padding: 6px 12px;">
                             <strong>Upload failed:</strong> {{ schedule_error }}
@@ -368,14 +378,38 @@
                         <div class="input-group">
                             <input id="meet_schedule" name="meet_schedule" value="{{ meet_schedule }}"
                                 class="form-control" aria-label="..."
-                                oninput="document.getElementById('meet_schedule_submit').disabled=false;" type="file"
-                                accept=".hy3"></input>
+                                oninput="document.getElementById('meet_schedule_submit').disabled=false;" type="file" multiple
+                                accept=".hy3,.scb,.zip"></input>
                             <span class="input-group-btn">
                                 <button class="btn btn-default" type="submit" id="meet_schedule_submit">Upload</button>
                                 <button class="btn btn-default" type="button"
                                     onclick="location.href = '/schedule_clear';">Clear</button>
                                 <button class="btn btn-default" type="button"
                                     onclick="location.href = '/schedule_preview';">Preview</button>
+                            </span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-8">
+                <form action="/settings" method="POST">
+                    <div class="input-group">
+                        <label for="scb_folder">CTS start list watch folder (optional)</label>
+                        <p class="help-block" style="margin:0 0 5px;">Point Meet Manager's
+                            <em>Export &gt; Start Lists for Scoreboard &gt; Start Lists for CTS</em> at this folder.
+                            Re-export after deck changes and the boards update within a few seconds.
+                            Leave blank to use uploads only.</p>
+                        {% if scb_watch_status %}
+                        <div class="alert alert-info" style="margin-bottom: 5px; padding: 6px 12px;">{{ scb_watch_status }}</div>
+                        {% endif %}
+                        <div class="input-group">
+                            <input id="scb_folder" name="scb_folder" value="{{ scb_folder }}" class="form-control"
+                                placeholder="C:\MeetManager\CTS"
+                                oninput="document.getElementById('scb_folder_submit').disabled=false;"></input>
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="submit" id="scb_folder_submit" disabled>Update</button>
                             </span>
                         </div>
                     </div>

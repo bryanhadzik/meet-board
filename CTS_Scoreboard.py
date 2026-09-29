@@ -19,10 +19,16 @@ from hytek_rec_parser import parse_rec_file, format_record_date
 from race_state_machine import RaceStateMachine
 import ap
 import argparse
+import threading
+import app_paths
+import scb_loader
+import meet_board
+import updater
+from _version import __version__
 
 DEBUG = False
 #DEBUG = True
-settings_file = './settings.json'
+settings_file = app_paths.data_path('settings.json')
 
 settings = {
     'meet_title': '',
@@ -47,7 +53,14 @@ settings = {
     'team_guest2_tag': '',
     'team_guest3': '',
     'team_guest3_tag': '',
-    'std_desc_overrides': {}
+    'std_desc_overrides': {},
+    # meet-board additions
+    'http_port': 5000,
+    'scb_folder': '',            # watch folder for Meet Manager CTS start lists
+    'scb_name_style': 'first_last',
+    'team_colors': {},           # {code: {name, color, alt}} overrides
+    'board_home_team': '',       # team that keeps its primary color on the board
+    'github_token': '',          # only needed if the repo is private
     }
 in_file = None
 out_file = None
@@ -64,7 +77,9 @@ time_standards = None
 swim_record_sets = []
 _next_rec_set_id = 0
 
-app = flask.Flask(__name__)
+app = flask.Flask(__name__,
+                  template_folder=app_paths.bundle_path('templates'),
+                  static_folder=app_paths.bundle_path('static'))
 # config
 app.config.update(
     DEBUG = False,
@@ -119,6 +134,55 @@ def load_settings():
             with open(settings_file, "wt") as f:
                 json.dump(settings, f, sort_keys=True, indent=4)
     except: pass
+
+_settings_lock = threading.Lock()
+
+def save_settings():
+    with _settings_lock:
+        tmp = settings_file + '.tmp'
+        with open(tmp, "wt") as f:
+            json.dump(settings, f, sort_keys=True, indent=4)
+        os.replace(tmp, settings_file)
+
+# ---------------------------------------------------------------------------
+# .scb watch folder: Meet Manager re-exports start lists after deck changes;
+# the board picks them up within a few seconds.
+# ---------------------------------------------------------------------------
+_scb_watch = {'signature': None, 'message': ''}
+
+def scb_watch_worker():
+    while True:
+        folder = settings.get('scb_folder', '')
+        if folder:
+            sig = scb_loader.folder_signature(folder)
+            if sig is None:
+                _scb_watch['message'] = 'Watch folder not reachable: %s' % folder
+            elif sig and sig != _scb_watch['signature']:
+                socketio.sleep(1.0)  # let Meet Manager finish writing the batch
+                sig = scb_loader.folder_signature(folder)
+                try:
+                    texts = scb_loader.read_scb_folder(folder)
+                    n_events, n_heats, errs = scb_loader.load_scb_into(
+                        event_info, texts, settings.get('scb_name_style', 'first_last'))
+                except Exception as e:
+                    _scb_watch['message'] = 'Watch folder load failed: %s' % e
+                else:
+                    settings['event_info'] = event_info.to_object()
+                    settings['schedule_filename'] = '%s (%d events, %d heats, watching)' % (
+                        folder, n_events, n_heats)
+                    _scb_watch['message'] = 'Loaded %d events / %d heats at %s%s' % (
+                        n_events, n_heats, time.strftime('%H:%M:%S'),
+                        (' - skipped: ' + '; '.join(errs)) if errs else '')
+                    print(_scb_watch['message'])
+                    try:
+                        save_settings()
+                    except Exception:
+                        traceback.print_exc()
+                    send_event_info()
+                _scb_watch['signature'] = sig
+            elif not sig:
+                _scb_watch['message'] = 'No .scb files in %s yet' % folder
+        socketio.sleep(3.0)
 
 ## Stuff to move the cursor
 def print_at(r, c, s):
@@ -260,7 +324,23 @@ def parse_line(l, out = None):
 
 def main_thread_worker():
     j = None
-    if in_file:
+    if in_file and in_file.lower().endswith('.bin'):
+        # Raw bytes captured from the serial port: replay at 9600 baud x speed
+        with open(in_file, 'rb') as f:
+            data = f.read()
+        while True:
+            l = []
+            for n, c in enumerate(data):
+                if c:
+                    if (c & 0x80) or (len(l) > 8):
+                        if len(l):
+                            parse_line(l)
+                        l = []
+                    l.append(c)
+                if n % 96 == 0:
+                    socketio.sleep(0.01 / max(in_speed, 0.01))
+            socketio.sleep(2.0)  # loop the recording
+    elif in_file:
         delay = 0.0
         start_time = None
         with open(in_file, 'rt') as f:
@@ -290,22 +370,35 @@ def main_thread_worker():
                 else:
                     delay += 1/9600.0
     else:
-        with serial.Serial(settings['serial_port'], 9600, timeout=0) as f:
-            if out_file:
-                j = open(out_file, "at")
-            l = []
-            while True:
-                c = f.read(1)
-                if c:
-                    c=c[0]
-                    if (c & 0x80) or (len(l) > 8):
-                        if len(l):
-                            parse_line(l, j)
-                        l=[]
-                    l.append(c)
-                else:
-                    socketio.sleep(0.01)
-            
+        if out_file:
+            j = open(out_file, "at")
+        # Keep retrying: the console may be off or the USB adapter unplugged
+        # when the app starts. The meet board's up-next panel keeps working.
+        last_error = None
+        while True:
+            port = settings['serial_port']
+            try:
+                with serial.Serial(port, 9600, timeout=0) as f:
+                    print("Reading CTS data from %s" % port)
+                    last_error = None
+                    l = []
+                    while port == settings['serial_port']:
+                        c = f.read(1)
+                        if c:
+                            c=c[0]
+                            if (c & 0x80) or (len(l) > 8):
+                                if len(l):
+                                    parse_line(l, j)
+                                l=[]
+                            l.append(c)
+                        else:
+                            socketio.sleep(0.01)
+            except Exception as e:
+                if str(e) != last_error:
+                    print("Serial port %s unavailable (%s); retrying every 5 s" % (port, e))
+                    last_error = str(e)
+                socketio.sleep(5.0)
+
 # flask-login
 login_manager = flask_login.LoginManager()
 login_manager.init_app(app)
@@ -659,6 +752,14 @@ def send_event_info():
     update["blank_message_visible"] = settings.get('blank_message_visible', False)
     update["blank_message_align"] = settings.get('blank_message_align', 'left')
     update["race_state"] = race_fsm.state_name
+    update["num_lanes"] = settings.get('num_lanes', 6)
+    update.update(meet_board.board_payload(event_info, settings, last_event_sent))
+    meet_teams = meet_board.schedule_teams(event_info)
+    update["meet_teams"] = meet_teams
+    update["team_colors"] = meet_board.team_colors(settings, meet_teams)
+    update["color_palette"] = meet_board.FALLBACK_PALETTE
+    update["home_team"] = settings.get('board_home_team') or settings.get('team_home_tag', '')
+    update["meet_title"] = settings.get('meet_title', '')
 
     socketio.emit('update_scoreboard', update, namespace='/scoreboard')
 
@@ -1025,7 +1126,7 @@ def route_web(name):
     web_name = "web/" + name + '.html'
     test_event = flask.request.args.get('event', None)
     test_heat = flask.request.args.get('heat', None)
-    return flask.render_template(web_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'], test_event=test_event, test_heat=test_heat, ad_url=settings['ad_url'], schedule_has_names=event_info.has_names, team_names=[('score_home', settings.get('team_home', '')), ('score_guest1', settings.get('team_guest1', '')), ('score_guest2', settings.get('team_guest2', '')), ('score_guest3', settings.get('team_guest3', ''))])
+    return flask.render_template(web_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'], test_event=test_event, test_heat=test_heat, ad_url=settings['ad_url'], schedule_has_names=event_info.has_names, team_names=[('score_home', settings.get('team_home', '')), ('score_guest1', settings.get('team_guest1', '')), ('score_guest2', settings.get('team_guest2', '')), ('score_guest3', settings.get('team_guest3', ''))], team_tags=[('score_home', settings.get('team_home_tag', '')), ('score_guest1', settings.get('team_guest1_tag', '')), ('score_guest2', settings.get('team_guest2_tag', '')), ('score_guest3', settings.get('team_guest3_tag', ''))])
 
 @app.route('/settings', methods=['POST', 'GET'])
 @flask_login.login_required
@@ -1038,11 +1139,29 @@ def route_settings():
         modified = False
         
         # check if the post request has the file part
+        scb_uploads = [f for f in flask.request.files.getlist('meet_schedule')
+                       if f and f.filename and f.filename.lower().endswith(('.scb', '.zip'))]
+        if scb_uploads:
+            try:
+                texts = scb_loader.expand_uploads([(f.filename, f.stream.read()) for f in scb_uploads])
+                n_events, n_heats, errs = scb_loader.load_scb_into(
+                    event_info, texts, settings.get('scb_name_style', 'first_last'))
+            except Exception as e:
+                schedule_error = 'Failed to load the start lists: %s' % e
+            else:
+                settings['event_info'] = event_info.to_object()
+                settings['schedule_filename'] = '%d CTS start lists (%d events, %d heats)' % (
+                    len(texts), n_events, n_heats)
+                if errs:
+                    schedule_error = 'Some files were skipped: ' + '; '.join(errs)
+                send_event_info()
+                modified = True
+
         if 'meet_schedule' in flask.request.files:
             file = flask.request.files['meet_schedule']
             # if user does not select file, browser also
             # submit a empty part without filename
-            if file and file.filename and file.filename.endswith('.hy3'):
+            if file and file.filename and file.filename.lower().endswith('.hy3'):
                 try:
                     event_info.load_from_bytestream(file.stream)
                 except Exception as e:
@@ -1244,9 +1363,15 @@ def route_settings():
         else:
             blank_message_needs_broadcast = False
 
+        if 'scb_folder' in flask.request.form:
+            settings['scb_folder'] = flask.request.form.get('scb_folder', '').strip().strip('"')
+            _scb_watch['signature'] = None  # force a reload on the next poll
+            if settings['scb_folder'] and not os.path.isdir(settings['scb_folder']):
+                schedule_error = 'Watch folder not found: %s' % settings['scb_folder']
+            modified = True
+
         if modified:
-            with open(settings_file, "wt") as f:
-                json.dump(settings, f, sort_keys=True, indent=4)
+            save_settings()
 
         if blank_message_needs_broadcast:
             send_blank_message()
@@ -1256,7 +1381,7 @@ def route_settings():
         comm_port_list.insert(0, (settings['serial_port'], settings['serial_port']))
         
     ad_url_list = []
-    for dirpath, dir, file in os.walk(os.path.join("static", "ad")):
+    for dirpath, dir, file in os.walk(app_paths.bundle_path("static", "ad")):
         ad_url_list.extend(file)
  
     schedule_loaded = bool(event_info.event_names)
@@ -1314,6 +1439,10 @@ def route_settings():
                 team_guest2_tag=settings.get('team_guest2_tag', ''),
                 team_guest3=settings.get('team_guest3', ''),
                 team_guest3_tag=settings.get('team_guest3_tag', ''),
+                scb_folder=settings.get('scb_folder', ''),
+                scb_watch_status=_scb_watch.get('message', ''),
+                app_version=__version__,
+                can_self_update=app_paths.FROZEN and os.name == 'nt',
                 shutdown_nonce=_new_shutdown_nonce())
                 
 @app.route('/schedule_clear')
@@ -1442,6 +1571,67 @@ def page_not_found(e):
     return flask.render_template('login.html', login_failed=True)
     
 
+@app.route('/team_colors', methods=['GET', 'POST'])
+@flask_login.login_required
+def route_team_colors():
+    teams_in_meet = meet_board.schedule_teams(event_info)
+    if flask.request.method == 'POST':
+        saved = {}
+        codes = set(flask.request.form.getlist('code'))
+        new_code = flask.request.form.get('new_code', '').strip().upper()[:6]
+        if new_code:
+            codes.add(new_code)
+        for code in codes:
+            if flask.request.form.get('reset_' + code):
+                continue
+            entry = {
+                'name': flask.request.form.get('name_' + code, '').strip()[:30],
+                'color': flask.request.form.get('color_' + code, '').strip(),
+                'alt': flask.request.form.get('alt_' + code, '').strip(),
+            }
+            if code == new_code and not entry['color']:
+                entry['color'] = flask.request.form.get('new_color', '').strip()
+            if flask.request.form.get('noalt_' + code):
+                entry['alt'] = ''
+            if entry['color']:
+                saved[code] = entry
+        settings['team_colors'] = saved
+        home = flask.request.form.get('board_home_team', '').strip()
+        settings['board_home_team'] = home
+        save_settings()
+        send_event_info()
+        return flask.redirect('/team_colors')
+    colors = meet_board.team_colors(settings, teams_in_meet)
+    order = teams_in_meet + sorted(c for c in colors if c not in teams_in_meet)
+    return flask.render_template('team_colors.html', colors=colors, order=order,
+                                 in_meet=set(teams_in_meet),
+                                 home_team=settings.get('board_home_team') or settings.get('team_home_tag', ''))
+
+@app.route('/software_update')
+@flask_login.login_required
+def route_software_update():
+    return flask.render_template('update.html', app_version=__version__,
+                                 can_self_update=app_paths.FROZEN and os.name == 'nt',
+                                 repo=updater.REPO)
+
+@app.route('/update_check')
+@flask_login.login_required
+def route_update_check():
+    info = updater.check(settings.get('github_token') or None)
+    info['status'] = updater.status()
+    return flask.jsonify(info)
+
+@app.route('/update_apply', methods=['POST'])
+@flask_login.login_required
+def route_update_apply():
+    ok, msg = updater.start_update(settings.get('github_token') or None)
+    return flask.jsonify({'ok': ok, 'message': msg, 'status': updater.status()})
+
+@app.route('/update_status')
+@flask_login.login_required
+def route_update_status():
+    return flask.jsonify(updater.status())
+
 def has_no_empty_params(rule):
     defaults = rule.defaults if rule.defaults is not None else ()
     arguments = rule.arguments if rule.arguments is not None else ()
@@ -1460,16 +1650,17 @@ def route_site_map():
             if title in ['login', 'logout', 'site map']:
                 continue
             # Hide these action-style endpoints from the site map
-            if title in ['schedule clear', 'standards clear']:
+            if title in ['schedule clear', 'standards clear', 'update check', 'update status']:
                 continue
             all_links[title] = (url, title.title())
 
     # Discover web/ scoreboard templates
     web_links = {}
-    for file in glob.glob(os.path.join("templates", "web", "*.html")):
+    for file in glob.glob(app_paths.bundle_path("templates", "web", "*.html")):
         name = os.path.basename(file).rsplit('.', 1)[0]
-        url = file[file.startswith("templates") and len("templates"):].rsplit('.', 1)[0]
-        web_links[name] = (url, "Web " + name)
+        url = "/web/" + name
+        title = "Meet Board (spectator TVs)" if name == 'meetboard' else "Web " + name
+        web_links[name] = (url, title)
 
     def _pop(d, key):
         return d.pop(key, None)
@@ -1481,6 +1672,9 @@ def route_site_map():
     home = _pop(web_links, 'home')
     if home:
         view_items.append(home)
+    board = _pop(web_links, 'meetboard')
+    if board:
+        view_items.append(board)
     for key in sorted(web_links.keys()):
         view_items.append(web_links[key])
     if view_items:
@@ -1488,7 +1682,7 @@ def route_site_map():
 
     # Settings section: Settings, Combine Events, Schedule Preview (in that order)
     settings_items = []
-    for key in ['settings', 'combine events', 'schedule preview']:
+    for key in ['settings', 'team colors', 'combine events', 'schedule preview', 'software update']:
         link = _pop(all_links, key)
         if link:
             settings_items.append(link)
@@ -1518,7 +1712,7 @@ def main():
 
     load_settings()
 
-    parser = argparse.ArgumentParser(description='Provide HTML rendering of Coloado Timing System data.')
+    parser = argparse.ArgumentParser(description='meet-board: CTS scoreboard overlay and spectator meet board.')
     parser.add_argument('--port', '-p', action = 'store', default = '', 
         help='Serial port input from CTS scoreboard')
     parser.add_argument('--in', '-i', action = 'store', default = '', dest='in_file',
@@ -1531,6 +1725,7 @@ def main():
         help='Speed to play input file at')
     parser.add_argument('--debug', '-d', action = 'store_const', const=True, default = False,
         help='Display debug info at console')
+    parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args()
 
     try:
@@ -1545,7 +1740,17 @@ def main():
         in_speed = float(args.in_speed)
         debug_console = args.debug
         ap.c()
-        socketio.run(app, host="0.0.0.0")
+        port = int(settings.get('http_port', 5000) or 5000)
+        print("meet-board %s" % __version__)
+        print("  Settings:   http://localhost:%d/settings" % port)
+        print("  Meet board: http://<this-pc>:%d/web/meetboard" % port)
+        print("  Overlay:    http://localhost:%d/overlay/1080p" % port)
+        # Start the CTS reader now rather than waiting for the first browser
+        global main_thread
+        if main_thread is None:
+            main_thread = socketio.start_background_task(target=main_thread_worker)
+        socketio.start_background_task(target=scb_watch_worker)
+        socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
     except:
         traceback.print_exc()
     finally:

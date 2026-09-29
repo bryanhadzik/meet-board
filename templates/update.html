@@ -1,0 +1,63 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meet-board: Software Update</title>
+{% include '_admin_style.html' %}
+</head><body><div class="wrap">
+<h1>Software update</h1>
+<p class="lead">Installed version: <strong class="mono">{{ app_version }}</strong> &middot; releases from
+<a href="https://github.com/{{ repo }}/releases" target="_blank" class="mono">{{ repo }}</a></p>
+<p><a href="/settings">&larr; Settings</a></p>
+
+<div class="card" id="card">
+  <div id="msg">Checking GitHub for the latest release&hellip;</div>
+  <div id="notes" style="white-space:pre-wrap;color:var(--dim);font-size:13px;margin-top:8px"></div>
+  <div style="margin-top:14px">
+    <button class="btn primary" id="go" disabled onclick="apply()">Update now</button>
+    <button class="btn" onclick="check()">Check again</button>
+  </div>
+</div>
+{% if not can_self_update %}
+<p class="bad">This copy is running from source, not the Windows exe &mdash; update it with <span class="mono">git pull</span>.</p>
+{% endif %}
+<p style="color:var(--dim);font-size:13px">Updating downloads the new <span class="mono">meet-board.exe</span>, closes this one,
+swaps the file and restarts it. Settings and loaded start lists are kept. Don't update mid-race: the boards blank for
+about 10&ndash;20 seconds while it restarts, then reconnect on their own.</p>
+
+<script>
+var canUpdate = {{ 'true' if can_self_update else 'false' }};
+function $(id){ return document.getElementById(id); }
+function check(){
+  $('msg').textContent = 'Checking GitHub for the latest release…'; $('go').disabled = true;
+  fetch('/update_check').then(r => r.json()).then(d => {
+    if (d.error) { $('msg').innerHTML = '<span class="bad"></span>'; $('msg').firstChild.textContent = d.error; return; }
+    if (d.newer) {
+      $('msg').innerHTML = '<strong class="ok">Version ' + d.latest + ' is available.</strong>';
+      $('notes').textContent = d.notes || '';
+      $('go').disabled = !canUpdate;
+    } else {
+      $('msg').innerHTML = '<span class="ok">You are on the latest version (' + d.current + ').</span>';
+      $('notes').textContent = '';
+    }
+  }).catch(e => { $('msg').textContent = 'Check failed: ' + e; });
+}
+function apply(){
+  $('go').disabled = true;
+  fetch('/update_apply', {method:'POST'}).then(r => r.json()).then(d => {
+    $('msg').textContent = d.message;
+    if (d.ok) poll();
+  });
+}
+function poll(){
+  fetch('/update_status').then(r => r.json()).then(s => {
+    $('msg').textContent = s.message + (s.state === 'downloading' ? ' ' + s.progress + '%' : '');
+    if (s.state === 'error') return;
+    setTimeout(poll, 700);
+  }).catch(() => {
+    // Server went away = restarting. Wait for it to come back, then reload.
+    $('msg').textContent = 'Restarting… this page reloads when the new version is up.';
+    var t = setInterval(() => fetch('/update_status').then(r => { if (r.status < 500) { clearInterval(t); location.reload(); } }).catch(() => {}), 2000);
+  });
+}
+check();
+</script>
+</div></body></html>
