@@ -61,6 +61,7 @@
             <h2>Settings</h2>
             <a href="/" class="btn btn-default">Back to Site Map</a>
             <a href="/team_colors" class="btn btn-default">Team Colors</a>
+            <a href="#obs" class="btn btn-default">Stream (OBS)</a>
             <a href="#debug" class="btn btn-default">Debug / test</a>
             <a href="/software_update" class="btn btn-primary" id="update-btn">Software Update</a>
             <span class="text-muted" style="margin-left:8px;">meet-board {{ app_version }}</span>
@@ -72,6 +73,126 @@
             }).catch(() => {});
             </script>
         </div>
+
+        <h3 id="obs">Stream (OBS)</h3>
+        <style>
+        .obsc{--obsc-bg:#111b1d;--obsc-line:#26383c;--obsc-dim:#8fa3a8;--obsc-fg:#e8eeee;
+          background:var(--obsc-bg);color:var(--obsc-fg);border:1px solid var(--obsc-line);
+          border-radius:12px;padding:18px;margin:6px 0 12px;max-width:560px;
+          font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+        .obsc h4{margin:0 0 14px;font-size:15px;font-weight:600;letter-spacing:.02em;
+          display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--obsc-fg)}
+        .obsc-pill{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+          padding:3px 9px;border-radius:999px;border:1px solid var(--obsc-line);color:var(--obsc-dim)}
+        .obsc-pill[data-on="1"]{background:#123024;border-color:#1f6b45;color:#6ee7a8}
+        .obsc-pill[data-live="1"]{background:#3a1116;border-color:#8c2230;color:#ff8d9b}
+        .obsc-btn{width:100%;padding:18px;border:0;border-radius:10px;cursor:pointer;
+          font:600 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.03em;
+          color:#06120d;background:#3ddc84;transition:background .12s,transform .06s}
+        .obsc-btn:active{transform:translateY(1px)}
+        .obsc-btn[disabled]{background:#2a3a3e;color:#6c7f84;cursor:not-allowed}
+        .obsc-btn[data-mode="stop"]{background:#ff5a6e;color:#2a0508}
+        .obsc-btn[data-mode="confirm"]{background:#ffc447;color:#2b1e00}
+        .obsc-stats{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap}
+        .obsc-stat{min-width:76px}
+        .obsc-stat b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+        .obsc-stat span{font-size:11px;color:var(--obsc-dim);text-transform:uppercase;letter-spacing:.06em}
+        .obsc-warn{color:#ffc447}
+        .obsc-msg{margin-top:12px;font-size:12px;color:var(--obsc-dim);min-height:1.2em}
+        .obsc-msg[data-err="1"]{color:#ff8d9b}
+        </style>
+        <div class="row">
+            <div class="col-lg-8">
+                <section class="obsc" id="obsc">
+                    <h4>Stream
+                        <span class="obsc-pill" id="obsc-link">OBS offline</span>
+                        <span class="obsc-pill" id="obsc-live" hidden>&#9679; Live</span>
+                    </h4>
+                    <button class="obsc-btn" id="obsc-btn" type="button" disabled>Connecting&hellip;</button>
+                    <div class="obsc-stats">
+                        <div class="obsc-stat"><b id="obsc-time">&mdash;</b><span>Uptime</span></div>
+                        <div class="obsc-stat"><b id="obsc-rate">&mdash;</b><span>Mbps out</span></div>
+                        <div class="obsc-stat"><b id="obsc-drop">&mdash;</b><span>Dropped</span></div>
+                    </div>
+                    <div class="obsc-msg" id="obsc-msg"></div>
+                </section>
+                <form action="/settings#obs" method="POST" class="form-inline" style="margin-bottom:6px;">
+                    <input type="hidden" name="obs_url_form" value="1">
+                    <label style="font-weight:normal;">OBS WebSocket
+                        <input class="form-control" name="obs_url" value="{{ obs_url }}" style="width:220px;"></label>
+                    <label style="font-weight:normal; margin-left:8px;">Password
+                        <input class="form-control" name="obs_password" type="password" autocomplete="off"
+                            placeholder="{{ 'saved - leave blank to keep' if obs_password_set else 'OBS WebSocket password' }}" style="width:220px;"></label>
+                    {% if obs_password_set %}<label style="font-weight:normal; margin-left:6px;"><input type="checkbox" name="obs_password_clear"> clear</label>{% endif %}
+                    <button class="btn btn-default" type="submit">Save</button>
+                </form>
+                <p class="help-block">In OBS: Tools &gt; WebSocket Server Settings &gt; Enable WebSocket server (port 4455), set a
+                    password and enter it here. If OBS is closed the boards and overlay keep working; this card just waits
+                    and reconnects every 5 seconds.</p>
+            </div>
+        </div>
+        <script>
+        (function () {
+          var elLink = document.getElementById('obsc-link'), elLive = document.getElementById('obsc-live');
+          var elBtn = document.getElementById('obsc-btn'), elTime = document.getElementById('obsc-time');
+          var elRate = document.getElementById('obsc-rate'), elDrop = document.getElementById('obsc-drop');
+          var elMsg = document.getElementById('obsc-msg');
+          var armed = false, armTimer = null, busy = false, last = null;
+
+          function hhmmss(s) {
+            var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+            var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+            return (h ? h + ':' : '') + p(m) + ':' + p(x);
+          }
+          function disarm() { armed = false; if (armTimer) { clearTimeout(armTimer); armTimer = null; } render(last); }
+          function render(s) {
+            last = s;
+            var up = s && s.link === 'up';
+            elLink.textContent = up ? 'OBS connected' : 'OBS offline';
+            elLink.setAttribute('data-on', up ? '1' : '0');
+            var live = !!(s && s.streaming);
+            elLive.hidden = !live; elLive.setAttribute('data-live', live ? '1' : '0');
+            if (busy) { elBtn.disabled = true; elBtn.removeAttribute('data-mode'); elBtn.textContent = 'Working…'; }
+            else if (!up) { elBtn.disabled = true; elBtn.removeAttribute('data-mode'); elBtn.textContent = 'OBS not reachable'; }
+            else if (armed) { elBtn.disabled = false; elBtn.setAttribute('data-mode', 'confirm'); elBtn.textContent = 'Tap again to STOP the stream'; }
+            else if (live) { elBtn.disabled = false; elBtn.setAttribute('data-mode', 'stop'); elBtn.textContent = 'Stop stream'; }
+            else { elBtn.disabled = false; elBtn.removeAttribute('data-mode'); elBtn.textContent = 'Start stream'; }
+            elTime.textContent = live ? hhmmss(s.seconds || 0) : '—';
+            elRate.textContent = live ? ((s.kbps || 0) / 1000).toFixed(1) : '—';
+            var d = s ? (s.droppedPct || 0) : 0;
+            elDrop.textContent = live ? d.toFixed(2) + '%' : '—';
+            elDrop.className = (live && d >= 1) ? 'obsc-warn' : '';
+            if (s && s.error && !busy) { elMsg.textContent = s.error; elMsg.setAttribute('data-err', '1'); }
+          }
+          function note(text, isErr) { elMsg.textContent = text || ''; elMsg.setAttribute('data-err', isErr ? '1' : '0'); }
+          function poll() {
+            fetch('/api/obs', {cache: 'no-store'}).then(function (r) { return r.json(); })
+              .then(render).catch(function () { render({link: 'down'}); });
+          }
+          elBtn.addEventListener('click', function () {
+            if (busy || !last || last.link !== 'up') return;
+            // Stopping a live stream mid-meet is the costly misclick: second tap within 4 s.
+            if (last.streaming && !armed) {
+              armed = true; render(last); note('Stopping ends the broadcast for everyone watching.');
+              armTimer = setTimeout(disarm, 4000); return;
+            }
+            var action = last.streaming ? 'stop' : 'start';
+            busy = true; render(last); note('');
+            if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+            armed = false;
+            fetch('/api/obs/stream', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                      body: JSON.stringify({action: action})})
+              .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return [r, b]; }); })
+              .then(function (rb) {
+                if (!rb[0].ok) note(rb[1].error || ('HTTP ' + rb[0].status), true);
+                else { render(rb[1]); note(action === 'start' ? 'Stream started.' : 'Stream stopped.'); }
+              })
+              .catch(function () { note('Could not reach meet-board.', true); })
+              .then(function () { busy = false; poll(); });
+          });
+          poll(); setInterval(poll, 2000);
+        })();
+        </script>
 
         <h3>Meet Settings</h3>
         <div class="row">

@@ -76,6 +76,14 @@ the console. Use it with the console off, or the two will fight.
 
 The older CTS_Scoreboard overlays are still at `/overlay/1080p` and `/overlay/1080p_states`.
 
+### Starting and stopping the stream
+
+Settings → **Stream (OBS)** has a big Start/Stop button with live status (uptime, Mbps out,
+dropped frames). In OBS: *Tools → WebSocket Server Settings → Enable WebSocket server*
+(port 4455) and set a password; enter the same password on the Settings page. The browser never
+talks to OBS directly — meet-board does, so the password stays on the PC. If OBS is closed the
+card just says so and reconnects every 5 seconds. Stopping a live stream takes two taps.
+
 ### Loading start lists
 
 **CTS start lists (.scb)** — in Meet Manager: *File → Export → Start Lists for Scoreboard → Start Lists

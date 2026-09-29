@@ -28,6 +28,7 @@ import app_paths
 import scb_loader
 import meet_board
 import updater
+import obs_client
 from _version import __version__
 
 DEBUG = False
@@ -64,7 +65,9 @@ settings = {
     'scb_name_style': 'first_last',
     'team_colors': {},           # {code: {name, color, alt}} overrides
     'board_home_team': '',
-    'board_style': 'classic',    # classic | lanes | pool | light       # team that keeps its primary color on the board
+    'board_style': 'classic',
+    'obs_url': 'ws://127.0.0.1:4455',  # OBS on this PC; obs-websocket v5
+    'obs_password': '',    # classic | lanes | pool | light       # team that keeps its primary color on the board
     'github_token': '',          # only needed if the repo is private
     }
 in_file = None
@@ -143,6 +146,9 @@ def load_settings():
     except: pass
 
 _settings_lock = threading.Lock()
+
+# OBS link: runs in the background, never blocks or breaks the boards.
+obs = obs_client.OBSClient(lambda: (settings.get('obs_url'), settings.get('obs_password')))
 
 def backup_schedule():
     """Keep the schedule we're about to replace, so Undo can restore it."""
@@ -1566,6 +1572,8 @@ def route_settings():
                     modified = True
         
         for k in settings.keys(): 
+            if k in ('obs_url', 'obs_password'):
+                continue   # handled below (a blank password field must not wipe the saved one)
             if k in flask.request.form and settings[k]!=flask.request.form.get(k):
                 if k == 'num_lanes':
                     val = int(flask.request.form.get(k))
@@ -1647,6 +1655,18 @@ def route_settings():
         else:
             blank_message_needs_broadcast = False
 
+        if 'obs_url_form' in flask.request.form:
+            new_url = flask.request.form.get('obs_url', '').strip() or 'ws://127.0.0.1:4455'
+            new_pw = flask.request.form.get('obs_password', '')
+            changed = new_url != settings.get('obs_url')
+            settings['obs_url'] = new_url
+            if new_pw or 'obs_password_clear' in flask.request.form:
+                changed = changed or new_pw != settings.get('obs_password')
+                settings['obs_password'] = '' if 'obs_password_clear' in flask.request.form else new_pw
+            modified = True
+            if changed:
+                obs.reconnect()
+
         if 'scb_folder' in flask.request.form:
             settings['scb_folder'] = flask.request.form.get('scb_folder', '').strip().strip('"')
             _scb_watch['signature'] = None  # force a reload on the next poll
@@ -1724,6 +1744,8 @@ def route_settings():
                 team_guest3=settings.get('team_guest3', ''),
                 team_guest3_tag=settings.get('team_guest3_tag', ''),
                 scb_folder=settings.get('scb_folder', ''),
+                obs_url=settings.get('obs_url', 'ws://127.0.0.1:4455'),
+                obs_password_set=bool(settings.get('obs_password')),
                 can_undo_schedule=bool(settings.get('event_info_prev')),
                 schedule_prev_name=settings.get('schedule_filename_prev', ''),
                 scb_watch_status=_scb_watch.get('message', ''),
@@ -1885,6 +1907,31 @@ def route_logout():
 def page_not_found(e):
     return flask.render_template('login.html', login_failed=True)
     
+
+@app.route('/api/obs')
+def route_obs_status():
+    # Read-only and safe to poll; never includes the password.
+    st = obs.status()
+    st['password_set'] = bool(settings.get('obs_password'))
+    return flask.jsonify(st)
+
+@app.route('/api/obs/stream', methods=['POST'])
+@flask_login.login_required
+def route_obs_stream():
+    data = flask.request.get_json(silent=True) or {}
+    action = str(data.get('action', ''))
+    if action not in ('start', 'stop'):
+        return flask.jsonify({'error': 'action must be "start" or "stop"'}), 400
+    try:
+        if action == 'start':
+            obs.start_stream()
+        else:
+            obs.stop_stream()
+    except Exception as e:
+        # OBS closed, wrong password, already streaming... the boards are unaffected
+        return flask.jsonify({'error': str(e)}), 502
+    time.sleep(0.4)          # let StreamStateChanged land so the reply is truthful
+    return flask.jsonify(obs.status())
 
 @app.route('/favicon.ico')
 def route_favicon():
@@ -2083,6 +2130,7 @@ def main():
         if main_thread is None:
             main_thread = socketio.start_background_task(target=main_thread_worker)
         socketio.start_background_task(target=scb_watch_worker)
+        obs.start()   # connects in the background; retries every 5 s until OBS is up
         socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
     except:
         traceback.print_exc()
