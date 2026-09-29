@@ -1,0 +1,23 @@
+<style>
+  :root { --bg:#f4f6f6; --card:#fff; --ink:#14232a; --dim:#5a6c72; --line:#d3dcde; --accent:#0a6b7c; --ok:#227a45; --bad:#a3282d; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width:900px; margin:0 auto; padding:24px 16px 60px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:18px; margin:28px 0 8px; }
+  p.lead { color:var(--dim); margin:0 0 18px; }
+  a { color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:16px 18px; margin:14px 0; }
+  .btn { display:inline-block; font:inherit; padding:7px 14px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink); cursor:pointer; text-decoration:none; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); }
+  input[type=text] { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:4px; width:100%; }
+  input[type=color] { width:46px; height:30px; padding:0; border:1px solid var(--line); background:none; }
+  .mono { font-family:Consolas, "Courier New", monospace; }
+  .tag { font-size:11px; color:var(--dim); border:1px solid var(--line); border-radius:3px; padding:1px 5px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .swatch-preview { display:inline-flex; align-items:center; gap:8px; background:#0b1618; color:#fff; padding:4px 10px; border-radius:3px; font-weight:600; min-width:150px; }
+  .swatch-preview i { width:6px; height:22px; display:inline-block; }
+</style>

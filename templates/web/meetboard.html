@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meet Board</title>
+<!--
+  Spectator meet board for the lobby TVs. Left: the heat in the water (live
+  from the CTS console). Right: the heat that swims next, from the loaded
+  start lists only - it keeps working if the console link drops.
+  Kiosk URL: http://<timing-pc>:5000/web/meetboard
+  No external fonts or CDNs: the pool network may have no internet.
+-->
+<style>
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; }
+  body { display:flex; align-items:center; justify-content:center; cursor:none; }
+  .board {
+    container-type:inline-size;
+    width:min(100vw, 177.78vh); aspect-ratio:16/9;
+    position:relative; overflow:hidden; background:#0b1618; color:#fff;
+    font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    display:flex; flex-direction:column;
+  }
+  .mono { font-family:Consolas, "Cascadia Mono", "DejaVu Sans Mono", "Courier New", monospace; }
+
+  .bhead { height:13%; background:#0a6b7c; display:flex; align-items:center; padding:0 1.6cqw; gap:1.4cqw; flex:0 0 auto; }
+  .evno { font-size:3.1cqw; font-weight:800; letter-spacing:-.02em; line-height:1; }
+  .evname { font-size:1.6cqw; font-weight:600; color:#c6e7ec; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55cqw; }
+  .spacer { flex:1; }
+  .heatof { font-size:1.25cqw; color:#c6e7ec; letter-spacing:.1em; text-align:right; }
+  .clock { font-size:3.4cqw; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; text-align:right; min-width:14cqw; }
+
+  .bbody { flex:1; display:flex; min-height:0; }
+  .colL { width:57%; display:flex; flex-direction:column; min-width:0; }
+  .colR { width:43%; display:flex; flex-direction:column; min-width:0; background:#101f22; border-left:.25cqw solid #24393e; }
+  .colR .ctitle { border-top:.35cqw solid #d9a441; padding-top:.7cqw; }
+
+  .ctitle { display:flex; align-items:baseline; gap:.9cqw; padding:.85cqw 1.6cqw .5cqw; }
+  .ctitle .lbl { font-size:1.05cqw; letter-spacing:.18em; color:#77979e; }
+  .colR .ctitle .lbl { font-size:1.35cqw; font-weight:600; letter-spacing:.2em; color:#f0c96a; }
+  .ctitle .lbl { white-space:nowrap; flex:0 0 auto; }
+  .ctitle .sub { font-size:1.05cqw; color:#6f9099; margin-left:auto; letter-spacing:.08em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .sub.warn { color:#f0a36a; }
+
+  .rows { flex:1; display:flex; flex-direction:column; min-height:0; }
+  .row { flex:1; display:flex; align-items:center; gap:.8cqw; padding:0 1.6cqw 0 0; min-height:0; }
+  .row:nth-child(odd) { background:rgba(255,255,255,.035); }
+  .stripe { width:.75cqw; align-self:stretch; flex:0 0 auto; }
+  .ln { width:2.6cqw; text-align:center; font-size:1.75cqw; font-weight:600; color:#7d9aa1; flex:0 0 auto; }
+  .nm { flex:1; font-size:2cqw; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nm.empty { color:#3d575d; font-weight:400; }
+  .tm { font-size:1.25cqw; font-weight:600; letter-spacing:.06em; flex:0 0 auto; width:6cqw; }
+  .tmr { font-size:1.9cqw; font-variant-numeric:tabular-nums; text-align:right; width:9cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
+  .pl { font-size:1.75cqw; font-weight:700; text-align:center; width:2.4cqw; flex:0 0 auto; color:#7d9aa1; }
+  .row.lead .tmr, .row.lead .pl { color:#7fe0ab; }
+
+  .colR .nm { font-size:1.75cqw; }
+  .colR .ln { font-size:1.5cqw; width:2.3cqw; }
+  .colR .tm { font-size:1.15cqw; width:5.4cqw; }
+  .colR .seed { font-size:1.3cqw; color:#6f9099; width:5.6cqw; text-align:right; flex:0 0 auto; }
+
+  .colhead { display:flex; align-items:center; gap:.8cqw; padding:0 1.6cqw .45cqw 1.55cqw; font-size:.82cqw; letter-spacing:.14em; color:#4f6f76; }
+  .colhead .c1 { width:2.3cqw; flex:0 0 auto; } .colhead .c2 { flex:1; }
+  .colhead .c3 { width:5.4cqw; flex:0 0 auto; } .colhead .c4 { width:5.6cqw; text-align:right; flex:0 0 auto; }
+  .noseed .seed, .noseed .c4 { display:none; }
+
+  .then { border-top:.2cqw solid #24393e; padding:.8cqw 1.6cqw; display:flex; align-items:baseline; gap:.8cqw; flex:0 0 auto; }
+  .then .lbl { font-size:.95cqw; letter-spacing:.16em; color:#5d7d84; }
+  .then .txt { font-size:1.35cqw; font-weight:600; color:#b7cace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .empty-panel { flex:1; display:flex; align-items:center; justify-content:center; color:#5d7d84; font-size:1.6cqw; text-align:center; padding:2cqw; }
+
+  .bfoot { height:10%; background:#8a6620; display:flex; align-items:center; padding:0 1.6cqw; gap:1.6cqw; flex:0 0 auto; }
+  .bfoot .meet { font-size:1.45cqw; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bfoot .sc { margin-left:auto; display:flex; align-items:center; gap:1.4cqw; }
+  .scitem { display:flex; align-items:center; gap:.5cqw; }
+  .scdot { width:1cqw; height:1cqw; flex:0 0 auto; }
+  .scab { font-size:1.15cqw; font-weight:600; color:#f6e6c4; letter-spacing:.05em; }
+  .scpt { font-size:1.7cqw; font-weight:700; font-variant-numeric:tabular-nums; }
+  .link { font-size:.9cqw; letter-spacing:.14em; color:#f6e6c4; border:.12cqw solid rgba(255,255,255,.45); padding:.25cqw .6cqw; display:none; }
+  .link.on { display:block; }
+</style>
+</head>
+<body>
+<div class="board" id="bd">
+  <div class="bhead">
+    <div style="min-width:0">
+      <div class="evno" id="evno">MEET BOARD</div>
+      <div class="evname" id="evname"></div>
+    </div>
+    <div class="spacer"></div>
+    <div>
+      <div class="heatof mono" id="heatof"></div>
+      <div class="clock mono" id="clock"></div>
+    </div>
+  </div>
+
+  <div class="bbody">
+    <div class="colL">
+      <div class="ctitle"><span class="lbl mono">IN THE WATER</span><span class="sub mono" id="subL"></span></div>
+      <div class="rows" id="rowsL"></div>
+    </div>
+    <div class="colR" id="colR">
+      <div class="ctitle"><span class="lbl mono">UP NEXT</span><span class="sub mono" id="subR"></span></div>
+      <div class="colhead mono"><span class="c1"></span><span class="c2">SWIMMER</span><span class="c3">TEAM</span><span class="c4">SEED</span></div>
+      <div class="rows" id="rowsR"></div>
+      <div class="then" id="then"><span class="lbl mono">THEN</span><span class="txt" id="thenTxt"></span></div>
+    </div>
+  </div>
+
+  <div class="bfoot">
+    <div class="link mono" id="link">RECONNECTING</div>
+    <div class="meet" id="meetName">{{ meet_title }}</div>
+    <div class="sc" id="scores"></div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
+<script>
+(function(){
+"use strict";
+var TEAM_TAGS = {{ team_tags | tojson }};   // [[score_key, team_code], ...]
+var s = {};                                   // merged server state
+var COLOR = {};
+var colorKey = '';
+
+/* ---------- OKLab distance for the team-color collision rule ---------- */
+function lin(c){ c/=255; return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4); }
+function oklab(hex){
+  var r=lin(parseInt(hex.slice(1,3),16)), g=lin(parseInt(hex.slice(3,5),16)), b=lin(parseInt(hex.slice(5,7),16));
+  var l=Math.cbrt(0.4122214708*r+0.5363325363*g+0.0514459929*b),
+      m=Math.cbrt(0.2119034982*r+0.6806995451*g+0.1073969566*b),
+      q=Math.cbrt(0.0883024619*r+0.2817188376*g+0.6299787005*b);
+  return [0.2104542553*l+0.7936177850*m-0.0040720468*q,
+          1.9779984951*l-2.4285922050*m+0.4505937099*q,
+          0.0259040371*l+0.7827717662*m-0.8086757660*q];
+}
+function dE(a,b){ var A=oklab(a),B=oklab(b); return 100*Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]); }
+var MIN_SEP = 15;
+
+/* Home team keeps its primary. Any team too close to an already-assigned
+   color falls back to its alternate if that clears; otherwise the primary
+   stands and the abbreviation beside every stripe carries identity. */
+function assignColors(){
+  var tc = s.team_colors || {}, codes = (s.meet_teams || []).slice();
+  Object.keys(tc).forEach(function(c){ if(codes.indexOf(c) < 0) codes.push(c); });
+  var key = JSON.stringify([tc, codes, s.home_team]);
+  if (key === colorKey) return;
+  colorKey = key; COLOR = {};
+  var home = s.home_team;
+  if (home && codes.indexOf(home) > 0){ codes.splice(codes.indexOf(home),1); codes.unshift(home); }
+  var taken = [];
+  // Only teams actually in the meet compete for separation
+  var inMeet = {}; (s.meet_teams || []).forEach(function(c){ inMeet[c] = 1; });
+  codes.forEach(function(code){
+    var t = tc[code]; if(!t || !/^#[0-9a-f]{6}$/i.test(t.color||'')) return;
+    var pick = t.color;
+    if (inMeet[code]) {
+      var clash = taken.some(function(c){ return dE(c, t.color) < MIN_SEP; });
+      if (clash && /^#[0-9a-f]{6}$/i.test(t.alt||'')){
+        if (taken.every(function(c){ return dE(c, t.alt) >= MIN_SEP; })) pick = t.alt;
+      } else if (clash && t.auto){
+        // Nobody chose this color: take the palette entry farthest from everything assigned
+        var best = pick, bestD = -1;
+        (s.color_palette || []).forEach(function(c){
+          var d = Math.min.apply(null, taken.map(function(x){ return dE(x, c); }));
+          if (d > bestD){ bestD = d; best = c; }
+        });
+        pick = best;
+      }
+      taken.push(pick);
+    }
+    COLOR[code] = pick;
+  });
+}
+function colorOf(team){ return COLOR[team] || '#7d9aa1'; }
+
+function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+function trim(v){ return (v == null ? '' : String(v)).trim(); }
+function fmtSeed(v){
+  if (v === '' || v == null) return '';
+  var t = Number(v); if (!isFinite(t) || t <= 0) return String(v);
+  var m = Math.floor(t/60), sec = t - m*60;
+  return m ? m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(2) : sec.toFixed(2);
+}
+function numLanes(){
+  // Configured pool width, stretched if either heat has swimmers past it
+  var n = parseInt(s.num_lanes || {{ num_lanes }}, 10) || 6;
+  for (var i = 10; i > n; i--) if (trim(s['lane_name'+i]) || trim(s['lane_team'+i])) { n = i; break; }
+  (s.next_lanes || []).forEach(function(l){ if ((l.name || l.team) && l.lane > n) n = l.lane; });
+  return Math.max(1, Math.min(10, n));
+}
+
+function renderHeader(){
+  var ev = trim(s.current_event), ht = trim(s.current_heat);
+  var hasEvent = ev && ev !== '0';
+  document.getElementById('evno').textContent = hasEvent ? 'EVENT ' + ev : 'MEET BOARD';
+  document.getElementById('evname').textContent = hasEvent ? trim(s.event_name).toUpperCase() : '';
+  var hc = parseInt(s.heat_count, 10) || 0;
+  document.getElementById('heatof').textContent = hasEvent && ht ? 'HEAT ' + ht + (hc ? ' OF ' + hc : '') : '';
+  document.getElementById('clock').textContent = trim(s.running_time);
+  if (s.meet_title != null) document.getElementById('meetName').textContent = s.meet_title;
+}
+
+function stateLabel(){
+  var st = s.race_state || '';
+  if (st === 'Running') return 'RACING';
+  if (st === 'Finished') return 'RESULTS';
+  if (/PreRace$/.test(st)) return 'ON THE BLOCKS';
+  return '';
+}
+
+function renderCurrent(){
+  var box = document.getElementById('rowsL'); box.textContent = '';
+  var sub = document.getElementById('subL');
+  sub.textContent = connected ? stateLabel() : 'RECONNECTING';
+  sub.className = 'sub mono' + (connected ? '' : ' warn');
+  var n = numLanes();
+  for (var i = 1; i <= n; i++){
+    var name = trim(s['lane_name'+i]), team = trim(s['lane_team'+i]);
+    var running = !!s['lane_running'+i];
+    var t = running ? '' : trim(s['lane_time'+i]);
+    var place = trim(s['lane_place'+i]);
+    var r = el('div', 'row' + (place === '1' && t ? ' lead' : ''));
+    var st = el('div','stripe'); st.style.background = team ? colorOf(team) : 'transparent'; r.appendChild(st);
+    r.appendChild(el('div','ln mono', String(i)));
+    r.appendChild(el('div', 'nm' + (name ? '' : ' empty'), name || (team ? '' : '—')));
+    var tm = el('div','tm mono', team); tm.style.color = colorOf(team); r.appendChild(tm);
+    r.appendChild(el('div','tmr mono', t));
+    r.appendChild(el('div','pl mono', t ? place : ''));
+    box.appendChild(r);
+  }
+}
+
+function renderNext(){
+  var col = document.getElementById('colR');
+  var box = document.getElementById('rowsR'); box.textContent = '';
+  var lanes = s.next_lanes || [];
+  var subR = document.getElementById('subR');
+  if (!lanes.length){
+    subR.textContent = '';
+    var msg = s.schedule_has_names === false || !s.meet_teams || !s.meet_teams.length
+      ? 'Waiting for start lists'
+      : (s.current_in_schedule === false ? 'Event ' + trim(s.current_event) + ' is not in the loaded start lists'
+                                         : 'Last heat of the session');
+    box.appendChild(el('div','empty-panel', msg));
+    document.getElementById('then').style.display = 'none';
+    return;
+  }
+  var nhc = parseInt(s.next_heat_count, 10) || 0;
+  var sameEvent = String(s.next_event) === trim(s.current_event);
+  subR.textContent = 'EVENT ' + s.next_event + ' · HEAT ' + s.next_heat + (nhc ? ' OF ' + nhc : '');
+  var anySeed = lanes.some(function(l){ return l.seed !== '' && l.seed != null; });
+  col.classList.toggle('noseed', !anySeed);
+  if (!sameEvent && s.next_event_name){
+    // New event coming: say which, since the header still shows the current one
+    // Heat first so a long event name is what gets truncated
+    subR.textContent = 'HEAT ' + s.next_heat + (nhc ? '/' + nhc : '') + ' · EV ' + s.next_event +
+      ' · ' + s.next_event_name.toUpperCase();
+  }
+  var n = numLanes();
+  lanes.slice(0, n).forEach(function(l){
+    var r = el('div','row');
+    var st = el('div','stripe'); st.style.background = l.team ? colorOf(l.team) : 'transparent'; r.appendChild(st);
+    r.appendChild(el('div','ln mono', String(l.lane)));
+    r.appendChild(el('div', 'nm' + (l.name ? '' : ' empty'), l.name || (l.team ? '' : '—')));
+    var tm = el('div','tm mono', l.team || ''); tm.style.color = colorOf(l.team); r.appendChild(tm);
+    r.appendChild(el('div','seed mono', fmtSeed(l.seed)));
+    box.appendChild(r);
+  });
+  var then = document.getElementById('then');
+  if (s.then_event !== '' && s.then_event != null){
+    then.style.display = '';
+    document.getElementById('thenTxt').textContent =
+      'EVENT ' + s.then_event + ' · ' + trim(s.then_event_name).toUpperCase() + ' · HEAT ' + s.then_heat;
+  } else {
+    then.style.display = 'none';
+  }
+}
+
+function renderScores(){
+  var sc = document.getElementById('scores'); sc.textContent = '';
+  TEAM_TAGS.forEach(function(pair){
+    var pts = trim(s[pair[0]]), code = pair[1];
+    if (!pts || !code) return;
+    var it = el('div','scitem');
+    var d = el('div','scdot'); d.style.background = colorOf(code); it.appendChild(d);
+    it.appendChild(el('div','scab mono', code));
+    it.appendChild(el('div','scpt mono', pts));
+    sc.appendChild(it);
+  });
+}
+
+var pending = false;
+function render(){
+  if (pending) return; pending = true;
+  requestAnimationFrame(function(){
+    pending = false;
+    assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores();
+    document.getElementById('link').classList.toggle('on', !connected);
+  });
+}
+
+var connected = false;
+var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
+socket.on('connect', function(){ connected = true; render(); });
+socket.on('disconnect', function(){ connected = false; render(); });
+socket.on('update_scoreboard', function(u){
+  for (var k in u) s[k] = u[k];
+  render();
+});
+render();
+
+// socket.io reconnects on its own; never reload (a failed reload leaves an error page on the TV).
+})();
+</script>
+</body>
+</html>

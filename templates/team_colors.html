@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meet-board: Team Colors</title>
+{% include '_admin_style.html' %}
+</head><body><div class="wrap">
+<h1>Team colors</h1>
+<p class="lead">Colors used on the spectator meet board. Teams in the loaded meet are listed first; anything marked
+<span class="tag">auto</span> got a placeholder color because nobody has set one yet. The team abbreviation is always
+shown beside the color, so two similar colors are never ambiguous.</p>
+<p><a href="/settings">&larr; Settings</a> &middot; <a href="/web/meetboard" target="_blank">Open meet board</a></p>
+
+<form method="POST">
+<div class="card">
+  <label><strong>Home team</strong> (keeps its primary color when two teams clash):
+  <input type="text" name="board_home_team" value="{{ home_team }}" style="width:120px" class="mono"></label>
+</div>
+<div class="card">
+<table>
+  <thead><tr><th>Code</th><th>School</th><th>Primary</th><th>Alternate</th><th>Preview</th><th></th></tr></thead>
+  <tbody>
+  {% for code in order %}{% set c = colors[code] %}
+  <tr>
+    <td class="mono"><input type="hidden" name="code" value="{{ code }}"><strong>{{ code }}</strong>
+      {% if code in in_meet %}<span class="tag">in meet</span>{% endif %}
+      {% if c.auto %}<span class="tag">auto</span>{% endif %}</td>
+    <td><input type="text" name="name_{{ code }}" value="{{ c.name }}"></td>
+    <td><input type="color" name="color_{{ code }}" value="{{ c.color or '#7d9aa1' }}" oninput="pv(this)"></td>
+    <td><input type="color" name="alt_{{ code }}" value="{{ c.alt or '#9aa6ab' }}">
+        <label style="font-size:12px"><input type="checkbox" name="noalt_{{ code }}" {% if not c.alt %}checked{% endif %}> none</label></td>
+    <td><span class="swatch-preview" id="pv_{{ code }}"><i style="background:{{ c.color }}"></i><span style="color:{{ c.color }}" class="mono">{{ code }}</span> Swimmer</span></td>
+    <td><label style="font-size:12px"><input type="checkbox" name="reset_{{ code }}"> reset</label></td>
+  </tr>
+  {% endfor %}
+  <tr>
+    <td><input type="text" name="new_code" placeholder="Add code" class="mono" style="width:90px"></td>
+    <td colspan="5"><input type="color" name="new_color" value="#7d9aa1"> <span style="color:var(--dim);font-size:13px">Add a team code that isn't in the list yet</span></td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<button class="btn primary" type="submit">Save colors</button>
+<p style="color:var(--dim);font-size:13px;margin-top:14px">Tip: pick a lighter tint of dark school colors (navy, black) &mdash;
+the board background is near-black. "reset" drops your override and goes back to the built-in or auto color.</p>
+</form>
+<script>
+function pv(inp){ var code = inp.name.slice(6); var el = document.getElementById('pv_' + code);
+  if (!el) return; el.querySelector('i').style.background = inp.value; el.querySelector('span').style.color = inp.value; }
+</script>
+</div></body></html>
