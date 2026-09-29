@@ -112,7 +112,7 @@ def lanes_for(event_info, key, num_lanes):
 
 def board_payload(event_info, settings, current):
     """Extra fields merged into the update_scoreboard message."""
-    num_lanes = int(settings.get('num_lanes', 6) or 6)
+    num_lanes = int(settings.get('num_lanes', 8) or 8)
     upcoming = next_heats(event_info, current, 2)
     payload = {
         'heat_count': heat_count(event_info, current[0]),

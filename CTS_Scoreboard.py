@@ -37,7 +37,7 @@ settings = {
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
-    'num_lanes': 6,
+    'num_lanes': 8,           # Tooele: 8-lane pool
     'pool_course': 'SCY',
     'show_pr_tags': True,
     'show_confetti': True,
@@ -197,6 +197,22 @@ def scb_watch_worker():
             elif not sig:
                 _scb_watch['message'] = 'No .scb files in %s yet' % folder
         socketio.sleep(3.0)
+
+SETTINGS_VERSION = 1
+
+def migrate_settings():
+    """One-time fixes for settings.json files written by older versions."""
+    v = int(settings.get('settings_version', 0) or 0)
+    if v < 1:
+        # v0 defaulted to 6 lanes and saved it; the pool has 8.
+        if int(settings.get('num_lanes', 6) or 6) == 6:
+            settings['num_lanes'] = 8
+    if v < SETTINGS_VERSION:
+        settings['settings_version'] = SETTINGS_VERSION
+        try:
+            save_settings()
+        except Exception:
+            traceback.print_exc()
 
 def ensure_secret_key():
     """Session cookies are signed with this. Generate one per install and
@@ -779,7 +795,7 @@ def send_event_info():
     update["blank_message_visible"] = settings.get('blank_message_visible', False)
     update["blank_message_align"] = settings.get('blank_message_align', 'left')
     update["race_state"] = race_fsm.state_name
-    update["num_lanes"] = settings.get('num_lanes', 6)
+    update["num_lanes"] = settings.get('num_lanes', 8)
     update.update(meet_board.board_payload(event_info, settings, last_event_sent))
     meet_teams = meet_board.schedule_teams(event_info)
     update["meet_teams"] = meet_teams
@@ -1019,7 +1035,7 @@ def ws_sim_step(d):
 
     step = d.get('step', '') if d else ''
     update = {}
-    num_lanes = settings.get('num_lanes', 6)
+    num_lanes = settings.get('num_lanes', 8)
 
     if step == 'start':
         _sim_running = True
@@ -1135,7 +1151,7 @@ def _sim_clock_tick():
         t += 0.1
         running_time = _format_lane_time(t, final=False)
         tick_update = {'running_time': running_time}
-        num_lanes = settings.get('num_lanes', 6)
+        num_lanes = settings.get('num_lanes', 8)
         for i in range(1, num_lanes + 1):
             if channel_running[i - 1]:
                 tick_update['lane_time%d' % i] = running_time
@@ -1777,6 +1793,7 @@ def main():
     global in_file, out_file, in_speed, debug_console
 
     load_settings()
+    migrate_settings()
     ensure_secret_key()
 
     parser = argparse.ArgumentParser(description='meet-board: CTS scoreboard overlay and spectator meet board.')

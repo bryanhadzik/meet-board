@@ -185,7 +185,7 @@ function fmtSeed(v){
 }
 function numLanes(){
   // Configured pool width, stretched if either heat has swimmers past it
-  var n = parseInt(s.num_lanes || {{ num_lanes }}, 10) || 6;
+  var n = parseInt(s.num_lanes || {{ num_lanes }}, 10) || 8;
   for (var i = 10; i > n; i--) if (trim(s['lane_name'+i]) || trim(s['lane_team'+i])) { n = i; break; }
   (s.next_lanes || []).forEach(function(l){ if ((l.name || l.team) && l.lane > n) n = l.lane; });
   return Math.max(1, Math.min(10, n));

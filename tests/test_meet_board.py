@@ -63,3 +63,15 @@ def test_lanes_past_configured_width_are_not_hidden():
     assert len(p['next_lanes']) == 8 and p['next_lanes'][7]['name'] == 'Grace Whitaker'
     p = meet_board.board_payload(ei, {'num_lanes': 6}, (3, 5))
     assert len(p['next_lanes']) == 6   # heat 10/1 only uses lanes 3-5
+
+
+def test_old_settings_migrate_to_8_lanes(monkeypatch):
+    import CTS_Scoreboard as C
+    monkeypatch.setattr(C, 'save_settings', lambda: None)
+    monkeypatch.setattr(C, 'settings', dict(C.settings, num_lanes=6))
+    C.settings.pop('settings_version', None)
+    C.migrate_settings()
+    assert C.settings['num_lanes'] == 8 and C.settings['settings_version'] == 1
+    C.settings['num_lanes'] = 6          # user chose 6 later: leave it alone
+    C.migrate_settings()
+    assert C.settings['num_lanes'] == 6
