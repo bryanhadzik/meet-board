@@ -84,7 +84,9 @@ app = flask.Flask(__name__,
 # config
 app.config.update(
     DEBUG = False,
-    SECRET_KEY = 'rimnqiuqnewiornhf7nfwenjmqvliwynhtmlfnlsklrmqwe'
+    # Replaced at startup by a per-install random key kept in settings.json
+    # (see ensure_secret_key). Never a fixed value: the source is public.
+    SECRET_KEY = os.urandom(32).hex(),
 )
 socketio = flask_socketio.SocketIO(app)
 
@@ -195,6 +197,19 @@ def scb_watch_worker():
             elif not sig:
                 _scb_watch['message'] = 'No .scb files in %s yet' % folder
         socketio.sleep(3.0)
+
+def ensure_secret_key():
+    """Session cookies are signed with this. Generate one per install and
+    keep it in settings.json so logins survive restarts."""
+    import secrets as _secrets
+    key = settings.get('secret_key')
+    if not key or len(key) < 32:
+        settings['secret_key'] = key = _secrets.token_hex(32)
+        try:
+            save_settings()
+        except Exception:
+            traceback.print_exc()
+    app.config['SECRET_KEY'] = key
 
 ## Stuff to move the cursor
 def print_at(r, c, s):
@@ -1762,6 +1777,7 @@ def main():
     global in_file, out_file, in_speed, debug_console
 
     load_settings()
+    ensure_secret_key()
 
     parser = argparse.ArgumentParser(description='meet-board: CTS scoreboard overlay and spectator meet board.')
     parser.add_argument('--port', '-p', action = 'store', default = '', 
