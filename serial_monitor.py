@@ -32,6 +32,7 @@ class SerialMonitor:
             self.by_channel = collections.Counter()
             self.last_byte_at = None
             self.last_record_at = None
+            self.last_clock_at = None     # last channel-0 (race time) record
             self.raw = collections.deque(maxlen=96)        # last raw bytes
             self.recent = collections.deque(maxlen=12)     # last decoded records
             self._rate = collections.deque()               # (t, nbytes) in the last 5 s
@@ -81,6 +82,8 @@ class SerialMonitor:
             self.records_total += 1
             self.by_channel[ch] += 1
             self.last_record_at = now
+            if ch == 0:
+                self.last_clock_at = now
             self._rec_rate.append(now)
             self.recent.append({'t': round(now, 2), 'ch': ch, 'hex': ' '.join('%02X' % b for b in rec)})
 
@@ -104,6 +107,7 @@ class SerialMonitor:
                 'bytes_total': self.bytes_total, 'records_total': self.records_total,
                 'bytes_per_sec': round(bps, 1), 'records_per_sec': round(rps, 1),
                 'idle_seconds': round(idle, 1) if idle is not None else None,
+                'clock_age': round(now - self.last_clock_at, 1) if self.last_clock_at else None,
                 'high_bit_pct': round(100.0 * self.high_bytes / self.bytes_total, 1) if self.bytes_total else None,
                 'channels': chans,
                 'raw_hex': ['%02X' % b for b in self.raw],

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.19
+
+### Changed
+- Serial input card moved to the top of Settings, led by a big **race time**
+  readout straight from the console clock, with the event, heat and race state
+  and how fresh the clock is ("live from the console" / "last race-time record
+  12 s ago").
+
 ## 0.2.18
 
 ### Added

@@ -2051,6 +2051,9 @@ def route_api_serial():
         snap['ports'] = []
     snap['race_state'] = race_fsm.state_name
     snap['event'], snap['heat'] = last_event_sent[0], last_event_sent[1]
+    snap['event_name'] = event_info.get_event_name(last_event_sent[0])
+    # Race time as the console last sent it (zero-filled, like the boards show it)
+    snap['running_time'] = _ZERO_FILL.sub(r'\g<1>0', running_time or '').strip()
     return flask.jsonify(snap)
 
 
