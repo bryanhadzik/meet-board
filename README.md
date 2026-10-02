@@ -109,6 +109,9 @@ The **Music** tab plays a short playlist - the national anthem plus a few swim s
 2. On the streaming PC open `/music?speaker=1` (launcher: *Music Speaker*) and click
    **Enable sound**. Leave that tab open - it plays through the PC's speakers/PA.
 3. Tap songs on `/music` from any device. Pause, stop and volume apply to the speaker tab.
+4. To keep the songs off the stream (YouTube copyright), tick the OBS sources that pick the
+   music up under **Stream audio (OBS)** on the Music tab: they're muted while a song plays and
+   turned back on when it stops.
 
 ### Loading start lists
 

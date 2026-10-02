@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.26
+
+### Added
+- **Mute the stream while music plays** (Music tab -> Stream audio (OBS)).
+  Tick the OBS audio sources that would carry the music (the pool mic, desktop
+  audio...). When a song starts meet-board mutes them in OBS; when it stops or
+  pauses they're unmuted after a short delay (default 2 s). Only sources it
+  muted itself are unmuted - anything you'd already muted stays muted. The
+  list is saved, so a crash or restart mid-song can't leave the stream silent.
+  A badge on Now playing shows STREAM AUDIO MUTED / UNMUTES IN 2 S / LIVE.
+
 ## 0.2.25
 
 ### Fixed

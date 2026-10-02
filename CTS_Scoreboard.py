@@ -34,6 +34,7 @@ import team_logos
 import updater
 import obs_client
 import music
+import music_mute
 from _version import __version__
 
 DEBUG = False
@@ -45,6 +46,9 @@ settings = {
     'serial_port': 'COM1',
     'serial_format': '9600-8N1',   # baud-databits/parity/stopbits; Settings -> Serial input -> Find the right format
     'update_interval': 1.0,        # seconds between board updates from the console
+    'music_obs_mute': False,       # mute chosen OBS audio sources while music plays
+    'music_obs_inputs': [],
+    'music_unmute_delay': 2.0,
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
@@ -1523,9 +1527,64 @@ def _music_folder():
 def _music_songs():
     return music.list_songs(_music_folder())
 
+stream_mute = music_mute.StreamMute(obs, settings, lambda: save_settings())
+_music_last_status = [None]
+
+
+def _music_state_dict(songs=None):
+    d = music_state.as_dict(songs)
+    d['stream_mute'] = stream_mute.status()
+    return d
+
+
 def _music_broadcast(include_songs=False):
-    socketio.emit('music_state', music_state.as_dict(_music_songs() if include_songs else None),
+    # Tell OBS first (muting must not lag the song), off the socket handler thread
+    if music_state.status != _music_last_status[0]:
+        _music_last_status[0] = music_state.status
+        socketio.start_background_task(_stream_mute_then_broadcast, music_state.status)
+    socketio.emit('music_state', _music_state_dict(_music_songs() if include_songs else None),
                   namespace='/music')
+
+
+def _stream_mute_then_broadcast(status):
+    stream_mute.music_changed(status)
+    socketio.emit('music_state', _music_state_dict(), namespace='/music')   # badge shows the real OBS state
+
+
+def stream_mute_worker():
+    """Delayed unmute after the music stops, and recovery after a restart."""
+    while True:
+        socketio.sleep(1.0)
+        before = stream_mute.muted_by_us
+        try:
+            stream_mute.tick(music_state.status)
+        except Exception:
+            traceback.print_exc()
+        if stream_mute.muted_by_us != before:
+            socketio.emit('music_state', _music_state_dict(), namespace='/music')
+
+
+@app.route('/api/music/stream_mute', methods=['GET', 'POST'])
+@flask_login.login_required
+def route_music_stream_mute():
+    """GET: OBS audio sources + settings. POST {enabled, inputs, delay}: save."""
+    if flask.request.method == 'POST':
+        d = flask.request.get_json(silent=True) or {}
+        settings['music_obs_mute'] = bool(d.get('enabled'))
+        settings['music_obs_inputs'] = [str(x) for x in (d.get('inputs') or [])][:20]
+        try:
+            settings['music_unmute_delay'] = max(0.0, min(30.0, float(d.get('delay', 2))))
+        except (TypeError, ValueError):
+            pass
+        save_settings()
+        if music_state.status == 'playing':
+            socketio.start_background_task(_stream_mute_then_broadcast, 'playing')
+    try:
+        inputs, err = stream_mute.audio_inputs(), ''
+    except Exception as e:
+        inputs, err = [], str(e)
+    return flask.jsonify(dict(stream_mute.status(), inputs=inputs, obs_error=err,
+                              delay=float(settings.get('music_unmute_delay', 2.0) or 0)))
 
 @app.route('/music')
 def route_music():
@@ -1569,7 +1628,7 @@ def route_music_delete():
 
 @socketio.on('connect', namespace='/music')
 def ws_music_connect():
-    flask_socketio.emit('music_state', music_state.as_dict(_music_songs()))
+    flask_socketio.emit('music_state', _music_state_dict(_music_songs()))
 
 @socketio.on('disconnect', namespace='/music')
 def ws_music_disconnect(*args):
@@ -2618,6 +2677,7 @@ def main():
             main_thread = socketio.start_background_task(target=main_thread_worker)
         socketio.start_background_task(target=scb_watch_worker)
         obs.start()   # connects in the background; retries every 5 s until OBS is up
+        socketio.start_background_task(target=stream_mute_worker)
         socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
     except:
         traceback.print_exc()

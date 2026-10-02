@@ -37,6 +37,14 @@
   .speaker-gate button { font:700 22px "Segoe UI", sans-serif; padding:24px 36px; border-radius:14px; border:0; background:#3ddc84; cursor:pointer; }
   .speaker-gate p { color:#bfe6ec; text-align:center; max-width:520px; margin:18px auto 0; }
   .small { font-size:13px; color:var(--dim); }
+  .smute { display:inline-flex; align-items:center; gap:6px; font:700 12px/1 "Segoe UI", sans-serif; letter-spacing:.08em;
+           padding:6px 10px; border-radius:999px; margin-left:10px; vertical-align:middle; }
+  .smute.on { background:#ff5a6e; color:#2a0508; }
+  .smute.live { background:#26383c; color:#bfe6ec; }
+  .smute.wait { background:#f0c96a; color:#2a1f00; }
+  .srcs label { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); }
+  .srcs label:last-child { border-bottom:0; }
+  .srcs .kind { color:var(--dim); font-size:12px; margin-left:auto; }
 </style>
 </head>
 <body>
@@ -46,7 +54,7 @@
   <div id="speakerNote"></div>
 
   <div class="now">
-    <div class="k" id="nowK">Now playing</div>
+    <div class="k"><span id="nowK">Now playing</span><span class="smute" id="smute" hidden></span></div>
     <div class="t" id="nowT">&mdash;</div>
     <div class="bar"><i id="barI"></i></div>
     <div class="times"><span id="posT">0:00</span><span id="durT">0:00</span></div>
@@ -72,6 +80,24 @@
   </div>
 
   {% if not speaker %}
+  <h2>Stream audio (OBS)</h2>
+  <div class="card" id="smCard">
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:600">
+      <input type="checkbox" id="smOn" style="margin-top:3px">
+      <span>Mute the stream while music plays<br><span class="small" style="font-weight:400">Keeps copyrighted songs off
+        YouTube: the OBS audio sources ticked below are muted when a song starts and turned back on when it stops or
+        pauses. Sources you already had muted are left alone.</span></span></label>
+    <div class="srcs" id="smList" style="margin:10px 0 6px 26px"><span class="small">Loading OBS audio sources&hellip;</span></div>
+    <div style="margin-left:26px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label class="small">Unmute <select id="smDelay">
+        <option value="0">right away</option><option value="1">1 s</option><option value="2" selected>2 s</option>
+        <option value="5">5 s</option><option value="10">10 s</option></select> after the music stops</label>
+      <button class="btn primary" type="button" id="smSave">Save</button>
+      <button class="btn" type="button" id="smReload">Refresh list</button>
+      <span class="small" id="smMsg"></span>
+    </div>
+  </div>
+
   <p class="small">The music comes out of the <strong>speaker tab</strong>: on the streaming PC open
     <a href="/music?speaker=1" target="_blank">/music?speaker=1</a> and click <em>Enable sound</em> once. Leave that tab open.
     This page (on any phone, tablet or PC) is the remote.</p>
@@ -143,6 +169,21 @@ function renderNow() {
       'click <em>Enable sound</em> on the streaming PC.</div>';
   else n.innerHTML = '<div class="alert ok">Speaker ready on the streaming PC.</div>';
 }
+function renderMute() {
+  var m = st.stream_mute, b = $('smute');
+  if (!b) return;
+  if (!m || !m.enabled) { b.hidden = true; return; }
+  b.hidden = false;
+  if (m.muted_now && m.muted_now.length) {
+    b.className = 'smute ' + (m.unmute_in != null ? 'wait' : 'on');
+    b.textContent = m.unmute_in != null ? 'STREAM UNMUTES IN ' + Math.ceil(m.unmute_in) + ' S' : 'STREAM AUDIO MUTED';
+  } else {
+    b.className = 'smute live';
+    b.textContent = st.status === 'playing' ? 'STREAM NOT MUTED' : 'STREAM AUDIO LIVE';
+    if (st.status === 'playing') b.className = 'smute wait';
+  }
+  if (m.last_error) b.title = m.last_error;
+}
 function progress(pos, dur) {
   $('posT').textContent = fmt(pos); $('durT').textContent = fmt(dur);
   $('barI').style.width = dur ? Math.min(100, pos / dur * 100) + '%' : '0';
@@ -151,11 +192,46 @@ function progress(pos, dur) {
 socket.on('music_state', function (d) {
   for (var k in d) if (d[k] !== null && d[k] !== undefined) st[k] = d[k];
   if (d.songs) songs = d.songs;
-  renderSongs(); renderNow();
+  renderSongs(); renderNow(); renderMute();
   if (SPEAKER) follow();
 });
 socket.on('music_progress', function (d) { st.position = d.position; st.duration = d.duration; progress(d.position, d.duration); });
 socket.on('music_error', function (d) { alert('Music: ' + d.error); });
+
+if ($('smCard')) {
+  var smLoad = function () {
+    fetch('/api/music/stream_mute', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(smShow)
+      .catch(function () { $('smList').innerHTML = '<span class="small">Could not reach meet-board.</span>'; });
+  };
+  var smShow = function (d) {
+    $('smOn').checked = !!d.enabled;
+    $('smDelay').value = String(Math.round(d.delay || 0));
+    var chosen = d.chosen || [];
+    if (d.obs_error) {
+      $('smList').innerHTML = '<span class="small">OBS isn\'t connected (' + d.obs_error + '). Connect it on Settings &rarr; Stream (OBS), then Refresh list.' +
+        (chosen.length ? ' Saved: ' + chosen.join(', ') : '') + '</span>';
+      return;
+    }
+    if (!d.inputs.length) { $('smList').innerHTML = '<span class="small">OBS has no audio sources.</span>'; return; }
+    $('smList').innerHTML = d.inputs.map(function (i) {
+      var on = chosen.indexOf(i.name) >= 0;
+      return '<label><input type="checkbox" value="' + i.name.replace(/"/g, '&quot;') + '"' + (on ? ' checked' : '') + '> ' +
+        i.name.replace(/</g, '&lt;') + (i.muted ? ' <span class="small">(muted now)</span>' : '') +
+        '<span class="kind">' + i.kind.replace(/_/g, ' ') + '</span></label>';
+    }).join('');
+  };
+  $('smSave').addEventListener('click', function () {
+    var inputs = [].map.call(document.querySelectorAll('#smList input:checked'), function (x) { return x.value; });
+    fetch('/api/music/stream_mute', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: $('smOn').checked, inputs: inputs, delay: parseFloat($('smDelay').value)})})
+      .then(function (r) { return r.json(); }).then(function (d) {
+        smShow(d); $('smMsg').textContent = 'Saved.';
+        setTimeout(function () { $('smMsg').textContent = ''; }, 3000);
+      });
+  });
+  $('smReload').addEventListener('click', smLoad);
+  smLoad();
+}
 
 $('pauseBtn').addEventListener('click', function () { cmd(st.status === 'paused' ? 'resume' : 'pause'); });
 $('stopBtn').addEventListener('click', function () { cmd('stop'); });
