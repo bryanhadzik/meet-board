@@ -27,8 +27,24 @@
   .song.anthem::before { color:#ffd24d; }
   .song.cur { border-color:#3ddc84; box-shadow:0 0 0 3px rgba(61,220,132,.35); }
   .song.cur.playing::before { content:'\266B'; color:#3ddc84; }
-  .song .x { position:absolute; right:8px; top:6px; font-size:12px; color:var(--dim); display:none; }
-  .editing .song .x { display:block; }
+  .song .ttl { display:block; padding-right:44px; }
+  .song .art { display:block; font-size:13px; font-weight:500; color:var(--dim); margin-top:2px; }
+  .song.anthem .art { color:#bcd0e6; }
+  .song .len { position:absolute; right:12px; top:16px; font:600 13px Consolas, monospace; color:var(--dim); }
+  .song.anthem .len { color:#bcd0e6; }
+  .song .okst { display:inline-block; margin-top:6px; font:700 10px/1 "Segoe UI", sans-serif; letter-spacing:.08em;
+                padding:4px 7px; border-radius:999px; background:#3ddc84; color:#06240f; }
+  .song .acts { display:none; margin-top:8px; gap:6px; }
+  .editing .song .acts { display:flex; }
+  .editing .song::before { content:'\270E'; }
+  .song .acts span { font:600 12px "Segoe UI", sans-serif; padding:4px 9px; border-radius:6px; background:#eef3f4; color:var(--ink); }
+  .song.anthem .acts span { background:#1e3a58; color:#fff; }
+  .song .acts span.rm { color:#b3261e; }
+  dialog#ed { border:0; border-radius:12px; padding:20px 22px; width:min(460px, 92vw); box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  dialog#ed::backdrop { background:rgba(11,22,24,.55); }
+  dialog#ed label { display:block; margin:10px 0 0; font-weight:600; font-size:14px; }
+  dialog#ed input[type=text] { width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; font-size:15px; }
+  dialog#ed .row { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
   .alert { border-radius:8px; padding:10px 14px; margin:12px 0; font-size:14px; }
   .alert.warn { background:#fff4d6; border:1px solid #f0c96a; }
   .alert.ok { background:#e2f6ea; border:1px solid #9fdab5; }
@@ -72,7 +88,7 @@
   <div class="card">
     <form id="up"><input type="file" name="songs" multiple accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac">
       <button class="btn primary" type="submit">Add songs</button>
-      <button class="btn" type="button" id="editBtn">Remove songs&hellip;</button></form>
+      <button class="btn" type="button" id="editBtn">Edit songs&hellip;</button></form>
     <p class="small" style="margin-top:10px">Files are kept in <span class="mono">{{ music_folder }}</span>. A file with
       &ldquo;anthem&rdquo; or &ldquo;star spangled&rdquo; in its name is pinned to the top. Songs are ordered by file name, so
       prefix them <span class="mono">01 &ndash; </span>, <span class="mono">02 &ndash; </span>&hellip; to set the order.</p>
@@ -115,6 +131,25 @@
 <audio id="player" preload="auto"></audio>
 {% endif %}
 
+<dialog id="ed">
+  <form method="dialog" id="edForm">
+    <h2 style="margin:0 0 4px">Song details</h2>
+    <div class="small mono" id="edFile"></div>
+    <label>Title <input type="text" id="edTitle" maxlength="80"></label>
+    <label>Artist / performer <input type="text" id="edArtist" maxlength="80" placeholder="e.g. U.S. Army Band"></label>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:600;margin-top:14px">
+      <input type="checkbox" id="edOk" style="margin-top:3px">
+      <span>OK on stream &mdash; don't mute the stream for this song<br>
+        <span class="small" style="font-weight:400">Only for recordings you know are public domain or licensed, such as a
+        U.S. military band recording of the national anthem. Commercial recordings get flagged by YouTube.</span></span></label>
+    <div class="small" id="edLen" style="margin-top:10px"></div>
+    <div class="row">
+      <button class="btn" value="cancel" type="submit">Cancel</button>
+      <button class="btn primary" value="save" type="submit" id="edSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
 <script>
 (function () {
@@ -135,21 +170,45 @@ function renderSongs() {
     b.type = 'button';
     b.className = 'song' + (s.anthem ? ' anthem' : '') + (st.track === s.file ? ' cur' : '') +
                   (st.track === s.file && st.status === 'playing' ? ' playing' : '');
-    b.textContent = s.title;
-    var x = document.createElement('span'); x.className = 'x'; x.textContent = 'remove';
+    var t = document.createElement('span'); t.className = 'ttl'; t.textContent = s.title; b.appendChild(t);
+    if (s.artist) { var a = document.createElement('span'); a.className = 'art'; a.textContent = s.artist; b.appendChild(a); }
+    if (s.duration) { var l = document.createElement('span'); l.className = 'len'; l.textContent = fmt(s.duration); b.appendChild(l); }
+    if (s.stream_ok) { var o = document.createElement('span'); o.className = 'okst'; o.textContent = 'OK ON STREAM';
+                       o.title = 'The stream is not muted while this song plays'; b.appendChild(o); }
+    var acts = document.createElement('span'); acts.className = 'acts';
+    var e = document.createElement('span'); e.textContent = 'Edit details';
+    e.addEventListener('click', function (ev) { ev.stopPropagation(); openEditor(s); });
+    var x = document.createElement('span'); x.className = 'rm'; x.textContent = 'Remove';
     x.addEventListener('click', function (ev) {
       ev.stopPropagation();
       if (!confirm('Remove "' + s.title + '"?')) return;
       fetch('/music/delete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file: s.file})});
     });
-    b.appendChild(x);
+    acts.appendChild(e); acts.appendChild(x); b.appendChild(acts);
     b.addEventListener('click', function () {
-      if (document.body.classList.contains('editing')) return;
+      if (document.body.classList.contains('editing')) { openEditor(s); return; }
       cmd('play', {track: s.file});
     });
     box.appendChild(b);
   });
 }
+
+var editing = null;
+function openEditor(s) {
+  editing = s;
+  $('edFile').textContent = s.file;
+  $('edTitle').value = s.title || '';
+  $('edArtist').value = s.artist || '';
+  $('edOk').checked = !!s.stream_ok;
+  $('edLen').textContent = s.duration ? 'Length: ' + fmt(s.duration) : 'Length: not known yet (filled in the first time it plays)';
+  $('ed').showModal();
+}
+$('ed').addEventListener('close', function () {
+  if ($('ed').returnValue !== 'save' || !editing) return;
+  fetch('/music/meta', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({file: editing.file, title: $('edTitle').value, artist: $('edArtist').value, stream_ok: $('edOk').checked})})
+    .then(function (r) { return r.json(); }).then(function (d) { if (d.songs) { songs = d.songs; renderSongs(); } });
+});
 
 function renderNow() {
   var playing = st.status === 'playing', paused = st.status === 'paused';
@@ -178,9 +237,11 @@ function renderMute() {
     b.className = 'smute ' + (m.unmute_in != null ? 'wait' : 'on');
     b.textContent = m.unmute_in != null ? 'STREAM UNMUTES IN ' + Math.ceil(m.unmute_in) + ' S' : 'STREAM AUDIO MUTED';
   } else {
+    var cur = songs.filter(function (x) { return x.file === st.track; })[0];
     b.className = 'smute live';
-    b.textContent = st.status === 'playing' ? 'STREAM NOT MUTED' : 'STREAM AUDIO LIVE';
-    if (st.status === 'playing') b.className = 'smute wait';
+    b.textContent = 'STREAM AUDIO LIVE';
+    if (st.status === 'playing' && cur && cur.stream_ok) { b.className = 'smute live'; b.textContent = 'STREAM LIVE \u00b7 SONG OK ON STREAM'; }
+    else if (st.status === 'playing') { b.className = 'smute wait'; b.textContent = 'STREAM NOT MUTED'; }
   }
   if (m.last_error) b.title = m.last_error;
 }
@@ -238,7 +299,7 @@ $('stopBtn').addEventListener('click', function () { cmd('stop'); });
 $('vol').addEventListener('input', function () { $('volT').textContent = this.value + '%'; cmd('volume', {volume: this.value / 100}); });
 $('editBtn').addEventListener('click', function () {
   document.body.classList.toggle('editing');
-  this.textContent = document.body.classList.contains('editing') ? 'Done removing' : 'Remove songs…';
+  this.textContent = document.body.classList.contains('editing') ? 'Done editing' : 'Edit songs…';
 });
 $('up').addEventListener('submit', function (ev) {
   ev.preventDefault();

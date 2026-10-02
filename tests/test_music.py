@@ -73,3 +73,23 @@ def test_socket_commands_broadcast(music_dir):
     speaker.disconnect(namespace='/music')
     assert C.music_state.speaker_sid is None
     remote.disconnect(namespace='/music')
+
+
+def test_song_details_tags_and_length(tmp_path):
+    import shutil, subprocess
+    import music
+    if not shutil.which('ffmpeg'):
+        import pytest; pytest.skip('ffmpeg not available')
+    f = tmp_path / '00 - Star Spangled Banner.mp3'
+    subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=5',
+                    '-ac', '1', '-b:a', '32k', str(f)], check=True)
+    s = music.list_songs(str(tmp_path))[0]
+    assert s['title'] == 'Star Spangled Banner' and s['anthem'] and not s['stream_ok']
+    assert 4.5 <= s['duration'] <= 5.5
+    music.update_meta(str(tmp_path), f.name, title='The Star-Spangled Banner', artist='U.S. Army Band', stream_ok=True)
+    s = music.list_songs(str(tmp_path))[0]
+    assert (s['title'], s['artist'], s['stream_ok']) == ('The Star-Spangled Banner', 'U.S. Army Band', True)
+    import mutagen
+    assert mutagen.File(str(f), easy=True).tags['artist'] == ['U.S. Army Band']   # written into the file too
+    music.forget_meta(str(tmp_path), f.name)
+    assert not music.list_songs(str(tmp_path))[0]['stream_ok']

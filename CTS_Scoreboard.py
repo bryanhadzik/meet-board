@@ -1537,11 +1537,21 @@ def _music_state_dict(songs=None):
     return d
 
 
+def _music_mute_status():
+    """Music status as the stream mute sees it: a song marked 'OK on stream'
+    (e.g. a public-domain anthem recording) counts as no music playing."""
+    if music_state.status != 'playing':
+        return music_state.status
+    song = next((x for x in _music_songs() if x['file'] == music_state.track), None)
+    return 'stopped' if song and song.get('stream_ok') else 'playing'
+
+
 def _music_broadcast(include_songs=False):
     # Tell OBS first (muting must not lag the song), off the socket handler thread
-    if music_state.status != _music_last_status[0]:
-        _music_last_status[0] = music_state.status
-        socketio.start_background_task(_stream_mute_then_broadcast, music_state.status)
+    key = (music_state.status, music_state.track)
+    if key != _music_last_status[0]:
+        _music_last_status[0] = key
+        socketio.start_background_task(_stream_mute_then_broadcast, _music_mute_status())
     socketio.emit('music_state', _music_state_dict(_music_songs() if include_songs else None),
                   namespace='/music')
 
@@ -1557,7 +1567,7 @@ def stream_mute_worker():
         socketio.sleep(1.0)
         before = stream_mute.muted_by_us
         try:
-            stream_mute.tick(music_state.status)
+            stream_mute.tick(_music_mute_status())
         except Exception:
             traceback.print_exc()
         if stream_mute.muted_by_us != before:
@@ -1578,7 +1588,7 @@ def route_music_stream_mute():
             pass
         save_settings()
         if music_state.status == 'playing':
-            socketio.start_background_task(_stream_mute_then_broadcast, 'playing')
+            socketio.start_background_task(_stream_mute_then_broadcast, _music_mute_status())
     try:
         inputs, err = stream_mute.audio_inputs(), ''
     except Exception as e:
@@ -1613,6 +1623,22 @@ def route_music_upload():
     _music_broadcast(include_songs=True)
     return flask.jsonify({'saved': saved, 'skipped': skipped, 'songs': _music_songs()})
 
+@app.route('/music/meta', methods=['POST'])
+@flask_login.login_required
+def route_music_meta():
+    """Edit a song: {file, title, artist, stream_ok}."""
+    d = flask.request.get_json(silent=True) or {}
+    name = d.get('file', '')
+    safe = music.safe_filename(name)
+    if not safe or safe != name or not os.path.isfile(os.path.join(_music_folder(), safe)):
+        return flask.jsonify({'error': 'not found'}), 404
+    music.update_meta(_music_folder(), safe, title=d.get('title'), artist=d.get('artist'),
+                      stream_ok=d.get('stream_ok'))
+    _music_last_status[0] = None                 # re-evaluate the stream mute for the playing song
+    _music_broadcast(include_songs=True)
+    return flask.jsonify({'ok': True, 'songs': _music_songs()})
+
+
 @app.route('/music/delete', methods=['POST'])
 @flask_login.login_required
 def route_music_delete():
@@ -1623,6 +1649,7 @@ def route_music_delete():
     if music_state.track == safe:
         music_state.command('stop')
     os.remove(os.path.join(_music_folder(), safe))
+    music.forget_meta(_music_folder(), safe)
     _music_broadcast(include_songs=True)
     return flask.jsonify({'songs': _music_songs()})
 
@@ -1652,6 +1679,12 @@ def ws_music_report(d=None):
     if flask.request.sid != music_state.speaker_sid:
         return
     ended = music_state.report(d or {})
+    # Learn a song's length from the player when its tags don't say
+    if music_state.track and music_state.duration:
+        song = next((x for x in _music_songs() if x['file'] == music_state.track), None)
+        if song and not song.get('duration'):
+            music.update_meta(_music_folder(), music_state.track, duration=music_state.duration)
+            _music_broadcast(include_songs=True)
     if ended:
         _music_broadcast()
     else:

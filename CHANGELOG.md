@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.27
+
+### Added
+- **Song details**: Music tab -> *Edit songs...* -> tap a song to edit its
+  title and artist (saved in `music/songs.json` and written into the file's
+  own tags) and mark it **OK on stream**.
+- **OK on stream**: the stream isn't muted while that song plays - for
+  recordings you know are public domain or licensed (e.g. a U.S. military
+  band recording of the national anthem). Shown as a green tag on the song
+  and "STREAM LIVE - SONG OK ON STREAM" while it plays.
+- **Song length** on every song (read from the file; learned from the player
+  the first time a file without a readable length is played).
+
 ## 0.2.26
 
 ### Added

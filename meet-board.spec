@@ -31,6 +31,7 @@ if sys.platform == 'win32':
 hidden = (
     collect_submodules('hytek_parser')
     + collect_submodules('engineio.async_drivers')
+    + collect_submodules('mutagen')          # song tags + length; formats load on demand
     + ['engineio.async_drivers.threading', 'simple_websocket', 'serial.tools.list_ports']
 )
 
