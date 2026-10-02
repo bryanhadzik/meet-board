@@ -129,6 +129,7 @@
             <div class="st"><span>Bytes total</span><b id="ser_bytes">-</b></div>
             <div class="st"><span>CTS records</span><b id="ser_recs">-</b></div>
             <div class="st"><span>Records / sec</span><b id="ser_rps">-</b></div>
+            <div class="st"><span>Clean CTS records</span><b id="ser_valid">-</b></div>
           </div>
           <div class="chans" id="ser_chans"></div>
           <div class="dec">
@@ -148,6 +149,27 @@
             <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records: raw bytes and what they mean</div>
             <pre id="ser_recent">-</pre>
           </details>
+          <div class="dec" id="ser_fmtbox">
+            <h4>Serial format <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; CTS consoles normally send 9600-8N1; some are set differently</span></h4>
+            <div class="btnrow" style="margin-top:0">
+              <select id="ser_fmt" class="form-control" style="width:auto;display:inline-block" onchange="serSetFmt(this.value)"></select>
+              <button class="btn btn-primary" type="button" id="ser_auto" onclick="serAuto()">Find the right format</button>
+              <span id="ser_automsg"></span>
+            </div>
+            <table class="dect" id="ser_autotab" style="display:none;margin-top:6px">
+              <thead><tr><th>Format</th><th>Bytes</th><th>Records</th><th>Clean CTS records</th></tr></thead><tbody></tbody>
+            </table>
+            <div style="font-size:12px;color:#5d7379;margin-top:4px">Find the right format tries each setting for 5 s (about 45 s total) with
+              the console on, and keeps the one whose data decodes cleanly. The boards may flicker while it runs.</div>
+          </div>
+          <div class="dec">
+            <h4>Raw capture <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; record the console feed to a file to send in or replay</span></h4>
+            <div class="btnrow" style="margin-top:0">
+              <button class="btn btn-default" type="button" id="ser_capbtn" onclick="serCapture(30)">Record 30 s</button>
+              <span id="ser_capmsg"></span>
+            </div>
+            <div id="ser_caplist" style="font-size:13px;margin-top:4px"></div>
+          </div>
           <div class="btnrow">
             <button class="btn btn-default" type="button" onclick="fetch('/api/serial/reset',{method:'POST'}).then(serPoll)">Reset counters</button>
             <span id="ser_ports"></span>
@@ -182,6 +204,12 @@
               $('ser_bytes').textContent = d.bytes_total.toLocaleString();
               $('ser_recs').textContent = d.records_total.toLocaleString();
               $('ser_rps').textContent = d.records_per_sec;
+              $('ser_valid').textContent = d.valid_pct == null ? '-' : d.valid_pct + '%';
+              var sel = $('ser_fmt');
+              if (sel.options.length !== (d.serial_formats || []).length){
+                sel.innerHTML = (d.serial_formats || []).map(function(f){ return '<option value="' + f + '">' + f + (f === '9600-8N1' ? ' (CTS default)' : '') + '</option>'; }).join('');
+              }
+              if (!serAutoRunning && document.activeElement !== sel) sel.value = d.serial_format;
               var named = d.channels.filter(function(c){ return !/^ch /.test(c.name); });
               var other = d.channels.filter(function(c){ return /^ch /.test(c.name); }).reduce(function(t, c){ return t + c.n; }, 0);
               $('ser_chans').innerHTML = d.channels.length ? 'Channels seen: ' + named.map(function(c){
@@ -217,6 +245,41 @@
             }).catch(function(){ $('ser_pill').className = 'pill bad'; $('ser_pill').textContent = 'OFFLINE';
                                  $('ser_hint').textContent = 'Can\'t reach meet-board.'; });
           };
+          var serAutoRunning = false;
+          window.serSetFmt = function(f){
+            fetch('/api/serial/format', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({format:f})}).then(serPoll);
+          };
+          function autoShow(a){
+            serAutoRunning = a.running;
+            $('ser_auto').disabled = a.running;
+            $('ser_auto').textContent = a.running ? 'Searching...' : 'Find the right format';
+            $('ser_automsg').textContent = a.message || '';
+            var tab = $('ser_autotab');
+            tab.style.display = a.results && a.results.length ? '' : 'none';
+            tab.querySelector('tbody').innerHTML = (a.results || []).map(function(r){
+              return '<tr><td class="m">' + r.format + '</td><td class="m">' + r.bytes + '</td><td class="m">' + r.records +
+                     '</td><td class="m"><b>' + r.valid_pct + '%</b>' + (r.error ? ' <span style="color:#c0392b">' + r.error + '</span>' : '') + '</td></tr>';
+            }).join('');
+            if (a.running) setTimeout(function(){ fetch('/api/serial/autodetect').then(function(r){ return r.json(); }).then(autoShow); }, 1000);
+          }
+          window.serAuto = function(){
+            fetch('/api/serial/autodetect', {method:'POST'}).then(function(r){ return r.json(); }).then(autoShow);
+          };
+          function capShow(c){
+            var st = c.status;
+            $('ser_capbtn').disabled = !!st;
+            $('ser_capmsg').textContent = st ? 'Recording... ' + st.bytes + ' bytes, ' + Math.ceil(st.seconds_left) + ' s left'
+                                             : (c.last ? 'Saved ' + c.last : '');
+            $('ser_caplist').innerHTML = (c.files || []).length ? 'Captures: ' + c.files.map(function(f){
+              return '<a href="/api/serial/captures/' + f + '">' + f + '</a>'; }).join(' &middot; ') : '';
+            if (st) setTimeout(function(){ fetch('/api/serial/capture').then(function(r){ return r.json(); }).then(capShow); }, 1000);
+          }
+          window.serCapture = function(sec){
+            fetch('/api/serial/capture', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({seconds:sec})})
+              .then(function(r){ return r.json(); }).then(capShow);
+          };
+          fetch('/api/serial/autodetect').then(function(r){ return r.json(); }).then(autoShow).catch(function(){});
+          fetch('/api/serial/capture').then(function(r){ return r.json(); }).then(capShow).catch(function(){});
           serPoll(); setInterval(serPoll, 1000);
         })();
         </script>

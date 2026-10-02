@@ -42,6 +42,8 @@ settings_file = app_paths.data_path('settings.json')
 settings = {
     'meet_title': '',
     'serial_port': 'COM1',
+    'serial_format': '9600-8N1',   # baud-databits/parity/stopbits; Settings -> Serial input -> Find the right format
+    'update_interval': 1.0,        # seconds between board updates from the console
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
@@ -295,6 +297,7 @@ def hex_to_digit(c):
     return ("%i" % c)
 
 update={}
+_last_emit = 0.0
 next_update = datetime.datetime.now()
 last_event_sent = (1,1)
 
@@ -409,7 +412,12 @@ def parse_line(l, out = None):
         
     finally:
         #Output anything we got
-        if "current_event" in update or "running_time" in update:
+        # Batch the console's ~100 records/s into one board update per
+        # update_interval (default 1 s); values just accumulate in `update`.
+        global _last_emit
+        if ("current_event" in update or "running_time" in update) and \
+                time.time() - _last_emit >= float(settings.get('update_interval', 1.0) or 0):
+            _last_emit = time.time()
             race_fsm.evaluate_update(channel_running, update)
             update["race_state"] = race_fsm.state_name
             socketio.emit('update_scoreboard', update, namespace='/scoreboard')
@@ -418,6 +426,22 @@ def parse_line(l, out = None):
         if (datetime.datetime.now() > next_update) and debug_console:
             next_update = datetime.datetime.now() + datetime.timedelta(seconds=0.2)
             ap.render()
+
+
+SERIAL_FORMATS = ['9600-8N1', '9600-8E1', '9600-8O1', '9600-8N2', '9600-7E1', '9600-7O1',
+                  '19200-8N1', '4800-8N1', '38400-8N1']
+
+
+def serial_params(fmt):
+    """'9600-8E1' -> pyserial kwargs."""
+    m = re.match(r'^(\d+)-([78])([NEO])([12])$', fmt or '')
+    if not m:
+        m = re.match(r'^(\d+)-([78])([NEO])([12])$', '9600-8N1')
+    baud, bits, par, stop = m.groups()
+    return {'baudrate': int(baud),
+            'bytesize': {'7': serial.SEVENBITS, '8': serial.EIGHTBITS}[bits],
+            'parity': {'N': serial.PARITY_NONE, 'E': serial.PARITY_EVEN, 'O': serial.PARITY_ODD}[par],
+            'stopbits': {'1': serial.STOPBITS_ONE, '2': serial.STOPBITS_TWO}[stop]}
 
 
 def main_thread_worker():
@@ -481,18 +505,20 @@ def main_thread_worker():
         last_error = None
         while True:
             port = settings['serial_port']
+            fmt = settings.get('serial_format') or '9600-8N1'
             if port != serial_mon.port:
                 serial_mon.reset(port)          # new port: start the counters over
             serial_mon.opening(port)
             try:
                 if not port:
                     raise serial.SerialException('no serial port selected')
-                with serial.Serial(port, 9600, timeout=0) as f:
-                    print("Reading CTS data from %s" % port)
+                with serial.Serial(port, timeout=0, **serial_params(fmt)) as f:
+                    print("Reading CTS data from %s (%s)" % (port, fmt))
                     serial_mon.opened(port)
                     last_error = None
                     l = []
-                    while port == settings['serial_port']:
+                    while port == settings['serial_port'] and fmt == (settings.get('serial_format') or '9600-8N1'):
+                        serial_mon.poll_capture()
                         c = f.read(1)
                         if c:
                             c=c[0]
@@ -510,7 +536,7 @@ def main_thread_worker():
                 if str(e) != last_error:
                     print("Serial port %s unavailable (%s); retrying every 5 s" % (port, e))
                     last_error = str(e)
-                socketio.sleep(5.0)
+                socketio.sleep(0.5 if _autodetect.get('running') else 5.0)
 
 # flask-login
 login_manager = flask_login.LoginManager()
@@ -2049,6 +2075,8 @@ def route_api_serial():
                          for p in serial.tools.list_ports.comports()]
     except Exception:
         snap['ports'] = []
+    snap['serial_format'] = settings.get('serial_format') or '9600-8N1'
+    snap['serial_formats'] = SERIAL_FORMATS
     snap['race_state'] = race_fsm.state_name
     snap['event'], snap['heat'] = last_event_sent[0], last_event_sent[1]
     snap['event_name'] = event_info.get_event_name(last_event_sent[0])
@@ -2076,6 +2104,101 @@ def route_api_serial():
         'scores': {k: (v or '').strip() for k, v in team_scores.items()},
     }
     return flask.jsonify(snap)
+
+
+_autodetect = {'running': False, 'results': [], 'message': ''}
+
+
+def _autodetect_worker():
+    """Try each serial format for a few seconds; keep the one whose data looks
+    most like real CTS records."""
+    original = settings.get('serial_format') or '9600-8N1'
+    results = []
+    try:
+        for fmt in SERIAL_FORMATS:
+            _autodetect['message'] = 'Trying %s...' % fmt
+            settings['serial_format'] = fmt
+            socketio.sleep(1.0)                      # reader reopens with the new format
+            serial_mon.reset(serial_mon.port, serial_mon.state, serial_mon.source)
+            socketio.sleep(4.0)
+            snap = serial_mon.snapshot()
+            results.append({'format': fmt, 'bytes': snap['bytes_total'], 'records': snap['records_total'],
+                            'valid_pct': snap['valid_pct'] or 0, 'state': snap['state'], 'error': snap['error']})
+            _autodetect['results'] = list(results)
+        good = [r for r in results if r['records'] >= 50]
+        best = max(good, key=lambda r: (r['valid_pct'], r['records'])) if good else None
+        if best and best['valid_pct'] >= 75:
+            settings['serial_format'] = best['format']
+            save_settings()
+            _autodetect['message'] = 'Found it: %s (%.0f%% clean CTS records). Saved.' % (best['format'], best['valid_pct'])
+        else:
+            settings['serial_format'] = original
+            _autodetect['message'] = ('No format gave clean CTS data (best: %s at %.0f%%). The signal may be inverted '
+                                      'or not a CTS scoreboard feed - record a capture and send it in. Kept %s.'
+                                      % ((best or {}).get('format', '-'), (best or {}).get('valid_pct', 0), original))
+    finally:
+        serial_mon.reset(serial_mon.port, serial_mon.state, serial_mon.source)
+        _autodetect['running'] = False
+
+
+@app.route('/api/serial/autodetect', methods=['GET', 'POST'])
+@flask_login.login_required
+def route_api_serial_autodetect():
+    if flask.request.method == 'POST' and not _autodetect['running']:
+        if in_file:
+            return flask.jsonify({'ok': False, 'message': 'Replaying a file; nothing to detect.'})
+        _autodetect.update(running=True, results=[], message='Starting...')
+        socketio.start_background_task(_autodetect_worker)
+    return flask.jsonify(dict(_autodetect, formats=SERIAL_FORMATS, current=settings.get('serial_format')))
+
+
+@app.route('/api/serial/format', methods=['POST'])
+@flask_login.login_required
+def route_api_serial_format():
+    fmt = (flask.request.get_json(silent=True) or flask.request.form or {}).get('format', '')
+    if fmt not in SERIAL_FORMATS:
+        return flask.jsonify({'ok': False, 'message': 'unknown format'}), 400
+    settings['serial_format'] = fmt
+    save_settings()
+    serial_mon.reset(serial_mon.port, serial_mon.state, serial_mon.source)
+    return flask.jsonify({'ok': True, 'format': fmt})
+
+
+def _captures_dir():
+    d = app_paths.data_path('captures')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+_capture_last = {'file': ''}
+
+
+def _save_capture(data):
+    name = 'serial-%s-%s.bin' % (time.strftime('%Y%m%d-%H%M%S'), (settings.get('serial_format') or '').replace('-', '_'))
+    with open(os.path.join(_captures_dir(), name), 'wb') as f:
+        f.write(data)
+    _capture_last['file'] = name
+    print('Saved serial capture %s (%d bytes)' % (name, len(data)))
+
+
+@app.route('/api/serial/capture', methods=['GET', 'POST'])
+@flask_login.login_required
+def route_api_serial_capture():
+    if flask.request.method == 'POST':
+        secs = max(5, min(300, int((flask.request.get_json(silent=True) or {}).get('seconds', 30))))
+        _capture_last['file'] = ''
+        serial_mon.start_capture(secs, _save_capture)
+    serial_mon.poll_capture()
+    files = sorted((n for n in os.listdir(_captures_dir()) if n.endswith('.bin')), reverse=True)[:10]
+    return flask.jsonify({'status': serial_mon.capture_status(), 'last': _capture_last['file'], 'files': files})
+
+
+@app.route('/api/serial/captures/<name>')
+@flask_login.login_required
+def route_api_serial_capture_file(name):
+    if not re.match(r'^serial-[\w-]+\.bin$', name):
+        return flask.abort(404)
+    return flask.send_from_directory(_captures_dir(), name, as_attachment=True)
 
 
 @app.route('/api/serial/reset', methods=['POST'])

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.21
+
+### Added
+- **Clean CTS records %** on the Serial input card, and a "garbled" verdict
+  when the data arrives but doesn't decode (wrong serial format or inverted
+  signal) - so bad decodes are flagged instead of shown as if they were real.
+- **Serial format** picker (9600-8N1 default, 8E1, 8O1, 8N2, 7E1, 7O1, 19200,
+  4800, 38400) and **Find the right format**: tries each for 5 s with the
+  console on and keeps the one that decodes cleanly.
+- **Raw capture**: record 30 s of the console feed to a `.bin` file (in a
+  `captures` folder next to the exe) to download, send in, or replay with
+  `--in`.
+
+### Changed
+- Board updates from the console are batched to once per second
+  (`update_interval` in settings.json) instead of on every record.
+
 ## 0.2.20
 
 ### Added

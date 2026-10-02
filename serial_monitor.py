@@ -14,6 +14,23 @@ def channel_of(first_byte):
     return ((first_byte & 0x3E) >> 1) ^ 0x1F
 
 
+def is_valid_record(rec):
+    """A real CTS record: a start byte (top bit set) then 1-8 data bytes, each
+    (position << 4 | digit) with distinct positions 0-7 in rising order.
+    Garbled serial data breaks this almost every time."""
+    if not rec or not (rec[0] & 0x80) or len(rec) < 2 or len(rec) > 9:
+        return False
+    last = -1
+    for b in rec[1:]:
+        if b & 0x80:
+            return False
+        p = (b >> 4) & 0x0F
+        if p > 7 or p <= last:
+            return False
+        last = p
+    return True
+
+
 class SerialMonitor:
     def __init__(self):
         self._lock = threading.Lock()
@@ -29,6 +46,10 @@ class SerialMonitor:
             self.bytes_total = 0
             self.high_bytes = 0           # bytes with the top bit set (CTS record starts)
             self.records_total = 0
+            self.valid_total = 0          # records shaped like real CTS data
+            self.capture = None           # bytearray while recording raw bytes
+            self.capture_until = 0
+            self.capture_done = None      # callback(bytes) when a capture finishes
             self.by_channel = collections.Counter()
             self.last_byte_at = None
             self.last_record_at = None
@@ -59,9 +80,37 @@ class SerialMonitor:
             self.port, self.state, self.source, self.error = name, 'replay', 'replay', ''
             self.opened_at = self.opened_at or time.time()
 
+    def start_capture(self, seconds, done):
+        with self._lock:
+            self.capture = bytearray()
+            self.capture_until = time.time() + seconds
+            self.capture_done = done
+
+    def capture_status(self):
+        with self._lock:
+            if self.capture is None:
+                return None
+            return {'bytes': len(self.capture), 'seconds_left': max(0, round(self.capture_until - time.time(), 1))}
+
+    def _finish_capture_locked(self):
+        data, cb = bytes(self.capture), self.capture_done
+        self.capture, self.capture_done = None, None
+        return data, cb
+
+    def poll_capture(self):
+        """Finish a capture whose time is up (called from the reader loop and the API)."""
+        with self._lock:
+            if self.capture is None or time.time() < self.capture_until:
+                return
+            data, cb = self._finish_capture_locked()
+        if cb:
+            cb(data)
+
     def byte(self, c):
         now = time.time()
         with self._lock:
+            if self.capture is not None:
+                self.capture.append(c)
             self.bytes_total += 1
             if c & 0x80:
                 self.high_bytes += 1
@@ -80,6 +129,8 @@ class SerialMonitor:
         ch = channel_of(rec[0])
         with self._lock:
             self.records_total += 1
+            if is_valid_record(rec):
+                self.valid_total += 1
             self.by_channel[ch] += 1
             self.last_record_at = now
             if ch == 0:
@@ -106,6 +157,7 @@ class SerialMonitor:
                 'attempts': self.attempts,
                 'open_for': round(now - self.opened_at, 1) if self.opened_at and self.state in ('open', 'replay') else None,
                 'bytes_total': self.bytes_total, 'records_total': self.records_total,
+                'valid_pct': round(100.0 * self.valid_total / self.records_total, 1) if self.records_total else None,
                 'bytes_per_sec': round(bps, 1), 'records_per_sec': round(rps, 1),
                 'idle_seconds': round(idle, 1) if idle is not None else None,
                 'clock_age': round(now - self.last_clock_at, 1) if self.last_clock_at else None,
@@ -139,6 +191,10 @@ class SerialMonitor:
         if s['bytes_total'] > 200 and not s['records_total']:
             return 'bad', ('Bytes are arriving but none look like CTS scoreboard data. Wrong device on this port, '
                            'or the wrong baud rate (CTS is 9600).')
+        if s['records_total'] > 100 and s['valid_pct'] is not None and s['valid_pct'] < 75:
+            return 'bad', ('Data is arriving but it is garbled: only %.0f%% of records look like real CTS data, so the '
+                           'decoded values below are wrong. Usually the serial format (parity / stop bits / baud) or an '
+                           'inverted signal. Click "Find the right format" below.' % s['valid_pct'])
         if s['bytes_total'] > 200 and s['high_bit_pct'] is not None and s['high_bit_pct'] < 3:
             return 'warn', ('Bytes are arriving but very few look like CTS record starts (%.1f%%). Possible noise, '
                             'wrong baud rate, or a ground (pin 5) problem.' % s['high_bit_pct'])
