@@ -85,7 +85,8 @@ class SerialMonitor:
             if ch == 0:
                 self.last_clock_at = now
             self._rec_rate.append(now)
-            self.recent.append({'t': round(now, 2), 'ch': ch, 'hex': ' '.join('%02X' % b for b in rec)})
+            self.recent.append({'t': round(now, 2), 'ch': ch, 'hex': ' '.join('%02X' % b for b in rec),
+                                'text': decode_record(rec)})
 
     # ---- read side
     def snapshot(self):
@@ -145,3 +146,53 @@ class SerialMonitor:
 
 
 monitor = SerialMonitor()
+
+
+# ---------------------------------------------------------------- per-record decode (display only)
+def _digit(b):
+    d = (b & 0x0F) ^ 0x0F
+    return str(d) if d <= 9 else ' '
+
+
+def _time_from(pos):
+    """CTS time digits at positions 2..7 -> 'm:ss.hh' (blanks kept as spaces)."""
+    t = ''.join(pos.get(i, '?') for i in (2, 3))
+    t += ':' if t.strip() else ' '
+    t += ''.join(pos.get(i, '?') for i in (4, 5))
+    t += '.' if t.strip() else ' '
+    t += ''.join(pos.get(i, '?') for i in (6, 7))
+    return t.strip()
+
+
+def decode_record(rec):
+    """One CTS record in words, e.g. 'lane 4: place 2, time 1:05.23'.
+    Each data byte is (position << 4) | inverted digit; a record may carry
+    only some positions, so missing ones show as '?'."""
+    if not rec:
+        return ''
+    c = rec[0]
+    ch = channel_of(c)
+    if c & 0x01:
+        return 'ch %d: display format/control' % ch
+    pos = {(b >> 4) & 0x0F: _digit(b) for b in rec[1:]}
+    if 1 <= ch <= 10:
+        if c & 0x40:
+            return 'lane %d: running' % ch
+        bits = []
+        if 1 in pos:
+            bits.append('place ' + (pos[1].strip() or '-'))
+        if any(i in pos for i in range(2, 8)):
+            bits.append('time ' + (_time_from(pos) or 'blank'))
+        if 0 in pos and not bits:
+            bits.append('lane digit ' + (pos[0].strip() or '-'))
+        return 'lane %d: %s' % (ch, ', '.join(bits) or 'no digits')
+    if ch == 0:
+        return 'race time ' + (_time_from(pos) or 'blank')
+    if ch == 12:
+        ev = ''.join(pos.get(i, ' ') for i in range(3)).strip()
+        ht = ''.join(pos.get(i, ' ') for i in range(5, 8)).strip()
+        return 'event %s, heat %s' % (ev or '-', ht or '-')
+    if ch in (0x14, 0x15):
+        return 'team scores (%s): %s' % ('home + guest 1' if ch == 0x14 else 'guest 2 + guest 3',
+                                         ''.join(pos.get(i, ' ') for i in range(8)).strip() or 'blank')
+    return 'ch %d: %s' % (ch, ''.join(pos.get(i, ' ') for i in range(8)).strip() or 'blank')

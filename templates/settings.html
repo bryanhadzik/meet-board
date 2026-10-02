@@ -100,6 +100,16 @@
           .serc pre .hb { color:#f0c96a; font-weight:700; }
           .serc .chans { font-size:13px; color:#22343a; margin-top:6px; }
           .serc .chans span { display:inline-block; background:#e6eef0; border-radius:6px; padding:2px 7px; margin:2px 4px 2px 0; font-family:Consolas,monospace; }
+          .serc .dec { margin-top:12px; }
+          .serc .dec h4 { font:700 13px/1 "Segoe UI",system-ui,sans-serif; letter-spacing:.1em; color:#5d7379; margin:0 0 6px; text-transform:uppercase; }
+          .serc table.dect { border-collapse:collapse; width:100%; font-size:14px; }
+          .serc table.dect th { text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#5d7379; padding:4px 8px; border-bottom:1px solid #c9d4d7; }
+          .serc table.dect td { padding:4px 8px; border-bottom:1px solid #edf2f3; }
+          .serc table.dect td.m { font-family:Consolas,"Cascadia Mono",monospace; }
+          .serc table.dect tr.run td.m.t { color:#1f8a4c; font-weight:700; }
+          .serc table.dect tr.empty td { color:#9fb0b4; }
+          .serc .tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; border-radius:4px; padding:1px 6px; background:#e6eef0; color:#22343a; }
+          .serc .tag.run { background:#1f8a4c; color:#fff; } .serc .tag.done { background:#0a6b7c; color:#fff; }
           .serc details { margin-top:10px; } .serc summary { cursor:pointer; color:#0a6b7c; font-weight:600; }
           .serc .btnrow { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:13px; color:#5d7379; }
         </style>
@@ -121,13 +131,21 @@
             <div class="st"><span>Records / sec</span><b id="ser_rps">-</b></div>
           </div>
           <div class="chans" id="ser_chans"></div>
+          <div class="dec">
+            <h4>Decoded values <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; what meet-board understood from the console</span></h4>
+            <table class="dect">
+              <thead><tr><th>Lane</th><th>Status</th><th>Place</th><th>Time</th><th>Seed</th><th>Swimmer (start list)</th><th>Team</th></tr></thead>
+              <tbody id="ser_dec"></tbody>
+            </table>
+            <div class="chans" id="ser_scores" style="margin-top:6px"></div>
+          </div>
           <details id="ser_rawbox">
             <summary>Raw bytes and decoded records</summary>
             <div style="font-size:12px;color:#5d7379;margin-top:6px">Last 96 bytes, newest last. <span style="color:#b07a10;font-weight:700">Gold</span> bytes
               have the top bit set: each one starts a CTS record. A healthy stream has lots of them; all-gray
               bytes usually mean the wrong device or baud rate.</div>
             <pre id="ser_raw">-</pre>
-            <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records (channel: bytes)</div>
+            <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records: raw bytes and what they mean</div>
             <pre id="ser_recent">-</pre>
           </details>
           <div class="btnrow">
@@ -172,7 +190,26 @@
                 $('ser_raw').innerHTML = d.raw_hex.length ? d.raw_hex.map(function(h){
                     return parseInt(h,16) & 0x80 ? '<span class="hb">' + h + '</span>' : h; }).join(' ') : '(nothing yet)';
                 $('ser_recent').textContent = d.recent.length ? d.recent.map(function(r){
-                    return ('ch ' + r.ch).padEnd(6) + ': ' + r.hex; }).join('\n') : '(no records yet)';
+                    return r.hex.padEnd(27) + '  ' + (r.text || ''); }).join('\n') : '(no records yet)';
+              }
+              if (d.decoded){
+                var dc = d.decoded, rows = [];
+                function seedTxt(v){ if (v == null || v === '') return ''; var t = +v, m = Math.floor(t / 60), sec = t - m * 60;
+                  return m ? m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(2) : sec.toFixed(2); }
+                function esc(x){ return String(x == null ? '' : x).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+                dc.lanes.forEach(function(l){
+                  var has = l.time || l.place || l.running || l.name;
+                  if (!has && l.lane > 8) return;
+                  var st = l.running ? '<span class="tag run">RUNNING</span>' : (l.time ? '<span class="tag done">FINISHED</span>' : '<span class="tag">-</span>');
+                  rows.push('<tr class="' + (l.running ? 'run' : '') + (has ? '' : ' empty') + '"><td class="m">' + l.lane + '</td><td>' + st +
+                    '</td><td class="m">' + esc(l.place || '') + '</td><td class="m t">' + esc(l.running ? (dc.running_time || '') : (l.time || '')) +
+                    '</td><td class="m">' + seedTxt(l.seed) + '</td><td>' + esc(l.name || '') + '</td><td class="m">' + esc(l.team || '') + '</td></tr>');
+                });
+                $('ser_dec').innerHTML = rows.join('');
+                var sc = dc.scores || {}, parts = [];
+                [['score_home','Home'],['score_guest1','Guest 1'],['score_guest2','Guest 2'],['score_guest3','Guest 3']].forEach(function(p){
+                  if (sc[p[0]]) parts.push('<span>' + p[1] + ' ' + esc(sc[p[0]]) + '</span>'); });
+                $('ser_scores').innerHTML = parts.length ? 'Team scores: ' + parts.join('') : '';
               }
               $('ser_ports').textContent = d.ports && d.ports.length
                 ? 'Ports on this PC: ' + d.ports.map(function(p){ return p.device + (p.description && p.description !== p.device ? ' (' + p.description + ')' : ''); }).join(', ')

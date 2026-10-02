@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.20
+
+### Added
+- Serial input card: **Decoded values** table - what meet-board understood
+  from the console for each lane (running / finished, place, time) next to
+  the start-list swimmer, team and seed, plus team scores.
+- Every raw record in *Latest records* is translated, e.g.
+  `BE 70 6A 5A 40 30 20  race time 5.5`, `lane 4: place 2, time 1:05.23`.
+
 ## 0.2.19
 
 ### Changed

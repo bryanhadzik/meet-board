@@ -2054,6 +2054,27 @@ def route_api_serial():
     snap['event_name'] = event_info.get_event_name(last_event_sent[0])
     # Race time as the console last sent it (zero-filled, like the boards show it)
     snap['running_time'] = _ZERO_FILL.sub(r'\g<1>0', running_time or '').strip()
+    # What the parser has decoded so far: the values the boards are showing
+    e, h = last_event_sent
+    lanes = []
+    for i in range(1, 11):
+        t = (_live_race.get('lane_time%d' % i) or '').strip()
+        lanes.append({
+            'lane': i,
+            'running': bool(_live_race.get('lane_running%d' % i)),
+            'place': (_live_race.get('lane_place%d' % i) or '').strip(),
+            'time': t,
+            'name': event_info.get_display_string(e, h, i),
+            'team': event_info.get_team_code(e, h, i),
+            'seed': event_info.get_seed_time(e, h, i),
+        })
+    snap['decoded'] = {
+        'running_time': snap['running_time'],
+        'event': e, 'heat': h,
+        'race_state': race_fsm.state_name,
+        'lanes': lanes,
+        'scores': {k: (v or '').strip() for k, v in team_scores.items()},
+    }
     return flask.jsonify(snap)
 
 
