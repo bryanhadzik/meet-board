@@ -469,6 +469,7 @@ function render(){
 var connected = false;
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
     if (window.mbAutoReload) window.mbAutoReload(socket);
+    if (window.mbBlackout) window.mbBlackout(socket);
 socket.on('connect', function(){ connected = true; render(); });
 socket.on('disconnect', function(){ connected = false; render(); });
 socket.on('update_scoreboard', function(u){

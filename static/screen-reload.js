@@ -20,3 +20,22 @@ window.mbAutoReload = function (socket) {
   });
   socket.on('reload', safeReload);
 };
+
+/* Go black: a full-screen black cover on the TV pages (meet board, scoreboard)
+   while the server says so - the admin "Go black" button, or automatically
+   after a couple of hours with no meet running. It lifts by itself when a
+   race starts. The page keeps running underneath, so waking is instant.
+   Add ?noblack to a page's URL to opt that screen out. */
+window.mbBlackout = function (socket) {
+  if (/[?&]noblack\b/.test(location.search)) return;
+  var cover = document.createElement('div');
+  cover.id = 'mbBlack';
+  cover.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2147483647;display:none;cursor:none';
+  function attach() { (document.body || document.documentElement).appendChild(cover); }
+  if (document.body) attach(); else document.addEventListener('DOMContentLoaded', attach);
+  socket.on('blackout', function (d) {
+    var on = !!(d && d.black);
+    cover.style.display = on ? 'block' : 'none';
+    document.documentElement.style.cursor = on ? 'none' : '';
+  });
+};

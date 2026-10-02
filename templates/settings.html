@@ -156,6 +156,22 @@
               <span id="ser_ratemsg" style="font-size:13px;color:#5d7379">Faster makes the race clock tick smoother; slower is lighter on the PC and network.</span>
             </div>
           </div>
+          <div class="dec">
+            <h4>Go black <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; blank the meet board and scoreboard TVs when no meet is running</span></h4>
+            <div class="btnrow" style="margin-top:0">
+              <label style="font-weight:500;margin:0"><input type="checkbox" id="bk_auto" onchange="bkSave()"> Go black automatically after</label>
+              <select id="bk_hours" class="form-control" style="width:auto;display:inline-block" onchange="bkSave()">
+                <option value="0.5">30 min</option><option value="1">1 hour</option><option value="2">2 hours</option>
+                <option value="3">3 hours</option><option value="4">4 hours</option><option value="8">8 hours</option>
+              </select>
+              <span style="font-size:13px;color:#5d7379">with no meet activity</span>
+            </div>
+            <div id="bk_msg" style="font-size:13px;color:#5d7379;margin-top:6px">-</div>
+            <div style="font-size:12px;color:#5d7379;margin-top:4px">Meet activity = a race starting or finishing, the race clock running,
+              lane times or places changing, or the event/heat changing. The TVs wake by themselves on the next race.
+              "Go black" in the tab bar blanks them right away (that one stays black until you click wake).
+              The OBS overlay is never blacked out. Add <code>?noblack</code> to a TV's URL to keep that screen on.</div>
+          </div>
           <div class="dec" id="ser_fmtbox">
             <h4>Serial format <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; CTS consoles normally send 9600-8N1; some are set differently</span></h4>
             <div class="btnrow" style="margin-top:0">
@@ -1151,6 +1167,34 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
         integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
         crossorigin="anonymous"></script>
+<script>
+(function(){
+  function fmt(sec){ sec=Math.max(0,sec|0); var h=Math.floor(sec/3600), m=Math.floor(sec%3600/60);
+    return h ? h+' h '+m+' min' : m+' min'; }
+  function show(d){
+    var a=document.getElementById('bk_auto'), h=document.getElementById('bk_hours');
+    if (document.activeElement!==a) a.checked=!!d.auto;
+    if (document.activeElement!==h){
+      var v=String(d.after_hours);
+      if (![].some.call(h.options,function(o){return o.value===v;})) h.insertAdjacentHTML('beforeend','<option value="'+v+'">'+v+' hours</option>');
+      h.value=v; }
+    var msg;
+    if (d.black) msg = d.reason==='manual' ? 'TVs are black now (Go black button). Click wake in the tab bar to turn them back on.'
+                                           : 'TVs are black now: no meet activity for '+fmt(d.idle_seconds)+'. They wake on the next race.';
+    else msg = 'TVs are on. Last meet activity '+fmt(d.idle_seconds)+' ago ('+d.last_activity+')' +
+               (d.black_in_seconds!=null ? '; going black in '+fmt(d.black_in_seconds)+' if nothing happens.' : '; auto black is off.');
+    document.getElementById('bk_msg').textContent=msg;
+  }
+  window.bkShow=show;
+  window.bkSave=function(){
+    fetch('/api/blackout',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({auto:document.getElementById('bk_auto').checked, hours:parseFloat(document.getElementById('bk_hours').value)})})
+      .then(function(r){return r.json();}).then(show);
+  };
+  function load(){ fetch('/api/blackout',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){}); }
+  load(); setInterval(load,15000);
+})();
+</script>
 </body>
 
 </html>

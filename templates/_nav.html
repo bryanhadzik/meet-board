@@ -11,6 +11,8 @@
   .mbnav .rl { margin:0 0 6px 8px; font:600 12px/1 "Segoe UI", system-ui, sans-serif; color:#0b1618; background:#d9a441;
                border:0; border-radius:6px; padding:7px 10px; cursor:pointer; }
   .mbnav .rl.done { background:#7fe0ab; }
+  .mbnav .bk { background:#2a3a3d; color:#e6eef0; }
+  .mbnav .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
 </style>
 <nav class="mbnav">
   <span class="brand">meet-board</span>
@@ -23,4 +25,24 @@
   <a href="/overlay/race?test" class="ext" target="_blank">Overlay &#8599;</a>
   <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
     onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
+  <button class="rl bk" id="mbBlackBtn" type="button" title="Blank the meet board and scoreboard TVs (the OBS overlay is not affected)">Go black</button>
 </nav>
+<script>
+(function(){
+  var b = document.getElementById('mbBlackBtn'), st = null;
+  function show(d){
+    st = d; if (window.bkShow) window.bkShow(d);
+    b.classList.toggle('on', !!d.black);
+    b.textContent = d.black ? (d.reason === 'auto' ? 'Screens black (idle) \u2014 wake' : 'Screens black \u2014 wake') : 'Go black';
+    b.title = d.black ? 'TVs are black. Click to wake them.' :
+      (d.auto && d.black_in_seconds != null ? 'Blank the TVs now. Otherwise they go black by themselves in ' +
+        Math.ceil(d.black_in_seconds/60) + ' min with no meet activity.' : 'Blank the meet board and scoreboard TVs');
+  }
+  function load(){ fetch('/api/blackout',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){}); }
+  b.onclick = function(){
+    fetch('/api/blackout',{method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({black: !(st && st.black)})}).then(function(r){return r.json();}).then(show);
+  };
+  load(); setInterval(load, 15000);
+})();
+</script>

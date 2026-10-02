@@ -35,6 +35,7 @@ import updater
 import obs_client
 import music
 import music_mute
+import blackout as blackout_mod
 from _version import __version__
 
 DEBUG = False
@@ -49,6 +50,9 @@ settings = {
     'music_obs_mute': False,       # mute chosen OBS audio sources while music plays
     'music_obs_inputs': [],
     'music_unmute_delay': 2.0,
+    'blackout_auto': True,
+    'blackout_after_hours': 2.0,
+    'blackout_manual': False,
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
@@ -128,10 +132,34 @@ def _emit_and_remember(event, *args, **kwargs):
                 if isinstance(v, str) and ':' in v:
                     v = args[0][k] = _ZERO_FILL.sub(r'\g<1>0', v)
                 _live_race[k] = v
+        try:
+            woke = screens_black.watch_update(args[0]) if screens_black else False
+        except Exception:
+            woke = False
+        res = _socketio_emit(event, *args, **kwargs)
+        if woke:
+            _blackout_broadcast()
+        return res
     return _socketio_emit(event, *args, **kwargs)
 
 
 socketio.emit = _emit_and_remember
+
+# Go black (see blackout.py); created once settings are loaded.
+screens_black = None
+_blackout_last = None
+
+
+def _blackout_broadcast(force=False):
+    """Tell every TV page whether to be black; only when it changes unless forced."""
+    global _blackout_last
+    if not screens_black:
+        return
+    st = screens_black.status()
+    if force or st['black'] != _blackout_last:
+        _blackout_last = st['black']
+        _socketio_emit('blackout', st, namespace='/scoreboard')
+        print('[screens] %s' % ('black (%s)' % st['reason'] if st['black'] else 'awake'))
 
 main_thread = None
 event_heat_info = [' ',' ',' ',' ',' ',' ',' ',' ']
@@ -963,6 +991,8 @@ def ws_scoreboard():
     if _live_race:
         flask_socketio.emit('update_scoreboard', dict(_live_race))   # just this client
     flask_socketio.emit('server_info', {'version': __version__, 'boot': BOOT_ID})
+    if screens_black:
+        flask_socketio.emit('blackout', screens_black.status())
 
 @socketio.on('next_heat', namespace='/scoreboard')
 def ws_next_heat(d):
@@ -1528,6 +1558,7 @@ def _music_songs():
     return music.list_songs(_music_folder())
 
 stream_mute = music_mute.StreamMute(obs, settings, lambda: save_settings())
+screens_black = blackout_mod.Blackout(settings, lambda: save_settings())
 _music_last_status = [None]
 
 
@@ -1559,6 +1590,34 @@ def _music_broadcast(include_songs=False):
 def _stream_mute_then_broadcast(status):
     stream_mute.music_changed(status)
     socketio.emit('music_state', _music_state_dict(), namespace='/music')   # badge shows the real OBS state
+
+
+def blackout_worker():
+    """Turns the TVs black once the meet has been idle long enough."""
+    while True:
+        socketio.sleep(5.0)
+        try:
+            _blackout_broadcast()
+        except Exception:
+            traceback.print_exc()
+
+
+@app.route('/api/blackout', methods=['GET', 'POST'])
+def route_api_blackout():
+    """GET: go-black state. POST {black} or {auto, hours} (admin only)."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        try:
+            if 'black' in d:
+                screens_black.set_manual(bool(d['black']))
+            if 'auto' in d or 'hours' in d:
+                screens_black.configure(auto=d.get('auto'), hours=d.get('hours'))
+        except (TypeError, ValueError):
+            return flask.jsonify({'error': 'bad value'}), 400
+        _blackout_broadcast(force=True)
+    return flask.jsonify(screens_black.status())
 
 
 def stream_mute_worker():
@@ -2711,6 +2770,7 @@ def main():
         socketio.start_background_task(target=scb_watch_worker)
         obs.start()   # connects in the background; retries every 5 s until OBS is up
         socketio.start_background_task(target=stream_mute_worker)
+        socketio.start_background_task(target=blackout_worker)
         socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
     except:
         traceback.print_exc()

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.28
+
+### Added
+- **Go black**: a *Go black* button in the admin tab bar blanks the meet
+  board and scoreboard TVs right away (click *wake* to bring them back).
+- **Auto go black**: the TVs also go black by themselves after 2 hours with
+  no meet activity (a race starting or finishing, the clock running, lane
+  times/places changing, the event or heat changing), and wake on their own
+  the moment activity comes back. On/off and the delay (30 min - 8 hours) are
+  on Settings -> Serial input -> Go black.
+- The OBS overlay is never blacked out. Add `?noblack` to a TV's URL to keep
+  that one screen on.
+
 ## 0.2.27
 
 ### Added
