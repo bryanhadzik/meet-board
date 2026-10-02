@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.23
+
+### Added
+- **Board update rate** drop-down on Settings -> Serial input: 1, 2, 4 or 10
+  per second, or every console update (~14/s on the Gen7). Saved; takes
+  effect immediately. Default stays 1 per second.
+
 ## 0.2.22
 
 ### Fixed

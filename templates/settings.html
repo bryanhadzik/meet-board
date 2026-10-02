@@ -149,6 +149,13 @@
             <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records: raw bytes and what they mean</div>
             <pre id="ser_recent">-</pre>
           </details>
+          <div class="dec">
+            <h4>Board update rate <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; how often console data is pushed to the meet boards and overlays</span></h4>
+            <div class="btnrow" style="margin-top:0">
+              <select id="ser_rate" class="form-control" style="width:auto;display:inline-block" onchange="serSetRate(this.value)"></select>
+              <span id="ser_ratemsg" style="font-size:13px;color:#5d7379">Faster makes the race clock tick smoother; slower is lighter on the PC and network.</span>
+            </div>
+          </div>
           <div class="dec" id="ser_fmtbox">
             <h4>Serial format <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; CTS consoles normally send 9600-8N1; some are set differently</span></h4>
             <div class="btnrow" style="margin-top:0">
@@ -210,6 +217,11 @@
                 sel.innerHTML = (d.serial_formats || []).map(function(f){ return '<option value="' + f + '">' + f.replace('-INV', ' inverted signal') + (f === '9600-8N1' ? ' (CTS default)' : '') + '</option>'; }).join('');
               }
               if (!serAutoRunning && document.activeElement !== sel) sel.value = d.serial_format;
+              var rs = $('ser_rate');
+              if (d.update_intervals && rs.options.length !== d.update_intervals.length){
+                rs.innerHTML = d.update_intervals.map(function(o){ return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+              }
+              if (document.activeElement !== rs && d.update_interval != null) rs.value = String(d.update_interval);
               var named = d.channels.filter(function(c){ return !/^ch /.test(c.name); });
               var other = d.channels.filter(function(c){ return /^ch /.test(c.name); }).reduce(function(t, c){ return t + c.n; }, 0);
               $('ser_chans').innerHTML = d.channels.length ? 'Channels seen: ' + named.map(function(c){
@@ -246,6 +258,12 @@
                                  $('ser_hint').textContent = 'Can\'t reach meet-board.'; });
           };
           var serAutoRunning = false;
+          window.serSetRate = function(v){
+            fetch('/api/serial/update_interval', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({interval: parseFloat(v)})})
+              .then(function(r){ return r.json(); }).then(function(d){
+                $('ser_ratemsg').textContent = d.ok ? 'Saved. The boards update at the new rate right away.' : (d.message || 'Not saved');
+              });
+          };
           window.serSetFmt = function(f){
             fetch('/api/serial/format', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({format:f})}).then(serPoll);
           };

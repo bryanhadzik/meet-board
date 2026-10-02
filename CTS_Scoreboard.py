@@ -2085,6 +2085,8 @@ def route_api_serial():
     except Exception:
         snap['ports'] = []
     snap['serial_format'] = settings.get('serial_format') or '9600-8N1'
+    snap['update_interval'] = float(settings.get('update_interval', 1.0) or 0)
+    snap['update_intervals'] = UPDATE_INTERVALS
     snap['serial_formats'] = SERIAL_FORMATS
     snap['race_state'] = race_fsm.state_name
     snap['event'], snap['heat'] = last_event_sent[0], last_event_sent[1]
@@ -2159,6 +2161,25 @@ def route_api_serial_autodetect():
         _autodetect.update(running=True, results=[], message='Starting...')
         socketio.start_background_task(_autodetect_worker)
     return flask.jsonify(dict(_autodetect, formats=SERIAL_FORMATS, current=settings.get('serial_format')))
+
+
+# Board update rate choices: seconds between pushes of console data to the screens
+UPDATE_INTERVALS = [[1.0, '1 per second'], [0.5, '2 per second'], [0.25, '4 per second'],
+                    [0.1, '10 per second'], [0.0, 'Every console update (fastest)']]
+
+
+@app.route('/api/serial/update_interval', methods=['POST'])
+@flask_login.login_required
+def route_api_update_interval():
+    try:
+        v = float((flask.request.get_json(silent=True) or flask.request.form or {}).get('interval'))
+    except (TypeError, ValueError):
+        return flask.jsonify({'ok': False, 'message': 'bad interval'}), 400
+    if v not in [i for i, _ in UPDATE_INTERVALS]:
+        return flask.jsonify({'ok': False, 'message': 'unknown interval'}), 400
+    settings['update_interval'] = v
+    save_settings()
+    return flask.jsonify({'ok': True, 'interval': v})
 
 
 @app.route('/api/serial/format', methods=['POST'])
