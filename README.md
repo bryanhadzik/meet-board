@@ -68,6 +68,7 @@ Options go on the URL, e.g. `http://localhost:5000/overlay/race?pos=br&scale=0.9
 | `running` | `list` (lanes during the race) or `clock` (clock bar only) | `list` |
 | `results` | `place` or `lane` order | `place` |
 | `test` | shows a pool photo behind it, for positioning in a normal browser | off |
+| `logos` | `0` hides the school logos (upload them on Team Colors) | shown |
 
 **Testing without the console:** Settings → **Debug / test** puts any heat from the loaded start
 lists on the blocks, runs a race with made-up times (seed times when you loaded a `.hy3`), and can
@@ -75,6 +76,20 @@ auto-run the meet heat after heat. The meet board and the overlay react exactly 
 the console. Use it with the console off, or the two will fight.
 
 The older CTS_Scoreboard overlays are still at `/overlay/1080p` and `/overlay/1080p_states`.
+
+### School logos
+
+Team Colors → **School logos**: upload one image per school named by its Meet Manager team code
+(`TOOEL.png`, `SHS.png`, …), several at once or as a `.zip`. They're stored in the `logos` folder
+next to `meet-board.exe` (not in this repo; they're the schools' own marks) and shown on a white
+tile beside each swimmer on the meet board and the race overlay (`?logos=0` hides them there).
+
+### Refreshing the TVs
+
+TVs and OBS browser sources have no refresh button, so every meet board, scoreboard and overlay
+page reloads itself: when you click **Refresh all screens** (top bar of every admin page), and
+automatically when meet-board restarts or updates. Pages only reload once the server answers,
+so a TV never lands on an error page.
 
 ### Starting and stopping the stream
 

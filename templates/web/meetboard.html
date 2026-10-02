@@ -48,15 +48,15 @@
   .row { flex:1; display:flex; align-items:center; gap:1cqw; padding:0 1.8cqw 0 0; min-height:0; position:relative; }
   .row:nth-child(odd) { background:rgba(255,255,255,.035); }
   .stripe { width:.9cqw; align-self:stretch; flex:0 0 auto; background:var(--tc, transparent); }
-  .ln { width:3cqw; text-align:center; font-size:2.1cqw; font-weight:600; color:#7d9aa1; flex:0 0 auto; }
-  .nm { flex:1; font-size:2.6cqw; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .ln { width:3cqw; text-align:center; font-size:2.3cqw; font-weight:600; color:#7d9aa1; flex:0 0 auto; }
+  .nm { flex:1; font-size:2.95cqw; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
   .nm.empty { color:#3d575d; font-weight:400; }
   /* Relays: team + letter on top, the four legs' last names underneath */
   .nm.relay { display:flex; flex-direction:column; justify-content:center; line-height:1.08; align-self:stretch; }
-  .nm.relay .nm1 { font-size:2.2cqw; overflow:hidden; text-overflow:ellipsis; }
-  .nm .legs { font-size:1.35cqw; font-weight:500; opacity:.78; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; }
+  .nm.relay .nm1 { font-size:2.45cqw; overflow:hidden; text-overflow:ellipsis; }
+  .nm .legs { font-size:1.5cqw; font-weight:500; opacity:.78; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; }
   .tm { font-size:1.5cqw; font-weight:700; letter-spacing:.06em; flex:0 0 auto; width:8cqw; color:var(--tc, #7d9aa1); }
-  .tmr { font-size:2.6cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
+  .tmr { font-size:2.95cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
   .pl { font-size:2.3cqw; font-weight:700; text-align:center; width:3cqw; flex:0 0 auto; color:#7d9aa1; }
   .row.lead .tmr, .row.lead .pl { color:#7fe0ab; }
   .tmr.seedpre { font-size:1.9cqw; color:#6f9099; }
@@ -64,15 +64,37 @@
   /* beat the seed time: seconds dropped, beside the finish time */
   .drop { flex:0 0 auto; width:7cqw; text-align:right; font-size:1.45cqw; font-weight:700; color:#7fe0ab; font-variant-numeric:tabular-nums; }
   .drop:empty { visibility:hidden; }
+
+  /* school logo on a white tile (logos are drawn for white), ringed in the team color */
+  .logo { flex:0 0 auto; height:82%; aspect-ratio:1/1; background:#fff; border-radius:.55cqw; padding:.22cqw;
+          box-sizing:border-box; display:flex; align-items:center; justify-content:center;
+          box-shadow:0 0 0 .16cqw var(--tc, rgba(255,255,255,.2)); }
+  .logo img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
+  .logo.none { visibility:hidden; }
+  .tm.school { font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size:1.3cqw; font-weight:800;
+               letter-spacing:.02em; width:10.5cqw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .colR .logo { height:76%; border-radius:.4cqw; padding:.15cqw; box-shadow:0 0 0 .1cqw var(--tc, rgba(255,255,255,.2)); }
+
+  /* column headings above the in-the-water lanes */
+  .colhead { display:flex; align-items:flex-end; gap:1cqw; padding:0 1.8cqw .25cqw 0; flex:0 0 auto;
+             font-size:.95cqw; letter-spacing:.16em; color:#6f9099; }
+  .colhead > div { flex:0 0 auto; }
+  .colhead .h-ln { width:.9cqw; } .colhead .h-sp { width:3cqw; }
+  .colhead .h-nm { flex:1; }
+  .colhead .h-tm { width:10.5cqw; } .colhead .h-tm.code { width:8cqw; }
+  .colhead .h-drop { width:7cqw; text-align:right; color:#7fe0ab; }
+  .colhead .h-tmr { width:13cqw; text-align:right; padding-right:.5cqw; }
+  .colhead .h-pl { width:3cqw; text-align:center; }
+  .style-light .colhead { color:#51666d; } .style-light .colhead .h-drop { color:#127a3f; }
   .style-lanes .row.has-team .drop { color:var(--ink); }
   .style-light .drop { color:#127a3f; }
 
   .colR .row { gap:.6cqw; padding-right:1.1cqw; }
   .colR .stripe { width:.55cqw; }
-  .colR .nm { font-size:1.4cqw; }
-  .colR .nm.relay .nm1 { font-size:1.15cqw; }
+  .colR .nm { font-size:1.55cqw; }
+  .colR .nm.relay .nm1 { font-size:1.25cqw; }
   /* narrow sidebar: legs may wrap to a second line */
-  .colR .nm .legs { font-size:.78cqw; white-space:normal; line-height:1.12; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .colR .nm .legs { font-size:.85cqw; white-space:normal; line-height:1.12; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .colR .ln { font-size:1.2cqw; width:1.9cqw; }
   .colR .tm { font-size:.95cqw; width:4.2cqw; text-align:right; }
   .colR .seed { font-size:1cqw; color:#6f9099; width:4.4cqw; text-align:right; flex:0 0 auto; }
@@ -136,15 +158,12 @@
   .style-light .ctitle .sub, .style-light .colR .ctitle .sub { color:#51666d; }
   .style-light .then { border-top-color:#c9d4d7; } .style-light .then .txt { color:#10202a; }
 
-  .bfoot { height:10%; background:#8a6620; display:flex; align-items:center; padding:0 1.6cqw; gap:1.6cqw; flex:0 0 auto; }
-  .bfoot .meet { font-size:1.45cqw; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bfoot .sc { margin-left:auto; display:flex; align-items:center; gap:1.4cqw; }
+  /* team scores (only when the console sends them) sit in the header */
+  .bhead .sc { display:flex; align-items:center; gap:1.4cqw; margin-right:1.6cqw; }
   .scitem { display:flex; align-items:center; gap:.5cqw; }
   .scdot { width:1cqw; height:1cqw; flex:0 0 auto; }
-  .scab { font-size:1.15cqw; font-weight:600; color:#f6e6c4; letter-spacing:.05em; }
+  .scab { font-size:1.15cqw; font-weight:600; color:#c6e7ec; letter-spacing:.05em; }
   .scpt { font-size:1.7cqw; font-weight:700; font-variant-numeric:tabular-nums; }
-  .link { font-size:.9cqw; letter-spacing:.14em; color:#f6e6c4; border:.12cqw solid rgba(255,255,255,.45); padding:.25cqw .6cqw; display:none; }
-  .link.on { display:block; }
 </style>
 </head>
 <body>
@@ -155,6 +174,7 @@
       <div class="evname" id="evname"></div>
     </div>
     <div class="spacer"></div>
+    <div class="sc" id="scores"></div>
     <div>
       <div class="heatof mono" id="heatof"></div>
       <div class="clock mono" id="clock"></div>
@@ -164,6 +184,7 @@
   <div class="bbody">
     <div class="colL">
       <div class="ctitle"><span class="lbl mono">IN THE WATER</span><span class="sub mono" id="subL"></span></div>
+      <div class="colhead mono" id="headL"></div>
       <div class="rows" id="rowsL"></div>
     </div>
     <div class="colR" id="colR">
@@ -172,15 +193,10 @@
       <div class="then" id="then"><span class="lbl mono">THEN</span><span class="txt" id="thenTxt"></span></div>
     </div>
   </div>
-
-  <div class="bfoot">
-    <div class="link mono" id="link">RECONNECTING</div>
-    <div class="meet" id="meetName">{{ meet_title }}</div>
-    <div class="sc" id="scores"></div>
-  </div>
 </div>
 
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
+<script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
 <script>
 (function(){
 "use strict";
@@ -262,6 +278,17 @@ function applyStyle(){
   if (document.body.className !== cls) document.body.className = cls;
 }
 
+function logoCell(team){
+  var v = team && s.team_logos ? s.team_logos[team] : null;
+  var d = el('div', 'logo' + (v ? '' : ' none'));
+  if (v) { var im = el('img'); im.alt = ''; im.src = '/team_logo/' + encodeURIComponent(team) + '?v=' + v; d.appendChild(im); }
+  return d;
+}
+function anyLogos(){ return s.team_logos && Object.keys(s.team_logos).length > 0; }
+function schoolName(team){
+  var t = (s.team_colors || {})[team];
+  return (t && t.name ? t.name : team || '').toUpperCase();
+}
 // Name cell; relays get their legs' last names on a second, smaller line
 function nameCell(name, team, legs){
   legs = (legs || []).filter(function(x){ return trim(x); });
@@ -301,12 +328,12 @@ function numLanes(){
 function renderHeader(){
   var ev = trim(s.current_event), ht = trim(s.current_heat);
   var hasEvent = ev && ev !== '0';
-  document.getElementById('evno').textContent = hasEvent ? 'EVENT ' + ev : 'MEET BOARD';
+  // No event yet: the header carries the meet name (there's no footer any more)
+  document.getElementById('evno').textContent = hasEvent ? 'EVENT ' + ev : (trim(s.meet_title) || {{ meet_title | tojson }} || 'MEET BOARD');
   document.getElementById('evname').textContent = hasEvent ? trim(s.event_name).toUpperCase() : '';
   var hc = parseInt(s.heat_count, 10) || 0;
   document.getElementById('heatof').textContent = hasEvent && ht ? 'HEAT ' + ht + (hc ? ' OF ' + hc : '') : '';
   document.getElementById('clock').textContent = trim(s.running_time);
-  if (s.meet_title != null) document.getElementById('meetName').textContent = s.meet_title;
 }
 
 function stateLabel(){
@@ -322,7 +349,7 @@ function renderCurrent(){
   var sub = document.getElementById('subL');
   sub.textContent = connected ? stateLabel() : 'RECONNECTING';
   sub.className = 'sub mono' + (connected ? '' : ' warn');
-  var n = numLanes();
+  var n = numLanes(), logos = anyLogos(), drops = false, anyTime = false;
   for (var i = 1; i <= n; i++){
     var name = trim(s['lane_name'+i]), team = trim(s['lane_team'+i]);
     var running = !!s['lane_running'+i];
@@ -332,9 +359,13 @@ function renderCurrent(){
     paint(r, team);
     r.appendChild(el('div','stripe'));
     r.appendChild(el('div','ln mono', String(i)));
+    if (logos) r.appendChild(logoCell(team));
     r.appendChild(nameCell(name, team, s['lane_legs'+i]));
-    r.appendChild(el('div','tm mono', team));
-    r.appendChild(el('div','drop mono', t ? dropOf(t, s['lane_seed_time'+i]) : ''));
+    r.appendChild(logos ? el('div','tm school', team ? schoolName(team) : '') : el('div','tm mono', team));
+    var dr = t ? dropOf(t, s['lane_seed_time'+i]) : '';
+    if (dr) drops = true;
+    if (t) anyTime = true;
+    r.appendChild(el('div','drop mono', dr));
     // On the blocks: show the entry seed where the finish time will go
     var pre = !t && !running && /PreRace$/.test(s.race_state || '');
     var sd = pre ? fmtSeed(s['lane_seed_time'+i]) : '';
@@ -342,6 +373,16 @@ function renderCurrent(){
     r.appendChild(el('div','pl mono', t ? place : ''));
     box.appendChild(r);
   }
+  // Column headings: DROP = seconds under the seed time
+  var h = document.getElementById('headL'); h.textContent = '';
+  var pre = /PreRace$/.test(s.race_state || '');
+  h.appendChild(el('div','h-ln')); h.appendChild(el('div','h-sp'));
+  if (logos) { var lg = el('div','h-sp'); lg.style.width = '3.4cqw'; h.appendChild(lg); }
+  h.appendChild(el('div','h-nm', ''));
+  h.appendChild(el('div','h-tm' + (logos ? '' : ' code'), 'TEAM'));
+  h.appendChild(el('div','h-drop', drops ? 'DROP' : ''));
+  h.appendChild(el('div','h-tmr', anyTime ? 'TIME' : (pre ? 'SEED' : '')));
+  h.appendChild(el('div','h-pl', anyTime ? 'PL' : ''));
 }
 
 function renderNext(){
@@ -364,17 +405,19 @@ function renderNext(){
   subR.textContent = 'EVENT ' + s.next_event + ' · HEAT ' + s.next_heat + (nhc ? ' OF ' + nhc : '');
   // New event coming: name it, since the header still shows the current one
   document.getElementById('subR2').textContent = sameEvent ? '' : trim(s.next_event_name).toUpperCase();
-  var anySeed = lanes.some(function(l){ return l.seed !== '' && l.seed != null; });
-  col.classList.toggle('noseed', !anySeed);
+  // No seed times here: swimmer names get the room (seeds show in the main
+  // area once the heat is on the blocks)
   var n = numLanes();
   lanes.slice(0, n).forEach(function(l){
     var r = el('div','row');
     paint(r, l.team);
     r.appendChild(el('div','stripe'));
     r.appendChild(el('div','ln mono', String(l.lane)));
+    var lg = anyLogos();
+    if (lg) r.appendChild(logoCell(l.team));
     r.appendChild(nameCell(l.name, l.team, l.legs));
-    r.appendChild(el('div','tm mono', l.team || ''));
-    r.appendChild(el('div','seed mono', fmtSeed(l.seed)));
+    // with logos the tile identifies the school; the code only where a team has no logo
+    if (!lg || !(s.team_logos || {})[l.team]) r.appendChild(el('div','tm mono', l.team || ''));
     box.appendChild(r);
   });
   var then = document.getElementById('then');
@@ -401,18 +444,29 @@ function renderScores(){
   });
 }
 
+function fitNames(){
+  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .nm .legs');
+  for (var i = 0; i < cells.length; i++){
+    var c = cells[i]; c.style.fontSize = '';
+    if (c.scrollWidth <= c.clientWidth + 1) continue;
+    var base = parseFloat(getComputedStyle(c).fontSize), f = base;
+    while (c.scrollWidth > c.clientWidth + 1 && f > base * 0.6){ f -= base * 0.04; c.style.fontSize = f + 'px'; }
+  }
+}
+window.addEventListener('resize', function(){ fitNames(); });
+
 var pending = false;
 function render(){
   if (pending) return; pending = true;
   requestAnimationFrame(function(){
     pending = false;
-    applyStyle(); assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores();
-    document.getElementById('link').classList.toggle('on', !connected);
+    applyStyle(); assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores(); fitNames();
   });
 }
 
 var connected = false;
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
+    if (window.mbAutoReload) window.mbAutoReload(socket);
 socket.on('connect', function(){ connected = true; render(); });
 socket.on('disconnect', function(){ connected = false; render(); });
 socket.on('update_scoreboard', function(u){

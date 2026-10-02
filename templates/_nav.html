@@ -8,6 +8,9 @@
   .mbnav a.on { color:#0b1618; background:#f4f6f6; }
   .mbnav .sp { flex:1; }
   .mbnav a.ext { font-weight:500; font-size:13px; }
+  .mbnav .rl { margin:0 0 6px 8px; font:600 12px/1 "Segoe UI", system-ui, sans-serif; color:#0b1618; background:#d9a441;
+               border:0; border-radius:6px; padding:7px 10px; cursor:pointer; }
+  .mbnav .rl.done { background:#7fe0ab; }
 </style>
 <nav class="mbnav">
   <span class="brand">meet-board</span>
@@ -18,4 +21,6 @@
   <span class="sp"></span>
   <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
   <a href="/overlay/race?test" class="ext" target="_blank">Overlay &#8599;</a>
+  <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
+    onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
 </nav>

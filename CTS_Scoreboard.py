@@ -12,6 +12,7 @@ import ctypes
 import serial
 import serial.tools.list_ports
 import re
+import urllib.parse
 import time
 import json
 import os.path
@@ -27,6 +28,7 @@ import threading
 import app_paths
 import scb_loader
 import meet_board
+import team_logos
 import updater
 import obs_client
 import music
@@ -97,6 +99,9 @@ app.config.update(
     SECRET_KEY = os.urandom(32).hex(),
 )
 socketio = flask_socketio.SocketIO(app)
+# Changes on every start: pages that reconnect to a different boot (restart,
+# update) reload themselves, so TVs pick up new code with nobody touching them.
+BOOT_ID = '%x' % int(time.time() * 1000)
 
 # Remember the live race fields (clock, lane times/places) so a page that
 # connects mid-race or during results - a TV rebooting, OBS reloading its
@@ -859,6 +864,7 @@ def send_event_info():
     meet_teams = meet_board.schedule_teams(event_info)
     update["meet_teams"] = meet_teams
     update["team_colors"] = meet_board.team_colors(settings, meet_teams)
+    update["team_logos"] = team_logos.list_logos(_logo_folder())
     update["color_palette"] = meet_board.FALLBACK_PALETTE
     update["resolved_colors"] = meet_board.resolved_colors(
         update["team_colors"], meet_teams, update.get("home_team") or settings.get('board_home_team') or settings.get('team_home_tag', ''))
@@ -897,6 +903,7 @@ def ws_scoreboard():
     send_scores_info()
     if _live_race:
         flask_socketio.emit('update_scoreboard', dict(_live_race))   # just this client
+    flask_socketio.emit('server_info', {'version': __version__, 'boot': BOOT_ID})
 
 @socketio.on('next_heat', namespace='/scoreboard')
 def ws_next_heat(d):
@@ -1934,6 +1941,56 @@ def route_schedule_undo():
         send_event_info()
     return flask.redirect('/settings')
 
+# ---------------------------------------------------------------- team logos
+def _logo_folder():
+    return team_logos.logo_dir(app_paths.data_path)
+
+
+@app.route('/team_logo/<code>')
+def route_team_logo(code):
+    path = team_logos.find_logo(_logo_folder(), code)
+    if not path:
+        return flask.abort(404)
+    resp = flask.send_file(path, max_age=86400)   # ?v=<mtime> on the URL busts the cache
+    return resp
+
+
+@app.route('/team_logos/upload', methods=['POST'])
+@flask_login.login_required
+def route_team_logos_upload():
+    uploads = [(f.filename, f.read()) for f in flask.request.files.getlist('logos') if f and f.filename]
+    try:
+        saved, skipped = team_logos.save_uploads(_logo_folder(), uploads)
+        msg = 'Saved %d logo(s)%s' % (len(saved), (': ' + ', '.join(sorted(saved))) if saved else '')
+        if skipped:
+            msg += '. Skipped (name files CODE.png): ' + ', '.join(skipped[:8])
+    except Exception as e:
+        msg = 'Logos NOT saved: %s' % e
+    send_event_info()
+    return flask.redirect('/team_colors?msg=' + urllib.parse.quote(msg))
+
+
+@app.route('/team_logos/delete', methods=['POST'])
+@flask_login.login_required
+def route_team_logos_delete():
+    code = flask.request.form.get('logo_code', '')
+    if team_logos.valid_code(code):
+        team_logos.remove_logo(_logo_folder(), code.upper())
+        send_event_info()
+    return flask.redirect('/team_colors')
+
+
+# ---------------------------------------------------------------- refresh the TVs
+@app.route('/screens/reload', methods=['POST'])
+@flask_login.login_required
+def route_screens_reload():
+    """Every meet board / overlay / scoreboard page reloads itself."""
+    socketio.emit('reload', {'at': time.time()}, namespace='/scoreboard')
+    if flask.request.is_json or flask.request.args.get('json'):
+        return flask.jsonify({'ok': True})
+    return flask.redirect(flask.request.referrer or '/settings')
+
+
 @app.route('/api/health')
 def route_health():
     return flask.jsonify({
@@ -2150,7 +2207,9 @@ def route_team_colors():
                                  in_meet=set(teams_in_meet),
                                  home_team=settings.get('board_home_team') or settings.get('team_home_tag', ''),
                                  board_style=settings.get('board_style', 'classic'),
-                                 board_styles=meet_board.BOARD_STYLES)
+                                 board_styles=meet_board.BOARD_STYLES,
+                                 logos=team_logos.list_logos(_logo_folder()),
+                                 msg=flask.request.args.get('msg', ''))
 
 @app.route('/software_update')
 @flask_login.login_required

@@ -8,6 +8,20 @@
 <span class="tag">auto</span> got a placeholder color because nobody has set one yet. The team abbreviation is always
 shown beside the color, so two similar colors are never ambiguous.</p>
 <p><a href="/settings">&larr; Settings</a> &middot; <a href="/web/meetboard" target="_blank">Open meet board</a></p>
+{% if msg %}<div class="card" style="border-left:4px solid #d9a441">{{ msg }}</div>{% endif %}
+
+<div class="card">
+  <strong>School logos</strong>
+  <p style="margin:4px 0 8px;color:var(--dim);font-size:13px">Shown on a white tile beside each swimmer on the meet board and
+  stream overlay. Name each file by team code, e.g. <span class="mono">TOOEL.png</span>, <span class="mono">SHS.png</span>
+  (PNG, JPG, WebP, GIF or SVG; square works best). Several files or one .zip at once. Stored in the
+  <span class="mono">logos</span> folder next to meet-board.exe.</p>
+  <form method="POST" action="/team_logos/upload" enctype="multipart/form-data" style="margin:0">
+    <input type="file" name="logos" multiple accept=".png,.jpg,.jpeg,.webp,.gif,.svg,.zip">
+    <button class="btn" type="submit">Upload logos</button>
+    <span style="color:var(--dim);font-size:13px">{{ logos|length }} logo(s) loaded</span>
+  </form>
+</div>
 
 <form method="POST">
 <div class="card">
@@ -27,10 +41,13 @@ shown beside the color, so two similar colors are never ambiguous.</p>
 </div>
 <div class="card">
 <table>
-  <thead><tr><th>Code</th><th>School</th><th>Primary</th><th>Alternate</th><th>Preview</th><th></th></tr></thead>
+  <thead><tr><th>Logo</th><th>Code</th><th>School</th><th>Primary</th><th>Alternate</th><th>Preview</th><th></th></tr></thead>
   <tbody>
   {% for code in order %}{% set c = colors[code] %}
   <tr>
+    <td>{% if code in logos %}<img src="/team_logo/{{ code }}?v={{ logos[code] }}" alt="" style="width:40px;height:40px;object-fit:contain;background:#fff;border-radius:6px;padding:2px;display:block">
+        <button class="btn" type="submit" formaction="/team_logos/delete" name="logo_code" value="{{ code }}" style="font-size:11px;padding:1px 6px;margin-top:3px" onclick="return confirm('Remove the {{ code }} logo?')">remove</button>
+        {% else %}<span style="color:var(--dim);font-size:12px">none</span>{% endif %}</td>
     <td class="mono"><input type="hidden" name="code" value="{{ code }}"><strong>{{ code }}</strong>
       {% if code in in_meet %}<span class="tag">in meet</span>{% endif %}
       {% if c.auto %}<span class="tag">auto</span>{% endif %}</td>
@@ -43,6 +60,7 @@ shown beside the color, so two similar colors are never ambiguous.</p>
   </tr>
   {% endfor %}
   <tr>
+    <td></td>
     <td><input type="text" name="new_code" placeholder="Add code" class="mono" style="width:90px"></td>
     <td colspan="5"><input type="color" name="new_color" value="#7d9aa1"> <span style="color:var(--dim);font-size:13px">Add a team code that isn't in the list yet</span></td>
   </tr>

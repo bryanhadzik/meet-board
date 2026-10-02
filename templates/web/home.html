@@ -119,6 +119,7 @@
 
 <script type="text/javascript" src="{{url_for('static', filename='socket.io.4.8.3.min.js')}}"
     integrity="sha384-kzavj5fiMwLKzzD1f8S7TeoVIEi7uKHvbTA3ueZkrzYq75pNQUiUi6Dy98Q3fxb0"></script>
+<script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
 <script type="text/javascript" charset="utf-8">
     var s = {}
     var schedule_has_names = {{ 'true' if schedule_has_names else 'false' }};
@@ -943,6 +944,7 @@
     }
 
     var socket = io.connect('http://' + document.domain + ':' + location.port + '/scoreboard');
+    if (window.mbAutoReload) window.mbAutoReload(socket);
     socket.on('connect', function () {
         {% if test_event %}
         socket.emit('set_event_heat', { event: {{ test_event }}, heat: {{ test_heat or 1 }}});

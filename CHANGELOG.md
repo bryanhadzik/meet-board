@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.15
+
+### Added
+- **School logos** on the meet board (white tile + school name beside every
+  swimmer, and in Up Next) and on the race overlay. Upload on Team Colors
+  (`CODE.png` files or a .zip); stored in a `logos` folder next to the exe.
+- **Refresh all screens** button in the admin top bar: every meet board,
+  scoreboard and overlay page reloads. Pages also reload by themselves after
+  meet-board restarts or updates. TVs never need a keyboard.
+- Column headings over the lanes: TEAM, **DROP** (seconds under the seed),
+  TIME / SEED, PL.
+
+### Changed
+- Meet board footer removed; the lanes use the space (bigger names and
+  times). Team scores, when the console sends them, sit in the header; the
+  meet name shows there between events.
+- Up Next drops seed times so swimmer names fit; long names shrink to fit
+  instead of being cut off.
+
 ## 0.2.14
 
 ### Fixed
