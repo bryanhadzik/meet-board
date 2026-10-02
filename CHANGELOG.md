@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.12
+
+### Fixed
+- Seeded **Meet Entries `.hy3`** exports from Meet Manager failed to load: relay
+  heat/lane lines have a blank date, which crashed the parser. Fixed for both
+  individual and relay entries.
+- Relays showed a blank name. They now show school + relay letter
+  ("Stansbury A"), with the relay seed time.
+- Open events (Meet Manager ages 0-109) no longer read "109 & Under":
+  "Women 50 Yard Freestyle".
+- Swimmers with no birth date on file no longer show an age code of "0".
+
 ## 0.2.11
 
 ### Added

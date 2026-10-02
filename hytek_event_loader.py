@@ -1,4 +1,5 @@
 import pickle
+import re
 import copy
 import tempfile
 import os
@@ -10,29 +11,70 @@ from hytek_parser.hy3.enums import Stroke, Gender, GenderAge, Course, ReplacedTi
 import hytek_parser.hy3.line_parsers.e_event_parsers as _e_parsers
 from datetime import datetime as _datetime
 
-_original_e2_parser = _e_parsers.e2_parser
+import hytek_parser.hy3.line_parsers.f_relay_parsers as _f_parsers
 
-def _patched_e2_parser(line, file, opts):
-    try:
-        return _original_e2_parser(line, file, opts)
-    except (ValueError, IndexError):
-        # Handle lines with missing/invalid date fields by injecting a valid placeholder
-        # extract() uses 1-based indexing: extract(line, 88, 8) reads line[87:95]
-        padded = line.ljust(96)
-        patched = padded[:87] + "01011900" + padded[95:]
-        result = _original_e2_parser(patched, file, opts)
-        # Clear the placeholder date on the entry
-        event_num, event = result.meet.last_event
-        entry = event.last_entry
-        placeholder = _datetime(1900, 1, 1).date()
-        for prefix in ("prelim", "swimoff", "finals"):
-            if getattr(entry, f"{prefix}_date", None) == placeholder:
-                setattr(entry, f"{prefix}_date", None)
-        return result
 
+def _date_tolerant(original, date_col):
+    """Wrap an E2/F2 parser so a blank or bad date (Meet Manager leaves it
+    empty in seeded Meet Entries exports) doesn't abort the whole file.
+    date_col is the 1-based column extract() reads the 8-char date from."""
+    placeholder = _datetime(1900, 1, 1).date()
+
+    def parser(line, file, opts):
+        try:
+            return original(line, file, opts)
+        except (ValueError, IndexError):
+            padded = line.ljust(date_col + 8)
+            patched = padded[:date_col - 1] + "01011900" + padded[date_col + 7:]
+            result = original(patched, file, opts)
+            _, event = result.meet.last_event
+            entry = event.last_entry
+            for prefix in ("prelim", "swimoff", "finals"):
+                if getattr(entry, f"{prefix}_date", None) == placeholder:
+                    setattr(entry, f"{prefix}_date", None)
+            return result
+    return parser
+
+
+_patched_e2_parser = _date_tolerant(_e_parsers.e2_parser, 88)    # individual heat/lane
+_patched_f2_parser = _date_tolerant(_f_parsers.f2_parser, 103)   # relay heat/lane
 _e_parsers.e2_parser = _patched_e2_parser
+_f_parsers.f2_parser = _patched_f2_parser
 from hytek_parser.hy3 import HY3_LINE_PARSERS
 HY3_LINE_PARSERS["E2"] = _patched_e2_parser
+HY3_LINE_PARSERS["F2"] = _patched_f2_parser
+
+# hytek_parser reads the relay letter (A/B/C) off the F1 line but doesn't keep
+# it. Remember it per entry so relays show as "Stansbury A" instead of blank.
+_RELAY_LETTERS = {}
+_original_f1_parser = _f_parsers.f1_parser
+
+
+def _patched_f1_parser(line, file, opts):
+    result = _original_f1_parser(line, file, opts)
+    try:
+        _, event = result.meet.last_event
+        _RELAY_LETTERS[id(event.last_entry)] = line[7:8].strip()
+    except Exception:
+        pass
+    return result
+
+
+_f_parsers.f1_parser = _patched_f1_parser
+HY3_LINE_PARSERS["F1"] = _patched_f1_parser
+
+_TEAM_SUFFIX = re.compile(r'\s+(high\s+school|high|hs)?\s*(swim(ming)?(\s+(and|&)\s+dive)?(\s+team)?)?\s*$', re.I)
+
+
+def _team_label(team):
+    """Short school name for relay rows: 'Stansbury', 'Emery', 'North Summit'."""
+    if team is None:
+        return ""
+    short = (getattr(team, 'short_name', '') or '').strip()
+    if short and short.upper() != (team.code or '').strip().upper() and not team.code.upper().startswith(short.upper()):
+        return short
+    name = (team.name or '').strip()
+    return _TEAM_SUFFIX.sub('', name).strip() or name or team.code
 
 
 STROKE_NAMES = {
@@ -72,7 +114,9 @@ def _build_event_name(event):
         has_female = Gender.FEMALE in genders
         if has_male and has_female:
             gender = "Mixed"
-    if event.age_min and event.age_max:
+    if not event.age_min and (event.age_max or 0) >= 99:
+        age = ""                      # Meet Manager's "open" (0-109): "Women 50 Yard Freestyle"
+    elif event.age_min and event.age_max:
         age = "%d-%d" % (event.age_min, event.age_max)
     elif event.age_min:
         age = "%d & Over" % event.age_min
@@ -90,9 +134,12 @@ def _build_event_name(event):
     return " ".join(parts)
 
 
-def _build_display_string(entry):
+def _build_display_string(entry, teams=None):
     if entry.relay:
-        return ""
+        code = entry.swimmers[0].team_code if entry.swimmers else ""
+        label = _team_label((teams or {}).get(code)) or code
+        letter = _RELAY_LETTERS.get(id(entry), "")
+        return ("%s %s" % (label, letter)).strip()
     elif entry.swimmers:
         swimmer = entry.swimmers[0]
         return "%s %s" % (swimmer.first_name, swimmer.last_name)
@@ -111,7 +158,7 @@ def _get_age_code(entry, gender_age):
         return ""
     swimmer = entry.swimmers[0]
     age = getattr(swimmer, 'age', None)
-    if age is None:
+    if not age:                       # None, or 0 = no birth date on file
         return ""
     gender = swimmer.gender
     if gender_age in (GenderAge.MEN_S, GenderAge.WOMEN_S):
@@ -123,8 +170,6 @@ def _get_age_code(entry, gender_age):
 
 def _get_seed_time_seconds(entry):
     """Return seed time in seconds as a float, or None if unavailable/NT."""
-    if entry.relay:
-        return None
     st = entry.seed_time
     if isinstance(st, ReplacedTimeTimeCode):
         return None
@@ -257,7 +302,7 @@ class HytekEventLoader():
                 if heat is None or lane is None:
                     continue
 
-                display_string = _build_display_string(entry)
+                display_string = _build_display_string(entry, getattr(parsed.meet, 'teams', None))
                 team_code = _get_team_code(entry)
                 self.max_display_string_length = max(
                     self.max_display_string_length, len(display_string))
@@ -278,6 +323,7 @@ class HytekEventLoader():
         self.age_codes_uncombined = copy.deepcopy(self.age_codes)
         self.seed_times_uncombined = copy.deepcopy(self.seed_times)
         self._compute_has_names()
+        _RELAY_LETTERS.clear()
 
     def combine_events(self, combined=None):
         if combined is not None:
