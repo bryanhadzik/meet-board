@@ -72,7 +72,7 @@
   .logo img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
   .logo.none { visibility:hidden; }
   .tm.school { font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size:1.3cqw; font-weight:800;
-               letter-spacing:.02em; width:10.5cqw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+               letter-spacing:.02em; width:13.5cqw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .colR .logo { height:76%; border-radius:.4cqw; padding:.15cqw; box-shadow:0 0 0 .1cqw var(--tc, rgba(255,255,255,.2)); }
 
   /* column headings above the in-the-water lanes */
@@ -81,7 +81,7 @@
   .colhead > div { flex:0 0 auto; }
   .colhead .h-ln { width:.9cqw; } .colhead .h-sp { width:3cqw; }
   .colhead .h-nm { flex:1; }
-  .colhead .h-tm { width:10.5cqw; } .colhead .h-tm.code { width:8cqw; }
+  .colhead .h-tm { width:13.5cqw; } .colhead .h-tm.code { width:8cqw; }
   .colhead .h-drop { width:7cqw; text-align:right; color:#7fe0ab; }
   .colhead .h-tmr { width:13cqw; text-align:right; padding-right:.5cqw; }
   .colhead .h-pl { width:3cqw; text-align:center; }
@@ -445,12 +445,12 @@ function renderScores(){
 }
 
 function fitNames(){
-  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .nm .legs');
+  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .nm .legs, .tm.school');
   for (var i = 0; i < cells.length; i++){
     var c = cells[i]; c.style.fontSize = '';
-    if (c.scrollWidth <= c.clientWidth + 1) continue;
+    if (c.scrollWidth <= c.clientWidth) continue;
     var base = parseFloat(getComputedStyle(c).fontSize), f = base;
-    while (c.scrollWidth > c.clientWidth + 1 && f > base * 0.6){ f -= base * 0.04; c.style.fontSize = f + 'px'; }
+    while (c.scrollWidth > c.clientWidth && f > base * 0.6){ f -= base * 0.03; c.style.fontSize = f + 'px'; }
   }
 }
 window.addEventListener('resize', function(){ fitNames(); });

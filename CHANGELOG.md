@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.17
+
+### Fixed
+- School names (SOUTH SUMMIT, CEDAR VALLEY) no longer cut off: wider team
+  column, and it shrinks to fit like swimmer names. Fixed an off-by-one that
+  left an ellipsis on names that were only a pixel too long.
+
 ## 0.2.16
 
 ### Added
