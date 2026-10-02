@@ -98,6 +98,24 @@ app.config.update(
 )
 socketio = flask_socketio.SocketIO(app)
 
+# Remember the live race fields (clock, lane times/places) so a page that
+# connects mid-race or during results - a TV rebooting, OBS reloading its
+# browser source - shows them at once instead of waiting for the next change.
+_live_race = {}
+_LIVE_PREFIXES = ('lane_time', 'lane_place', 'lane_running', 'running_time')
+_socketio_emit = socketio.emit
+
+
+def _emit_and_remember(event, *args, **kwargs):
+    if event == 'update_scoreboard' and kwargs.get('namespace') == '/scoreboard' and args and isinstance(args[0], dict):
+        for k, v in args[0].items():
+            if k.startswith(_LIVE_PREFIXES):
+                _live_race[k] = v
+    return _socketio_emit(event, *args, **kwargs)
+
+
+socketio.emit = _emit_and_remember
+
 main_thread = None
 event_heat_info = [' ',' ',' ',' ',' ',' ',' ',' ']
 lane_info = [[],
@@ -783,6 +801,11 @@ def _get_matching_records(event_number):
     
     return all_set_results, any_show_age
 
+def _relay_legs(e, h, lane):
+    getter = getattr(event_info, 'get_relay_legs', None)
+    return getter(e, h, lane) if getter else []
+
+
 def send_event_info():            
     update={}
     update["current_event"] = str(last_event_sent[0])
@@ -798,6 +821,7 @@ def send_event_info():
     for i in range(1,11):
         update["lane_name%i" % i] = event_info.get_display_string(last_event_sent[0], last_event_sent[1], i)
         update["lane_team%i" % i] = event_info.get_team_code(last_event_sent[0], last_event_sent[1], i)
+        update["lane_legs%i" % i] = _relay_legs(last_event_sent[0], last_event_sent[1], i)
         update["lane_age_code%i" % i] = event_info.get_age_code(last_event_sent[0], last_event_sent[1], i) if show_age_codes else ""
         seed = event_info.get_seed_time(last_event_sent[0], last_event_sent[1], i)
         update["lane_seed_time%i" % i] = seed if seed is not None else ""
@@ -851,6 +875,8 @@ def ws_scoreboard():
         
     send_event_info()
     send_scores_info()
+    if _live_race:
+        flask_socketio.emit('update_scoreboard', dict(_live_race))   # just this client
 
 @socketio.on('next_heat', namespace='/scoreboard')
 def ws_next_heat(d):
@@ -1184,7 +1210,9 @@ def _sim_clock_tick():
 # ---------------------------------------------------------------------------
 import random as _random
 
-_dbg = {'token': 0, 'auto': False, 'speed': 4.0, 'status': 'idle'}
+_dbg = {'token': 0, 'auto': False, 'speed': 4.0, 'status': 'idle',
+        'seeds': 'mixed'}   # mixed | beat (everyone drops time) | miss (nobody does)
+DBG_SEED_MODES = ('mixed', 'beat', 'miss')
 
 _TYPICAL_SECONDS = {25: 15, 50: 30, 100: 66, 200: 140, 400: 300, 500: 370,
                     800: 610, 1000: 760, 1500: 1150, 1650: 1260}
@@ -1247,7 +1275,9 @@ def _dbg_finish_times():
     out = {}
     for lane in _dbg_occupied_lanes():
         seed = event_info.get_seed_time(e, h, lane)
-        t = (seed or base) * _random.uniform(0.94, 1.08)
+        mode = _dbg.get('seeds', 'mixed') if seed else 'mixed'
+        lo, hi = {'beat': (0.95, 0.995), 'miss': (1.005, 1.06)}.get(mode, (0.94, 1.08))
+        t = (seed or base) * _random.uniform(lo, hi)
         out[lane] = round(t, 2)
     return out
 
@@ -1357,6 +1387,8 @@ def route_debug(action):
             _dbg['speed'] = max(0.5, min(50.0, float(data['speed'])))
         except (TypeError, ValueError):
             pass
+    if data.get('seeds') in DBG_SEED_MODES:
+        _dbg['seeds'] = data['seeds']
     if action == 'goto':
         try:
             debug_goto(int(data.get('event')), int(data.get('heat', 1)))
@@ -1393,6 +1425,7 @@ def debug_status():
     e, h = last_event_sent
     return {'ok': True, 'event': e, 'heat': h, 'event_name': event_info.get_event_name(e),
             'race_state': race_fsm.state_name, 'auto': _dbg['auto'], 'speed': _dbg['speed'],
+            'seeds': _dbg.get('seeds', 'mixed'),
             'status': _dbg['status'], 'heats': [list(k) for k in meet_board.heat_order(event_info)]}
 
 

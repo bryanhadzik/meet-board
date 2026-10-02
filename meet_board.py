@@ -26,6 +26,14 @@ DEFAULT_TEAM_COLORS = {
     'MCHS':  {'name': 'Mountain Crest', 'color': '#FF8C42', 'alt': '#5B8FE8'},
     'RIDGE': {'name': 'Ridgeline',      'color': '#7ACC3E', 'alt': '#A5ACAF'},
     'GCHS':  {'name': 'Green Canyon',   'color': '#3FB58A', 'alt': '#BFC7CA'},
+    # Codes Meet Manager uses for the Mel Roberts Invitational teams. Colors
+    # are the schools' own (blue/black/silver, blue/white, red/steel gray,
+    # maroon/white), brightened so they read on the dark board.
+    'SHS':   {'name': 'Stansbury',      'color': '#3D8BF5', 'alt': '#9AA6AB'},
+    'DPHS':  {'name': 'Deseret Peak',   'color': '#D9C46E', 'alt': '#BFC7CA'},
+    'CARB':  {'name': 'Carbon',         'color': '#2F6BDB', 'alt': '#E8EEEE'},
+    'CDRV':  {'name': 'Cedar Valley',   'color': '#E0393E', 'alt': '#8E9AA3'},
+    'MOR':   {'name': 'Morgan',         'color': '#B03A5B', 'alt': '#E8EEEE'},
 }
 
 # Board-safe fallback colors for teams nobody has configured yet, handed out
@@ -114,6 +122,7 @@ def lanes_for(event_info, key, num_lanes):
             'name': event_info.get_display_string(e, h, lane),
             'team': event_info.get_team_code(e, h, lane),
             'seed': seed if seed is not None else '',
+            'legs': event_info.get_relay_legs(e, h, lane) if hasattr(event_info, 'get_relay_legs') else [],
         })
     return out
 

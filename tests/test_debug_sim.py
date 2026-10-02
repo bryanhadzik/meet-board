@@ -45,3 +45,16 @@ def test_race_runs_to_finished_with_places():
 
 def test_unknown_action():
     assert C.app.test_client().post('/debug/nope', json={}).status_code == 404
+
+
+def test_seed_mode_beat_and_miss(monkeypatch):
+    import CTS_Scoreboard as app
+    seeds = {1: 60.0, 2: 30.0}
+    monkeypatch.setattr(app, '_dbg_occupied_lanes', lambda: [1, 2])
+    monkeypatch.setattr(app.event_info, 'get_seed_time', lambda e, h, l: seeds[l])
+    for mode, ok in (('beat', lambda t, sd: t < sd), ('miss', lambda t, sd: t > sd)):
+        app._dbg['seeds'] = mode
+        for _ in range(50):
+            for lane, t in app._dbg_finish_times().items():
+                assert ok(t, seeds[lane]), (mode, lane, t)
+    app._dbg['seeds'] = 'mixed'

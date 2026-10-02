@@ -192,6 +192,7 @@ class HytekEventLoader():
         self.teams_uncombined = {}
         self.age_codes_uncombined = {}
         self.seed_times_uncombined = {}
+        self.relay_legs = {}   # (event, heat) -> {lane: [last names of the 4 legs]}
         self.combined = {}
         self.has_names = False
         if file_name:
@@ -217,6 +218,7 @@ class HytekEventLoader():
         self.teams.clear()
         self.age_codes.clear()
         self.seed_times.clear()
+        self.relay_legs = {}
         self.events_uncombined = copy.deepcopy(self.events)
         self.teams_uncombined = copy.deepcopy(self.teams)
         self.age_codes_uncombined = copy.deepcopy(self.age_codes)
@@ -317,6 +319,10 @@ class HytekEventLoader():
                 self.teams[(event_number, heat)][lane] = team_code
                 self.age_codes[(event_number, heat)][lane] = _get_age_code(entry, event.gender_age)
                 self.seed_times[(event_number, heat)][lane] = _get_seed_time_seconds(entry)
+                if entry.relay and entry.swimmers:
+                    legs = [sw.last_name.strip() for sw in entry.swimmers if sw.last_name and sw.last_name.strip()]
+                    if legs:
+                        self.relay_legs.setdefault((event_number, heat), {})[lane] = legs
 
         self.events_uncombined = copy.deepcopy(self.events)
         self.teams_uncombined = copy.deepcopy(self.teams)
@@ -390,6 +396,18 @@ class HytekEventLoader():
         except Exception:
             return None
 
+    def get_relay_legs(self, event_number, heat_number, lane):
+        """Last names of a relay's swimmers in leg order, or [] (also for
+        .scb start lists, which carry no leg names)."""
+        key = (event_number, heat_number)
+        legs = getattr(self, 'relay_legs', {}) or {}
+        if lane in legs.get(key, {}):
+            return list(legs[key][lane])
+        for src, dst in (self.combined or {}).items():
+            if dst == key and lane in legs.get(src, {}):
+                return list(legs[src][lane])
+        return []
+
     def get_display_string_uncombined(self, event_number, heat_number, lane):
         try:
             return self.events_uncombined[(event_number, heat_number)][lane]
@@ -409,6 +427,7 @@ class HytekEventLoader():
             "age_codes_uncombined": self.age_codes_uncombined,
             "seed_times": self.seed_times,
             "seed_times_uncombined": self.seed_times_uncombined,
+            "relay_legs": getattr(self, 'relay_legs', {}),
             "combined": self.combined,
         }, protocol=0).decode('utf8')
 
@@ -424,6 +443,7 @@ class HytekEventLoader():
         self.age_codes_uncombined = o.get('age_codes_uncombined', {})
         self.seed_times = o.get('seed_times', {})
         self.seed_times_uncombined = o.get('seed_times_uncombined', {})
+        self.relay_legs = o.get('relay_legs', {})
         self.combined = o['combined']
         self._compute_has_names()
 

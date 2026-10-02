@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.13
+
+### Added
+- **Relay swimmers' last names** under each relay on the meet board (in the
+  water and up next), from `.hy3` start lists. `.scb` files don't carry them.
+- **Beat-the-seed marker**: when a swimmer touches under their seed time the
+  meet board and the stream overlay show the drop (e.g. `-1.29`) beside the
+  time. Follows the existing *Show PR tags* setting.
+- **Debug -> Seed times**: Mixed / Everyone beats their seed / Nobody beats
+  their seed, to test the marker.
+- Built-in colors for meet codes `SHS` (Stansbury, blue), `CARB` (Carbon, blue),
+  `CDRV` (Cedar Valley, red), `MOR` (Morgan, maroon), `DPHS` (Deseret Peak).
+
+### Changed
+- Bigger **UP NEXT** heading and heat line, and a bigger **HEAT x OF y** in
+  the board header.
+
+### Fixed
+- A meet board or overlay that connects mid-race or during results (TV
+  reboot, OBS reloading the source) now shows the times right away.
+
 ## 0.2.12
 
 ### Fixed

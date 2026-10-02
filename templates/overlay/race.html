@@ -69,6 +69,9 @@
   .tm:empty { visibility:hidden; }
   .t { flex:0 0 auto; width:calc(118 * var(--s)); text-align:right; font-size:calc(24 * var(--s)); font-variant-numeric:tabular-nums; color:#e8f1f2; }
   .t.seed { color:#8fb0b7; font-size:calc(19 * var(--s)); }
+  .drop { flex:0 0 auto; min-width:calc(62 * var(--s)); text-align:right; font-size:calc(17 * var(--s)); font-weight:800;
+          color:#7fe0ab; font-variant-numeric:tabular-nums; }
+  .drop:empty { visibility:hidden; }
   .pl { flex:0 0 auto; width:calc(34 * var(--s)); height:calc(30 * var(--s)); display:flex; align-items:center; justify-content:center;
         font-size:calc(19 * var(--s)); font-weight:800; border-radius:calc(6 * var(--s)); color:#cfe0e3; }
   .pl:empty { visibility:hidden; }
@@ -133,6 +136,17 @@ function phase(){
   return 'off';   // Clear, Blank, TotalBlank, unknown
 }
 
+// "Beat the seed": finished time under the entry seed time -> seconds dropped
+function secs(v){
+  var m = String(v == null ? '' : v).trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+  return m ? (m[1] ? +m[1] * 60 : 0) + parseFloat(m[2]) : NaN;
+}
+function dropOf(time, seed){
+  if (s.show_pr_tags === false) return '';
+  var t = secs(time), sd = Number(seed);
+  if (!(t > 0) || !(sd > 0) || t >= sd) return '';
+  return '\u2212' + (sd - t).toFixed(2);
+}
 function lanes(){
   var n = Math.max(parseInt(s.num_lanes, 10) || 8, 1), out = [];
   for (var i = 1; i <= 10; i++){
@@ -201,7 +215,10 @@ function draw(){
     r.appendChild(el('div', 'nm', l.name || ('Lane ' + l.lane)));
     r.appendChild(el('div', 'tm mono', l.team));
     if (ph === 'startlist') r.appendChild(el('div', 't seed mono', fmtSeed(l.seed)));
-    else r.appendChild(el('div', 't mono', l.time));
+    else {
+      r.appendChild(el('div', 'drop mono', showResult ? dropOf(l.time, l.seed) : ''));
+      r.appendChild(el('div', 't mono', l.time));
+    }
     r.appendChild(el('div', 'pl mono', showResult ? l.place : ''));
     box.appendChild(r);
   });

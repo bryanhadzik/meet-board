@@ -41,7 +41,7 @@ def test_payload():
     assert (p['next_event'], p['next_heat'], p['next_heat_count']) == (10, 1, 4)
     assert p['next_event_name'] == 'Men 100 Butterfly'
     assert len(p['next_lanes']) == 8
-    assert p['next_lanes'][3] == {'lane': 4, 'name': 'Finn Pemberton', 'team': 'NSHS', 'seed': ''}
+    assert p['next_lanes'][3] == {'lane': 4, 'name': 'Finn Pemberton', 'team': 'NSHS', 'seed': '', 'legs': []}
     assert (p['then_event'], p['then_heat']) == (10, 2)
 
 
@@ -52,7 +52,8 @@ def test_team_colors_defaults_overrides_and_auto():
     colors = meet_board.team_colors({'team_colors': {'GHS': {'name': 'Grantsville', 'color': '#FF0000', 'alt': ''}}}, teams)
     assert colors['GHS']['color'] == '#FF0000' and not colors['GHS']['auto']
     assert colors['TOOEL']['color'] == '#D18AE0'
-    assert colors['CDRV']['auto'] and colors['CDRV']['color'].startswith('#')
+    assert colors['CDRV']['color'] == '#E0393E' and not colors['CDRV']['auto']   # built-in school color
+    assert colors['MILL']['auto'] and colors['MILL']['color'].startswith('#')
     autos = [colors[t]['color'] for t in teams if colors[t]['auto']]
     assert len(autos) == len(set(autos))   # distinct placeholder colors
 
