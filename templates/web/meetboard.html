@@ -59,7 +59,9 @@
   .tmr { font-size:2.95cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
   .pl { font-size:2.3cqw; font-weight:700; text-align:center; width:3cqw; flex:0 0 auto; color:#7d9aa1; }
   .row.lead .tmr, .row.lead .pl { color:#7fe0ab; }
-  .tmr.seedpre { font-size:1.9cqw; color:#6f9099; }
+  .tmr.seedpre { font-size:1.9cqw; color:#7fe0ab; }
+  .style-light .tmr.seedpre { color:#127a3f; }
+  .colhead .h-tmr.seed { color:#7fe0ab; } .style-light .colhead .h-tmr.seed { color:#127a3f; }
   .style-lanes .row.has-team .tmr.seedpre { color:var(--ink); opacity:.75; }
   /* beat the seed time: seconds dropped, beside the finish time */
   .drop { flex:0 0 auto; width:7cqw; text-align:right; font-size:1.45cqw; font-weight:700; color:#7fe0ab; font-variant-numeric:tabular-nums; }
@@ -381,7 +383,7 @@ function renderCurrent(){
   h.appendChild(el('div','h-nm', ''));
   h.appendChild(el('div','h-tm' + (logos ? '' : ' code'), 'TEAM'));
   h.appendChild(el('div','h-drop', drops ? 'DROP' : ''));
-  h.appendChild(el('div','h-tmr', anyTime ? 'TIME' : (pre ? 'SEED' : '')));
+  h.appendChild(el('div','h-tmr' + (!anyTime && pre ? ' seed' : ''), anyTime ? 'TIME' : (pre ? 'SEED' : '')));
   h.appendChild(el('div','h-pl', anyTime ? 'PL' : ''));
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.24
+
+### Changed
+- Seed times are green: on the meet board while a heat is on the blocks (and
+  the SEED heading), and in the stream overlay's start list.
+
 ## 0.2.23
 
 ### Added
