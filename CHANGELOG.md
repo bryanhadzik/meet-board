@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.25
+
+### Fixed
+- **Race overlay blinking off every ~10 s** with the inverted console signal.
+  A one-off corrupted record (event/heat or race state) made the overlay think
+  there was nothing to show for one update. Now, on inverted signals, a record
+  only counts once the console has sent it twice in a row (it repeats every
+  line several times a second; the running clock is accepted while it moves
+  sensibly), and the overlay only hides after "nothing to show" lasts 1.5 s,
+  or 5 s after losing the connection.
+
 ## 0.2.24
 
 ### Changed

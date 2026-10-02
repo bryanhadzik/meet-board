@@ -66,3 +66,51 @@ class Reframer:
         self.n_data += 1
         self.last = p
         return [b]
+
+
+def _clock_seconds(rec):
+    """Race-time record -> seconds (None when blank or unreadable)."""
+    pos = {}
+    for b in rec[1:]:
+        d = (b & 0x0F) ^ 0x0F
+        pos[(b >> 4) & 7] = d if d <= 9 else None
+    digits = [pos.get(i) for i in range(2, 8)]
+    if all(d is None for d in digits):
+        return None
+    m10, m1, s10, s1, t, h = [d or 0 for d in digits]
+    return (m10 * 10 + m1) * 60 + s10 * 10 + s1 + t / 10.0 + h / 100.0
+
+
+class Confirmer:
+    """Pass a CTS record to the parser only once it has been seen twice in a
+    row for its channel. The console repeats every display line several times
+    a second, so real values arrive at once; a one-off corrupted record (the
+    inverted-signal decode rebuilds ~3% of bytes wrongly) never gets through.
+    The race clock changes every tenth while running, so a clock record is
+    also accepted when it is within 2 s of the last accepted clock."""
+
+    CLOCK = 0
+
+    def __init__(self):
+        self.last = {}          # channel -> last record seen (bytes)
+        self.clock_t = None
+
+    def accept(self, rec):
+        if not rec:
+            return False
+        c = rec[0]
+        ch = ((c & 0x3E) >> 1) ^ 0x1F
+        key = (ch, c & 0x01)                    # display-format records are their own stream
+        prev = self.last.get(key)
+        cur = tuple(rec)
+        self.last[key] = cur
+        if prev == cur:
+            if ch == self.CLOCK and not c & 0x01:
+                self.clock_t = _clock_seconds(rec)
+            return True
+        if ch == self.CLOCK and not c & 0x01:
+            t = _clock_seconds(rec)
+            if t is not None and self.clock_t is not None and abs(t - self.clock_t) <= 2.0:
+                self.clock_t = t
+                return True
+        return False

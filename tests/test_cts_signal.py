@@ -44,3 +44,18 @@ def test_reframer_roundtrip_on_clean_stream():
 def test_format_names():
     assert cts_signal.is_inverted('9600-8E1-INV') and not cts_signal.is_inverted('9600-8E1')
     assert cts_signal.base_format('9600-8E1-INV') == '9600-8E1'
+
+
+def test_confirmer_drops_one_off_records():
+    cf = cts_signal.Confirmer()
+    event = [0xA6, 0x10, 0x2E, 0x30, 0x40, 0x50, 0x60, 0x7E]          # event 1, heat 1
+    glitch = [0xA6, 0x1D, 0x2E, 0x30, 0x40, 0x50, 0x60, 0x7E]
+    assert not cf.accept(event)          # first sighting: wait
+    assert cf.accept(event)              # repeated: real
+    assert not cf.accept(glitch)         # one-off corruption: dropped
+    assert not cf.accept(event)          # back to the real value (needs a repeat again)
+    assert cf.accept(event)
+    # running clock: a new tenth each record, accepted while it moves sensibly
+    clk = lambda tenths: [0xBE, 0x70, 0x6F ^ 0 if False else (0x60 | ((tenths % 10) ^ 0x0F)), 0x5F, 0x40, 0x30, 0x20]
+    assert not cf.accept(clk(1)) and cf.accept(clk(1))
+    assert cf.accept(clk(2)) and cf.accept(clk(3))

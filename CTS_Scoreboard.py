@@ -455,6 +455,7 @@ def main_thread_worker():
         serial_mon.replay(os.path.basename(in_file))
         rf = cts_signal.Reframer(cts_signal.is_inverted(settings.get('serial_format')) or '-INV' in in_file.upper())
         serial_mon.inverted = rf.inverted
+        confirm = cts_signal.Confirmer() if rf.inverted else None
         while True:
             l = []
             for n, raw in enumerate(data):
@@ -465,7 +466,8 @@ def main_thread_worker():
                     if (c & 0x80) or (len(l) > 8):
                         if len(l):
                             serial_mon.record(l)
-                            parse_line(l)
+                            if confirm is None or confirm.accept(l):
+                                parse_line(l)
                         l = []
                     l.append(c)
                 if n % 96 == 0:
@@ -523,6 +525,7 @@ def main_thread_worker():
                     serial_mon.opened(port)
                     rf = cts_signal.Reframer(cts_signal.is_inverted(fmt))
                     serial_mon.inverted = rf.inverted
+                    confirm = cts_signal.Confirmer() if rf.inverted else None
                     last_error = None
                     l = []
                     while port == settings['serial_port'] and fmt == (settings.get('serial_format') or '9600-8N1'):
@@ -537,7 +540,8 @@ def main_thread_worker():
                                 if (c & 0x80) or (len(l) > 8):
                                     if len(l):
                                         serial_mon.record(l)
-                                        parse_line(l, j)
+                                        if confirm is None or confirm.accept(l):
+                                            parse_line(l, j)
                                     l = []
                                 l.append(c)
             except Exception as e:
