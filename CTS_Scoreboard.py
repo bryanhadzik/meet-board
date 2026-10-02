@@ -28,6 +28,7 @@ import threading
 import app_paths
 import scb_loader
 import meet_board
+from serial_monitor import monitor as serial_mon
 import team_logos
 import updater
 import obs_client
@@ -425,12 +426,15 @@ def main_thread_worker():
         # Raw bytes captured from the serial port: replay at 9600 baud x speed
         with open(in_file, 'rb') as f:
             data = f.read()
+        serial_mon.replay(os.path.basename(in_file))
         while True:
             l = []
             for n, c in enumerate(data):
+                serial_mon.byte(c)
                 if c:
                     if (c & 0x80) or (len(l) > 8):
                         if len(l):
+                            serial_mon.record(l)
                             parse_line(l)
                         l = []
                     l.append(c)
@@ -440,6 +444,7 @@ def main_thread_worker():
     elif in_file:
         delay = 0.0
         start_time = None
+        serial_mon.replay(os.path.basename(in_file))
         with open(in_file, 'rt') as f:
             if out_file:
                 j = open(out_file, "at")
@@ -455,9 +460,11 @@ def main_thread_worker():
                         start_time = float(d.group(1)) - in_speed*time.time()
                     continue
                 c = int(d.group(2), 16)
+                serial_mon.byte(c)
                 if c:
                     if (c & 0x80) or (len(l) > 8):
                         if len(l):
+                            serial_mon.record(l)
                             parse_line(l, j)
                         l=[]
                     l.append(c)
@@ -474,23 +481,32 @@ def main_thread_worker():
         last_error = None
         while True:
             port = settings['serial_port']
+            if port != serial_mon.port:
+                serial_mon.reset(port)          # new port: start the counters over
+            serial_mon.opening(port)
             try:
+                if not port:
+                    raise serial.SerialException('no serial port selected')
                 with serial.Serial(port, 9600, timeout=0) as f:
                     print("Reading CTS data from %s" % port)
+                    serial_mon.opened(port)
                     last_error = None
                     l = []
                     while port == settings['serial_port']:
                         c = f.read(1)
                         if c:
                             c=c[0]
+                            serial_mon.byte(c)
                             if (c & 0x80) or (len(l) > 8):
                                 if len(l):
+                                    serial_mon.record(l)
                                     parse_line(l, j)
                                 l=[]
                             l.append(c)
                         else:
                             socketio.sleep(0.01)
             except Exception as e:
+                serial_mon.failed(port, e)
                 if str(e) != last_error:
                     print("Serial port %s unavailable (%s); retrying every 5 s" % (port, e))
                     last_error = str(e)
@@ -2021,6 +2037,28 @@ def route_screens_reload():
     if flask.request.is_json or flask.request.args.get('json'):
         return flask.jsonify({'ok': True})
     return flask.redirect(flask.request.referrer or '/settings')
+
+
+@app.route('/api/serial')
+def route_api_serial():
+    """Serial input diagnostics: port state, bytes/records received, last raw bytes."""
+    snap = serial_mon.snapshot()
+    try:
+        import serial.tools.list_ports
+        snap['ports'] = [{'device': p.device, 'description': p.description}
+                         for p in serial.tools.list_ports.comports()]
+    except Exception:
+        snap['ports'] = []
+    snap['race_state'] = race_fsm.state_name
+    snap['event'], snap['heat'] = last_event_sent[0], last_event_sent[1]
+    return flask.jsonify(snap)
+
+
+@app.route('/api/serial/reset', methods=['POST'])
+@flask_login.login_required
+def route_api_serial_reset():
+    serial_mon.reset(serial_mon.port, serial_mon.state, serial_mon.source)
+    return flask.jsonify({'ok': True})
 
 
 @app.route('/api/health')

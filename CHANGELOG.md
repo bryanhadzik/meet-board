@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.18
+
+### Added
+- **Settings -> Serial input**: live check of the CTS console feed. Shows
+  whether the port opened, bytes/sec, time since the last byte, totals,
+  decoded CTS records by channel (clock, lanes, event/heat, scores), the last
+  96 raw bytes (record-start bytes highlighted) and the latest records, plus
+  the serial ports Windows can see. A plain-English verdict says what's wrong:
+  port won't open, open but silent (console off / cable / pin 2-5 wiring),
+  bytes but not CTS data (wrong device or baud), or data stopped.
+  Also at `/api/serial`.
+
 ## 0.2.17
 
 ### Fixed

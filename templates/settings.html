@@ -804,6 +804,93 @@
             </div>
         </div>
         
+        <h3 id="serial">Serial input (CTS console)</h3>
+        <style>
+          .serc { border:1px solid #c9d4d7; border-radius:10px; padding:14px 16px; margin-bottom:22px; background:#fff; max-width:980px; }
+          .serc .top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+          .serc .pill { font:700 13px/1 "Segoe UI",system-ui,sans-serif; padding:7px 12px; border-radius:999px; color:#fff; letter-spacing:.04em; }
+          .serc .pill.ok { background:#1f8a4c; } .serc .pill.warn { background:#c9861a; } .serc .pill.bad { background:#c0392b; }
+          .serc .hint { font-size:14px; color:#22343a; flex:1; min-width:260px; }
+          .serc .stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:12px 0 4px; }
+          .serc .st { background:#f2f6f7; border-radius:8px; padding:8px 10px; }
+          .serc .st b { display:block; font:700 20px/1.1 Consolas,"Cascadia Mono",monospace; color:#0b1618; }
+          .serc .st span { font-size:12px; color:#5d7379; text-transform:uppercase; letter-spacing:.06em; }
+          .serc .live { width:10px; height:10px; border-radius:50%; background:#c9d4d7; display:inline-block; vertical-align:middle; margin-right:6px; }
+          .serc .live.on { background:#1fbf5c; box-shadow:0 0 0 3px rgba(31,191,92,.25); }
+          .serc pre { background:#0b1618; color:#cfe6ea; border-radius:8px; padding:10px 12px; font:13px/1.45 Consolas,"Cascadia Mono",monospace;
+                      white-space:pre-wrap; word-break:break-all; margin:6px 0 0; max-height:220px; overflow:auto; }
+          .serc pre .hb { color:#f0c96a; font-weight:700; }
+          .serc .chans { font-size:13px; color:#22343a; margin-top:6px; }
+          .serc .chans span { display:inline-block; background:#e6eef0; border-radius:6px; padding:2px 7px; margin:2px 4px 2px 0; font-family:Consolas,monospace; }
+          .serc details { margin-top:10px; } .serc summary { cursor:pointer; color:#0a6b7c; font-weight:600; }
+          .serc .btnrow { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:13px; color:#5d7379; }
+        </style>
+        <div class="serc" id="serc">
+          <div class="top">
+            <span class="pill warn" id="ser_pill">CHECKING</span>
+            <span class="hint" id="ser_hint">Checking the serial input...</span>
+          </div>
+          <div class="stats">
+            <div class="st"><span>Port</span><b id="ser_port">-</b></div>
+            <div class="st"><span><i class="live" id="ser_live"></i>Bytes / sec</span><b id="ser_bps">-</b></div>
+            <div class="st"><span>Last byte</span><b id="ser_idle">-</b></div>
+            <div class="st"><span>Bytes total</span><b id="ser_bytes">-</b></div>
+            <div class="st"><span>CTS records</span><b id="ser_recs">-</b></div>
+            <div class="st"><span>Records / sec</span><b id="ser_rps">-</b></div>
+          </div>
+          <div class="chans" id="ser_chans"></div>
+          <details id="ser_rawbox">
+            <summary>Raw bytes and decoded records</summary>
+            <div style="font-size:12px;color:#5d7379;margin-top:6px">Last 96 bytes, newest last. <span style="color:#b07a10;font-weight:700">Gold</span> bytes
+              have the top bit set: each one starts a CTS record. A healthy stream has lots of them; all-gray
+              bytes usually mean the wrong device or baud rate.</div>
+            <pre id="ser_raw">-</pre>
+            <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records (channel: bytes)</div>
+            <pre id="ser_recent">-</pre>
+          </details>
+          <div class="btnrow">
+            <button class="btn btn-default" type="button" onclick="fetch('/api/serial/reset',{method:'POST'}).then(serPoll)">Reset counters</button>
+            <span id="ser_ports"></span>
+          </div>
+        </div>
+        <script>
+        (function(){
+          function $(id){ return document.getElementById(id); }
+          function ago(s){ if (s == null) return 'never'; if (s < 1) return 'just now'; if (s < 90) return Math.round(s) + ' s ago';
+                           return Math.round(s/60) + ' min ago'; }
+          window.serPoll = function(){
+            fetch('/api/serial', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){
+              var label = {ok:'RECEIVING', warn:'CHECK', bad:'NO DATA'}[d.verdict] || d.verdict;
+              if (d.source === 'replay') label = 'REPLAY';
+              $('ser_pill').className = 'pill ' + d.verdict; $('ser_pill').textContent = label;
+              $('ser_hint').textContent = d.hint;
+              $('ser_port').textContent = (d.port || 'none') + (d.state && d.state !== 'open' ? ' (' + d.state + ')' : '');
+              $('ser_bps').textContent = d.bytes_per_sec;
+              $('ser_live').className = 'live' + (d.bytes_per_sec > 0 ? ' on' : '');
+              $('ser_idle').textContent = ago(d.idle_seconds);
+              $('ser_bytes').textContent = d.bytes_total.toLocaleString();
+              $('ser_recs').textContent = d.records_total.toLocaleString();
+              $('ser_rps').textContent = d.records_per_sec;
+              var named = d.channels.filter(function(c){ return !/^ch /.test(c.name); });
+              var other = d.channels.filter(function(c){ return /^ch /.test(c.name); }).reduce(function(t, c){ return t + c.n; }, 0);
+              $('ser_chans').innerHTML = d.channels.length ? 'Channels seen: ' + named.map(function(c){
+                  return '<span>' + c.name + ' &times;' + c.n + '</span>'; }).join('') + (other ? '<span>other &times;' + other + '</span>' : '') : '';
+              if ($('ser_rawbox').open){
+                $('ser_raw').innerHTML = d.raw_hex.length ? d.raw_hex.map(function(h){
+                    return parseInt(h,16) & 0x80 ? '<span class="hb">' + h + '</span>' : h; }).join(' ') : '(nothing yet)';
+                $('ser_recent').textContent = d.recent.length ? d.recent.map(function(r){
+                    return ('ch ' + r.ch).padEnd(6) + ': ' + r.hex; }).join('\n') : '(no records yet)';
+              }
+              $('ser_ports').textContent = d.ports && d.ports.length
+                ? 'Ports on this PC: ' + d.ports.map(function(p){ return p.device + (p.description && p.description !== p.device ? ' (' + p.description + ')' : ''); }).join(', ')
+                : 'No serial ports found on this PC - is the USB adapter plugged in?';
+            }).catch(function(){ $('ser_pill').className = 'pill bad'; $('ser_pill').textContent = 'OFFLINE';
+                                 $('ser_hint').textContent = 'Can\'t reach meet-board.'; });
+          };
+          serPoll(); setInterval(serPoll, 1000);
+        })();
+        </script>
+
         <h3 id="debug">Debug: test without the console</h3>
         <div class="row">
             <div class="col-lg-10">
