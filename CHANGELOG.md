@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.22
+
+### Fixed
+- **Inverted console signal decoded in software.** The pool's Gen7 console
+  (firmware 1.44) reaches COM1 with inverted polarity, so the port frames
+  every byte on the wrong bit (each byte shifted, inverted, record-start bit
+  lost) and everything decoded as junk. New serial formats `9600-8E1-INV`,
+  `9600-8N1-INV`, `9600-8O1-INV` undo it and rebuild the lost bit from the
+  record structure (`cts_signal.py`). On the captured feed: 90% clean records
+  (same as a clean recording), race time 0.0, event 1 heat 1, lanes clear.
+  *Find the right format* now tries the inverted formats too.
+- A capture whose name contains `-INV` replays inverted with `--in`.
+
 ## 0.2.21
 
 ### Added

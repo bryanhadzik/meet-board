@@ -183,6 +183,11 @@ scoreboard line:
 Cut off one of the 1/4" female connectors. Solder the center conductor to pin 2 of the DB-9 and the
 shield to pin 5. Put it inline with the CTS scoreboard cable and connect the DB-9 to the serial port.
 
+If Settings → Serial input says the data is garbled, run **Find the right format**. Some consoles
+(e.g. a Gen7) drive the scoreboard line with the opposite polarity; the `-INV` formats decode
+that in software. A hardware fix is an inverting RS-232 adapter, or an FTDI USB-serial adapter
+with RXD inverted in FT_PROG; then use the normal format.
+
 ## Protocol
 
 Interpretation of the CTS protocol is based on the work of

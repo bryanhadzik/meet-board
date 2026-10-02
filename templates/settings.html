@@ -207,7 +207,7 @@
               $('ser_valid').textContent = d.valid_pct == null ? '-' : d.valid_pct + '%';
               var sel = $('ser_fmt');
               if (sel.options.length !== (d.serial_formats || []).length){
-                sel.innerHTML = (d.serial_formats || []).map(function(f){ return '<option value="' + f + '">' + f + (f === '9600-8N1' ? ' (CTS default)' : '') + '</option>'; }).join('');
+                sel.innerHTML = (d.serial_formats || []).map(function(f){ return '<option value="' + f + '">' + f.replace('-INV', ' inverted signal') + (f === '9600-8N1' ? ' (CTS default)' : '') + '</option>'; }).join('');
               }
               if (!serAutoRunning && document.activeElement !== sel) sel.value = d.serial_format;
               var named = d.channels.filter(function(c){ return !/^ch /.test(c.name); });

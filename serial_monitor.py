@@ -45,6 +45,8 @@ class SerialMonitor:
             self.opened_at = None
             self.bytes_total = 0
             self.high_bytes = 0           # bytes with the top bit set (CTS record starts)
+            self.odd_bytes = 0            # bytes with bit 0 set (an inverted CTS line gives ~100%)
+            self.inverted = False         # decoding as an inverted signal
             self.records_total = 0
             self.valid_total = 0          # records shaped like real CTS data
             self.capture = None           # bytearray while recording raw bytes
@@ -114,6 +116,8 @@ class SerialMonitor:
             self.bytes_total += 1
             if c & 0x80:
                 self.high_bytes += 1
+            if c & 1:
+                self.odd_bytes += 1
             self.last_byte_at = now
             self.raw.append(c)
             if self._rate and now - self._rate[-1][0] < 0.25:
@@ -157,7 +161,8 @@ class SerialMonitor:
                 'attempts': self.attempts,
                 'open_for': round(now - self.opened_at, 1) if self.opened_at and self.state in ('open', 'replay') else None,
                 'bytes_total': self.bytes_total, 'records_total': self.records_total,
-                'valid_pct': round(100.0 * self.valid_total / self.records_total, 1) if self.records_total else None,
+                'valid_pct': self._clean_pct(),
+                'inverted': self.inverted,
                 'bytes_per_sec': round(bps, 1), 'records_per_sec': round(rps, 1),
                 'idle_seconds': round(idle, 1) if idle is not None else None,
                 'clock_age': round(now - self.last_clock_at, 1) if self.last_clock_at else None,
@@ -168,6 +173,17 @@ class SerialMonitor:
             }
         snap['verdict'], snap['hint'] = self._verdict(snap)
         return snap
+
+    def _clean_pct(self):
+        """% of the data that decodes as real CTS. Normal signal: records with a
+        proper CTS shape. Inverted signal: the record shape is rebuilt so it's
+        always tidy; the tell is instead bit 0 of every raw byte being 1."""
+        if not self.records_total:
+            return None
+        pct = 100.0 * self.valid_total / self.records_total
+        if self.inverted and self.bytes_total:
+            pct = min(pct, 100.0 * self.odd_bytes / self.bytes_total)
+        return round(pct, 1)
 
     @staticmethod
     def _verdict(s):
@@ -193,8 +209,8 @@ class SerialMonitor:
                            'or the wrong baud rate (CTS is 9600).')
         if s['records_total'] > 100 and s['valid_pct'] is not None and s['valid_pct'] < 75:
             return 'bad', ('Data is arriving but it is garbled: only %.0f%% of records look like real CTS data, so the '
-                           'decoded values below are wrong. Usually the serial format (parity / stop bits / baud) or an '
-                           'inverted signal. Click "Find the right format" below.' % s['valid_pct'])
+                           'decoded values below are wrong. Usually the serial format, or an inverted signal (pick a '
+                           '"-INV" format). Click "Find the right format" below.' % s['valid_pct'])
         if s['bytes_total'] > 200 and s['high_bit_pct'] is not None and s['high_bit_pct'] < 3:
             return 'warn', ('Bytes are arriving but very few look like CTS record starts (%.1f%%). Possible noise, '
                             'wrong baud rate, or a ground (pin 5) problem.' % s['high_bit_pct'])

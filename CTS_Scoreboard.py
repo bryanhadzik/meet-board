@@ -29,6 +29,7 @@ import app_paths
 import scb_loader
 import meet_board
 from serial_monitor import monitor as serial_mon
+import cts_signal
 import team_logos
 import updater
 import obs_client
@@ -428,13 +429,14 @@ def parse_line(l, out = None):
             ap.render()
 
 
-SERIAL_FORMATS = ['9600-8N1', '9600-8E1', '9600-8O1', '9600-8N2', '9600-7E1', '9600-7O1',
-                  '19200-8N1', '4800-8N1', '38400-8N1']
+SERIAL_FORMATS = ['9600-8N1', '9600-8E1', '9600-8O1', '9600-8N2',
+                  '9600-8E1-INV', '9600-8N1-INV', '9600-8O1-INV',   # inverted signal (see cts_signal.py)
+                  '9600-7E1', '9600-7O1', '19200-8N1', '4800-8N1', '38400-8N1']
 
 
 def serial_params(fmt):
-    """'9600-8E1' -> pyserial kwargs."""
-    m = re.match(r'^(\d+)-([78])([NEO])([12])$', fmt or '')
+    """'9600-8E1' (or '9600-8E1-INV') -> pyserial kwargs."""
+    m = re.match(r'^(\d+)-([78])([NEO])([12])$', cts_signal.base_format(fmt or ''))
     if not m:
         m = re.match(r'^(\d+)-([78])([NEO])([12])$', '9600-8N1')
     baud, bits, par, stop = m.groups()
@@ -451,11 +453,15 @@ def main_thread_worker():
         with open(in_file, 'rb') as f:
             data = f.read()
         serial_mon.replay(os.path.basename(in_file))
+        rf = cts_signal.Reframer(cts_signal.is_inverted(settings.get('serial_format')) or '-INV' in in_file.upper())
+        serial_mon.inverted = rf.inverted
         while True:
             l = []
-            for n, c in enumerate(data):
-                serial_mon.byte(c)
-                if c:
+            for n, raw in enumerate(data):
+                serial_mon.byte(raw)
+                for c in rf.feed(raw):
+                    if not c:
+                        continue
                     if (c & 0x80) or (len(l) > 8):
                         if len(l):
                             serial_mon.record(l)
@@ -515,22 +521,25 @@ def main_thread_worker():
                 with serial.Serial(port, timeout=0, **serial_params(fmt)) as f:
                     print("Reading CTS data from %s (%s)" % (port, fmt))
                     serial_mon.opened(port)
+                    rf = cts_signal.Reframer(cts_signal.is_inverted(fmt))
+                    serial_mon.inverted = rf.inverted
                     last_error = None
                     l = []
                     while port == settings['serial_port'] and fmt == (settings.get('serial_format') or '9600-8N1'):
                         serial_mon.poll_capture()
-                        c = f.read(1)
-                        if c:
-                            c=c[0]
-                            serial_mon.byte(c)
-                            if (c & 0x80) or (len(l) > 8):
-                                if len(l):
-                                    serial_mon.record(l)
-                                    parse_line(l, j)
-                                l=[]
-                            l.append(c)
-                        else:
+                        chunk = f.read(256)
+                        if not chunk:
                             socketio.sleep(0.01)
+                            continue
+                        for raw in chunk:
+                            serial_mon.byte(raw)
+                            for c in rf.feed(raw):
+                                if (c & 0x80) or (len(l) > 8):
+                                    if len(l):
+                                        serial_mon.record(l)
+                                        parse_line(l, j)
+                                    l = []
+                                l.append(c)
             except Exception as e:
                 serial_mon.failed(port, e)
                 if str(e) != last_error:
