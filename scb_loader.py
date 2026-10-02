@@ -379,3 +379,76 @@ if __name__ == '__main__':
         print('Event %d Heat %d  %s' % (e, h, loader.event_names[e]))
         for lane in sorted(loader.events[(e, h)]):
             print('   %2d  %-24s %s' % (lane, loader.events[(e, h)][lane], loader.teams[(e, h)][lane]))
+
+
+# ---------------------------------------------------------------- .hy3 details on .scb heats
+def _name_tokens(name):
+    return [t for t in re.findall(r"[a-z]+", (name or '').lower()) if len(t) >= 2]
+
+
+def _same_swimmer(scb_name, hy3_name):
+    """.scb names are cut at 20 characters, so a token may be a prefix."""
+    a, b = _name_tokens(scb_name), _name_tokens(hy3_name)
+    if not a or not b:
+        return False
+    hits = sum(1 for t in a if any(h.startswith(t) or t.startswith(h) for h in b))
+    return hits >= min(2, len(a))
+
+
+def _relay_letter(name):
+    parts = (name or '').split()
+    return parts[-1].upper() if parts and len(parts[-1]) == 1 and parts[-1].isalpha() else ''
+
+
+def enrich_from_hy3(loader, hy3):
+    """.scb start lists carry no seed times, ages or relay swimmers. Copy them
+    from a .hy3 Meet Entries load onto the .scb heats, matching each lane by
+    event + team + swimmer name (or relay letter), so re-seeded or scratched
+    heats still match. Relays also take the .hy3 relay name ("Stansbury A").
+    Returns the number of lanes matched."""
+    src_events = hy3.events_uncombined or hy3.events
+    src_teams = hy3.teams_uncombined or hy3.teams
+    src_seeds = hy3.seed_times_uncombined or hy3.seed_times
+    src_ages = hy3.age_codes_uncombined or hy3.age_codes
+    src_legs = getattr(hy3, 'relay_legs', {}) or {}
+    by_event = {}
+    for key, lanes in src_events.items():
+        for lane, name in lanes.items():
+            by_event.setdefault(key[0], []).append({
+                'name': name, 'team': (src_teams.get(key, {}).get(lane) or '').strip(),
+                'seed': src_seeds.get(key, {}).get(lane),
+                'age': src_ages.get(key, {}).get(lane, ''),
+                'legs': src_legs.get(key, {}).get(lane, []),
+                'relay': bool((hy3.event_meta.get(key[0]) or {}).get('relay')),
+            })
+    matched = 0
+    if not hasattr(loader, 'relay_legs') or loader.relay_legs is None:
+        loader.relay_legs = {}
+    for key, lanes in loader.events_uncombined.items():
+        cands = by_event.get(key[0], [])
+        if not cands:
+            continue
+        for lane, name in lanes.items():
+            team = (loader.teams_uncombined.get(key, {}).get(lane) or '').strip()
+            pool = [c for c in cands if c['team'] == team]
+            hit = None
+            if pool and pool[0]['relay']:
+                letter = _relay_letter(name)
+                hit = next((c for c in pool if _relay_letter(c['name']) == letter), None) if letter else None
+            else:
+                hit = next((c for c in pool if _same_swimmer(name, c['name'])), None)
+            if not hit:
+                continue
+            matched += 1
+            if hit['seed'] is not None:
+                loader.seed_times_uncombined.setdefault(key, {})[lane] = hit['seed']
+            if hit['age']:
+                loader.age_codes_uncombined.setdefault(key, {})[lane] = hit['age']
+            if hit['relay']:
+                if hit['name']:
+                    loader.events_uncombined[key][lane] = hit['name']
+                if hit['legs']:
+                    loader.relay_legs.setdefault(key, {})[lane] = list(hit['legs'])
+    if matched:
+        loader.combine_events()   # rebuild the live tables from the enriched copies
+    return matched

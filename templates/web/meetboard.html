@@ -59,6 +59,8 @@
   .tmr { font-size:2.6cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
   .pl { font-size:2.3cqw; font-weight:700; text-align:center; width:3cqw; flex:0 0 auto; color:#7d9aa1; }
   .row.lead .tmr, .row.lead .pl { color:#7fe0ab; }
+  .tmr.seedpre { font-size:1.9cqw; color:#6f9099; }
+  .style-lanes .row.has-team .tmr.seedpre { color:var(--ink); opacity:.75; }
   /* beat the seed time: seconds dropped, beside the finish time */
   .drop { flex:0 0 auto; width:7cqw; text-align:right; font-size:1.45cqw; font-weight:700; color:#7fe0ab; font-variant-numeric:tabular-nums; }
   .drop:empty { visibility:hidden; }
@@ -333,7 +335,10 @@ function renderCurrent(){
     r.appendChild(nameCell(name, team, s['lane_legs'+i]));
     r.appendChild(el('div','tm mono', team));
     r.appendChild(el('div','drop mono', t ? dropOf(t, s['lane_seed_time'+i]) : ''));
-    r.appendChild(el('div','tmr mono', t));
+    // On the blocks: show the entry seed where the finish time will go
+    var pre = !t && !running && /PreRace$/.test(s.race_state || '');
+    var sd = pre ? fmtSeed(s['lane_seed_time'+i]) : '';
+    r.appendChild(el('div','tmr mono' + (sd ? ' seedpre' : ''), t || sd));
     r.appendChild(el('div','pl mono', t ? place : ''));
     box.appendChild(r);
   }

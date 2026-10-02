@@ -153,3 +153,31 @@ def test_duplicate_event_warning():
     t = read('E003.scb')
     _, _, warns = scb_loader.load_scb_into(HytekEventLoader(), [('E003.scb', t), ('old/E003.scb', t)])
     assert any('duplicate' in w for w in warns)
+
+
+def test_hy3_details_survive_scb_reload():
+    """A .scb reload keeps seeds and relay swimmers from the earlier .hy3."""
+    import os
+    import hytek_event_loader as h
+    hy3 = h.HytekEventLoader(os.path.join(os.path.dirname(__file__), '..', 'samples', 'blank-dates-seeded.hy3'))
+    L = h.HytekEventLoader()
+    # .scb-style load of the same heats: names only, relay as "SHS A"
+    L.event_names = {8: 'Men 50 Free', 1: 'Women 200 Medley Relay'}
+    L.event_meta = {8: {'relay': False}, 1: {'relay': True}}
+    L.events_uncombined = {(8, 7): {3: 'Alpha Swimmer'}, (1, 4): {5: 'SHS A'}}   # lanes moved
+    L.teams_uncombined = {(8, 7): {3: 'SHS'}, (1, 4): {5: 'SHS'}}
+    L.seed_times_uncombined = {(8, 7): {3: None}, (1, 4): {5: None}}
+    L.age_codes_uncombined = {(8, 7): {3: ''}, (1, 4): {5: ''}}
+    L.combine_events()
+    assert scb_loader.enrich_from_hy3(L, hy3) == 2
+    assert L.get_seed_time(8, 7, 3) == 27.07
+    assert L.get_seed_time(1, 4, 5) == 137.54
+    assert L.get_display_string(1, 4, 5) == 'Demo A'
+    assert L.get_relay_legs(1, 4, 5) == ['Swimmer'] * 4
+
+
+def test_zero_fill_seconds():
+    import CTS_Scoreboard as app
+    assert app._ZERO_FILL.sub(r'\g<1>0', ' 1: 5.23') == ' 1:05.23'
+    assert app._ZERO_FILL.sub(r'\g<1>0', ' 1:15.23') == ' 1:15.23'
+    assert app._ZERO_FILL.sub(r'\g<1>0', '    5.2 ') == '    5.2 '

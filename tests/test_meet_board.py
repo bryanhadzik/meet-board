@@ -51,9 +51,9 @@ def test_team_colors_defaults_overrides_and_auto():
     assert teams[:3] == ['GHS', 'CDRV', 'MILL']
     colors = meet_board.team_colors({'team_colors': {'GHS': {'name': 'Grantsville', 'color': '#FF0000', 'alt': ''}}}, teams)
     assert colors['GHS']['color'] == '#FF0000' and not colors['GHS']['auto']
-    assert colors['TOOEL']['color'] == '#D18AE0'
-    assert colors['CDRV']['color'] == '#E0393E' and not colors['CDRV']['auto']   # built-in school color
-    assert colors['MILL']['auto'] and colors['MILL']['color'].startswith('#')
+    assert colors['TOOEL']['color'] == '#9B5DE5'
+    assert colors['CDRV']['color'] == '#DC143C' and not colors['CDRV']['auto']   # built-in school color
+    assert colors['MILL']['color'] == '#2F7BE6' and not colors['MILL']['auto']
     autos = [colors[t]['color'] for t in teams if colors[t]['auto']]
     assert len(autos) == len(set(autos))   # distinct placeholder colors
 

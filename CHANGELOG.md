@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.14
+
+### Fixed
+- Times are zero-filled: `1:05.23`, not `1: 5.23` (CTS blanks that digit).
+- A `.scb` reload (watch folder, including at every app start) replaced the
+  `.hy3` and dropped seed times, ages and relay swimmers. They're now kept:
+  each `.scb` lane is matched to the last `.hy3` upload by event, team and
+  swimmer name (or relay letter), so re-seeded heats still match.
+
+### Added
+- Seed times in the in-water lanes while a heat is on the blocks.
+- Team colors for all 12 Mel Roberts Invitational schools, from the UHSAA
+  school directory and the Tooele County SD school sheet.
+
 ## 0.2.13
 
 ### Added

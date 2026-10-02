@@ -17,23 +17,28 @@ BOARD_STYLES = {
 # colors: each is lifted to clear 3:1 against the #0b1618 board background.
 # Every hex is an approximation - override them on the Team Colors page.
 DEFAULT_TEAM_COLORS = {
-    'TOOEL': {'name': 'Tooele',         'color': '#D18AE0', 'alt': '#E8EEEE'},
-    'STAN':  {'name': 'Stansbury',      'color': '#3D8BF5', 'alt': '#9AA6AB'},
-    'GHS':   {'name': 'Grantsville',    'color': '#F0546A', 'alt': '#E8EEEE'},
-    'DPEAK': {'name': 'Deseret Peak',   'color': '#D9C46E', 'alt': '#BFC7CA'},
+    'TOOEL': {'name': 'Tooele',         'color': '#9B5DE5', 'alt': '#E8EEEE'},
+    'STAN':  {'name': 'Stansbury',      'color': '#3D7FF0', 'alt': '#A8B2B8'},
+    'GHS':   {'name': 'Grantsville',    'color': '#E5383B', 'alt': '#E8EEEE'},
+    'DPEAK': {'name': 'Deseret Peak',   'color': '#C9B45C', 'alt': '#8E9AA3'},
     'BRHS':  {'name': 'Bear River',     'color': '#E8EEEE', 'alt': '#9AA6AB'},
     'SVHS':  {'name': 'Sky View',       'color': '#3E9BD6', 'alt': '#FFD24D'},
     'MCHS':  {'name': 'Mountain Crest', 'color': '#FF8C42', 'alt': '#5B8FE8'},
     'RIDGE': {'name': 'Ridgeline',      'color': '#7ACC3E', 'alt': '#A5ACAF'},
     'GCHS':  {'name': 'Green Canyon',   'color': '#3FB58A', 'alt': '#BFC7CA'},
-    # Codes Meet Manager uses for the Mel Roberts Invitational teams. Colors
-    # are the schools' own (blue/black/silver, blue/white, red/steel gray,
-    # maroon/white), brightened so they read on the dark board.
-    'SHS':   {'name': 'Stansbury',      'color': '#3D8BF5', 'alt': '#9AA6AB'},
-    'DPHS':  {'name': 'Deseret Peak',   'color': '#D9C46E', 'alt': '#BFC7CA'},
-    'CARB':  {'name': 'Carbon',         'color': '#2F6BDB', 'alt': '#E8EEEE'},
-    'CDRV':  {'name': 'Cedar Valley',   'color': '#E0393E', 'alt': '#8E9AA3'},
-    'MOR':   {'name': 'Morgan',         'color': '#B03A5B', 'alt': '#E8EEEE'},
+    # Meet Manager codes for the Mel Roberts Invitational teams. Colors from
+    # the UHSAA school directory (and the Tooele County SD school sheet),
+    # tuned so they read on the dark board; alt = the school's second color.
+    'SHS':   {'name': 'Stansbury',      'color': '#3D7FF0', 'alt': '#A8B2B8'},  # black, royal blue, silver
+    'DPHS':  {'name': 'Deseret Peak',   'color': '#C9B45C', 'alt': '#8E9AA3'},  # Vegas gold, black
+    'CARB':  {'name': 'Carbon',         'color': '#2A63D4', 'alt': '#E8EEEE'},  # blue, white
+    'CDRV':  {'name': 'Cedar Valley',   'color': '#DC143C', 'alt': '#8E9AA3'},  # red, black / steel gray
+    'MOR':   {'name': 'Morgan',         'color': '#A3324F', 'alt': '#E8EEEE'},  # maroon, white
+    'EMERY': {'name': 'Emery',          'color': '#F2B705', 'alt': '#8E9AA3'},  # black, gold, gray
+    'UHS':   {'name': 'Uintah',         'color': '#D62B2B', 'alt': '#E8EEEE'},  # red, white
+    'MILL':  {'name': 'Millard',        'color': '#2F7BE6', 'alt': '#E8EEEE'},  # blue, white
+    'NSHS':  {'name': 'North Summit',   'color': '#8A4FD8', 'alt': '#F2C230'},  # purple, gold
+    'SSHS':  {'name': 'South Summit',   'color': '#2E8B47', 'alt': '#E8EEEE'},  # forest green, white
 }
 
 # Board-safe fallback colors for teams nobody has configured yet, handed out

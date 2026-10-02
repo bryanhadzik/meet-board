@@ -104,12 +104,16 @@ socketio = flask_socketio.SocketIO(app)
 _live_race = {}
 _LIVE_PREFIXES = ('lane_time', 'lane_place', 'lane_running', 'running_time')
 _socketio_emit = socketio.emit
+# CTS blanks the tens-of-seconds digit: " 1: 5.23" -> " 1:05.23" (same width)
+_ZERO_FILL = re.compile(r'(:)\s(?=\d)')
 
 
 def _emit_and_remember(event, *args, **kwargs):
     if event == 'update_scoreboard' and kwargs.get('namespace') == '/scoreboard' and args and isinstance(args[0], dict):
-        for k, v in args[0].items():
+        for k, v in list(args[0].items()):
             if k.startswith(_LIVE_PREFIXES):
+                if isinstance(v, str) and ':' in v:
+                    v = args[0][k] = _ZERO_FILL.sub(r'\g<1>0', v)
                 _live_race[k] = v
     return _socketio_emit(event, *args, **kwargs)
 
@@ -169,6 +173,20 @@ _settings_lock = threading.Lock()
 # OBS link: runs in the background, never blocks or breaks the boards.
 obs = obs_client.OBSClient(lambda: (settings.get('obs_url'), settings.get('obs_password')))
 
+def enrich_from_saved_hy3(loader):
+    """After a .scb load, put back seed times / ages / relay swimmers from the
+    last .hy3 Meet Entries upload (kept in settings['hy3_source'])."""
+    src = settings.get('hy3_source')
+    if not src:
+        return 0
+    try:
+        hy3 = HytekEventLoader()
+        hy3.from_object(src)
+        return scb_loader.enrich_from_hy3(loader, hy3)
+    except Exception:
+        traceback.print_exc()
+        return 0
+
 def backup_schedule():
     """Keep the schedule we're about to replace, so Undo can restore it."""
     if event_info.event_names:
@@ -203,6 +221,7 @@ def scb_watch_worker():
                     staged = copy.deepcopy(event_info)  # load into a copy; keep the board on failure
                     n_events, n_heats, errs = scb_loader.load_scb_into(
                         staged, texts, settings.get('scb_name_style', 'first_last'))
+                    n_rich = enrich_from_saved_hy3(staged)
                     backup_schedule()
                     event_info.from_object(staged.to_object())
                 except scb_loader.StaleExportError as e:
@@ -211,8 +230,9 @@ def scb_watch_worker():
                     _scb_watch['message'] = 'Watch folder load failed: %s' % e
                 else:
                     settings['event_info'] = event_info.to_object()
-                    settings['schedule_filename'] = '%s (%d events, %d heats, watching)' % (
-                        folder, n_events, n_heats)
+                    settings['schedule_filename'] = '%s (%d events, %d heats, watching%s)' % (
+                        folder, n_events, n_heats,
+                        '; .hy3 seeds for %d lanes' % n_rich if n_rich else '')
                     _scb_watch['message'] = 'Loaded %d events / %d heats at %s%s' % (
                         n_events, n_heats, time.strftime('%H:%M:%S'),
                         (' - skipped: ' + '; '.join(errs)) if errs else '')
@@ -1566,14 +1586,16 @@ def route_settings():
                 n_events, n_heats, errs = scb_loader.load_scb_into(
                     staged, texts, settings.get('scb_name_style', 'first_last'),
                     force='force_timestamps' in flask.request.form)
+                n_rich = enrich_from_saved_hy3(staged)
                 backup_schedule()
                 event_info.from_object(staged.to_object())
             except Exception as e:
                 schedule_error = 'Start lists NOT loaded (the board is unchanged): %s' % e
             else:
                 settings['event_info'] = event_info.to_object()
-                settings['schedule_filename'] = '%d CTS start lists (%d events, %d heats)' % (
-                    len(texts), n_events, n_heats)
+                settings['schedule_filename'] = '%d CTS start lists (%d events, %d heats)%s' % (
+                    len(texts), n_events, n_heats,
+                    ' + seed times/relay swimmers from the .hy3 for %d lanes' % n_rich if n_rich else '')
                 if errs:
                     schedule_error = 'Loaded, with warnings: ' + '; '.join(errs)
                 send_event_info()
@@ -1594,6 +1616,7 @@ def route_settings():
                         schedule_error += ': ' + detail
                 else:
                     settings['event_info'] = event_info.to_object()
+                    settings['hy3_source'] = settings['event_info']   # .scb reloads borrow its seeds/relay swimmers
                     settings['schedule_filename'] = file.filename
                     send_event_info()
                     modified = True
@@ -1892,6 +1915,7 @@ def route_schedule_clear():
     event_info.clear()
     settings['event_info'] = event_info.to_object()
     settings.pop('schedule_filename', None)
+    settings.pop('hy3_source', None)
     with open(settings_file, "wt") as f:
         json.dump(settings, f, sort_keys=True, indent=4)
     return flask.redirect('/settings')
