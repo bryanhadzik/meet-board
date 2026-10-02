@@ -863,8 +863,8 @@ def send_event_info():
     update.update(meet_board.board_payload(event_info, settings, last_event_sent))
     meet_teams = meet_board.schedule_teams(event_info)
     update["meet_teams"] = meet_teams
-    update["team_colors"] = meet_board.team_colors(settings, meet_teams)
-    update["team_logos"] = team_logos.list_logos(_logo_folder())
+    update["team_colors"] = meet_board.team_colors(settings, meet_teams, _team_names())
+    update["team_logos"] = _meet_logos(meet_teams)
     update["color_palette"] = meet_board.FALLBACK_PALETTE
     update["resolved_colors"] = meet_board.resolved_colors(
         update["team_colors"], meet_teams, update.get("home_team") or settings.get('board_home_team') or settings.get('team_home_tag', ''))
@@ -1946,9 +1946,41 @@ def _logo_folder():
     return team_logos.logo_dir(app_paths.data_path)
 
 
+def _team_names():
+    return getattr(event_info, 'team_names', None) or {}
+
+
+def _logo_path(code):
+    """A team's logo file, also found under any other code for the same school
+    (SHS.png serves STAN and the reverse)."""
+    folder = _logo_folder()
+    code = (code or '').upper()
+    path = team_logos.find_logo(folder, code)
+    if path:
+        return path
+    home = meet_board.canonical_codes(settings, [code], _team_names()).get(code, code)
+    for c in meet_board.alias_codes(settings, home):
+        path = team_logos.find_logo(folder, c)
+        if path:
+            return path
+    return None
+
+
+def _meet_logos(meet_teams):
+    """{code: mtime} for every logo file, plus each meet code whose school has
+    a logo under another code."""
+    out = team_logos.list_logos(_logo_folder())
+    for code in meet_teams or []:
+        if code and code not in out:
+            p = _logo_path(code)
+            if p:
+                out[code] = int(os.path.getmtime(p))
+    return out
+
+
 @app.route('/team_logo/<code>')
 def route_team_logo(code):
-    path = team_logos.find_logo(_logo_folder(), code)
+    path = _logo_path(code)
     if not path:
         return flask.abort(404)
     resp = flask.send_file(path, max_age=86400)   # ?v=<mtime> on the URL busts the cache
@@ -2181,7 +2213,10 @@ def route_team_colors():
         for code in codes:
             if flask.request.form.get('reset_' + code):
                 continue
+            aliases = [a for a in re.split(r'[\s,;/]+', flask.request.form.get('aliases_' + code, '').upper())
+                       if a and a != code and team_logos.valid_code(a)][:8]
             entry = {
+                'aliases': aliases,
                 'name': flask.request.form.get('name_' + code, '').strip()[:30],
                 'color': flask.request.form.get('color_' + code, '').strip(),
                 'alt': flask.request.form.get('alt_' + code, '').strip(),
@@ -2201,14 +2236,14 @@ def route_team_colors():
         save_settings()
         send_event_info()
         return flask.redirect('/team_colors')
-    colors = meet_board.team_colors(settings, teams_in_meet)
+    colors = meet_board.team_colors(settings, teams_in_meet, _team_names())
     order = teams_in_meet + sorted(c for c in colors if c not in teams_in_meet)
     return flask.render_template('team_colors.html', colors=colors, order=order,
                                  in_meet=set(teams_in_meet),
                                  home_team=settings.get('board_home_team') or settings.get('team_home_tag', ''),
                                  board_style=settings.get('board_style', 'classic'),
                                  board_styles=meet_board.BOARD_STYLES,
-                                 logos=team_logos.list_logos(_logo_folder()),
+                                 logos=_meet_logos(teams_in_meet),
                                  msg=flask.request.args.get('msg', ''))
 
 @app.route('/software_update')

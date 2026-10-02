@@ -51,3 +51,21 @@ def test_board_payload_carries_relay_legs():
     L = h.HytekEventLoader(SAMPLE)
     lanes = meet_board.lanes_for(L, (1, 4), 8)
     assert lanes[6]['name'] == 'Demo A' and lanes[6]['legs'] == ['Swimmer'] * 4
+
+
+def test_team_names_kept_for_code_matching():
+    L = h.HytekEventLoader(SAMPLE)
+    assert L.team_names.get('SHS') == 'Demo High School'
+    L2 = h.HytekEventLoader()
+    L2.from_object(L.to_object())
+    assert L2.team_names.get('SHS') == 'Demo High School'
+
+
+def test_logo_served_under_alias_code(tmp_path, monkeypatch):
+    import CTS_Scoreboard as app
+    monkeypatch.setattr(app, '_logo_folder', lambda: str(tmp_path))
+    (tmp_path / 'SHS.png').write_bytes(b'\x89PNG')
+    assert app._logo_path('STAN').endswith('SHS.png')       # built-in alias
+    assert app._logo_path('SHS').endswith('SHS.png')
+    assert app._logo_path('NOPE') is None
+    assert 'STAN' in app._meet_logos(['STAN'])

@@ -193,6 +193,7 @@ class HytekEventLoader():
         self.age_codes_uncombined = {}
         self.seed_times_uncombined = {}
         self.relay_legs = {}   # (event, heat) -> {lane: [last names of the 4 legs]}
+        self.team_names = {}   # team code -> full school name from the .hy3 (none in .scb)
         self.combined = {}
         self.has_names = False
         if file_name:
@@ -219,6 +220,7 @@ class HytekEventLoader():
         self.age_codes.clear()
         self.seed_times.clear()
         self.relay_legs = {}
+        self.team_names = {}
         self.events_uncombined = copy.deepcopy(self.events)
         self.teams_uncombined = copy.deepcopy(self.teams)
         self.age_codes_uncombined = copy.deepcopy(self.age_codes)
@@ -245,6 +247,11 @@ class HytekEventLoader():
 
     def _load_from_parsed(self, parsed):
         meet = parsed.meet
+        self.team_names = {}
+        for code, team in (getattr(meet, 'teams', None) or {}).items():
+            name = (getattr(team, 'name', '') or '').strip()
+            if code and name:
+                self.team_names[str(code).strip()] = name
         for event_num_str, event in meet.events.items():
             try:
                 event_number = int(event_num_str)
@@ -428,6 +435,7 @@ class HytekEventLoader():
             "seed_times": self.seed_times,
             "seed_times_uncombined": self.seed_times_uncombined,
             "relay_legs": getattr(self, 'relay_legs', {}),
+            "team_names": getattr(self, 'team_names', {}),
             "combined": self.combined,
         }, protocol=0).decode('utf8')
 
@@ -444,6 +452,7 @@ class HytekEventLoader():
         self.seed_times = o.get('seed_times', {})
         self.seed_times_uncombined = o.get('seed_times_uncombined', {})
         self.relay_legs = o.get('relay_legs', {})
+        self.team_names = o.get('team_names', {})
         self.combined = o['combined']
         self._compute_has_names()
 

@@ -18,9 +18,9 @@ BOARD_STYLES = {
 # Every hex is an approximation - override them on the Team Colors page.
 DEFAULT_TEAM_COLORS = {
     'TOOEL': {'name': 'Tooele',         'color': '#9B5DE5', 'alt': '#E8EEEE'},
-    'STAN':  {'name': 'Stansbury',      'color': '#3D7FF0', 'alt': '#A8B2B8'},
+    'STAN':  {'name': 'Stansbury',      'color': '#3D7FF0', 'alt': '#A8B2B8', 'aliases': ['SHS']},  # black, royal blue, silver
     'GHS':   {'name': 'Grantsville',    'color': '#E5383B', 'alt': '#E8EEEE'},
-    'DPEAK': {'name': 'Deseret Peak',   'color': '#C9B45C', 'alt': '#8E9AA3'},
+    'DPEAK': {'name': 'Deseret Peak',   'color': '#C9B45C', 'alt': '#8E9AA3', 'aliases': ['DPHS']},  # Vegas gold, black
     'BRHS':  {'name': 'Bear River',     'color': '#E8EEEE', 'alt': '#9AA6AB'},
     'SVHS':  {'name': 'Sky View',       'color': '#3E9BD6', 'alt': '#FFD24D'},
     'MCHS':  {'name': 'Mountain Crest', 'color': '#FF8C42', 'alt': '#5B8FE8'},
@@ -29,8 +29,6 @@ DEFAULT_TEAM_COLORS = {
     # Meet Manager codes for the Mel Roberts Invitational teams. Colors from
     # the UHSAA school directory (and the Tooele County SD school sheet),
     # tuned so they read on the dark board; alt = the school's second color.
-    'SHS':   {'name': 'Stansbury',      'color': '#3D7FF0', 'alt': '#A8B2B8'},  # black, royal blue, silver
-    'DPHS':  {'name': 'Deseret Peak',   'color': '#C9B45C', 'alt': '#8E9AA3'},  # Vegas gold, black
     'CARB':  {'name': 'Carbon',         'color': '#2A63D4', 'alt': '#E8EEEE'},  # blue, white
     'CDRV':  {'name': 'Cedar Valley',   'color': '#DC143C', 'alt': '#8E9AA3'},  # red, black / steel gray
     'MOR':   {'name': 'Morgan',         'color': '#A3324F', 'alt': '#E8EEEE'},  # maroon, white
@@ -49,18 +47,80 @@ FALLBACK_PALETTE = [
 ]
 
 
-def team_colors(settings, schedule_teams=()):
-    """Merge defaults, saved overrides and auto-assigned colors for any team
-    code in the schedule. Returns {code: {name, color, alt, auto}}."""
-    merged = {k: dict(v, auto=False) for k, v in DEFAULT_TEAM_COLORS.items()}
+# ---------------------------------------------------------------- one school, several codes
+# Meet Manager team codes are chosen per meet: Stansbury is SHS in one file
+# and STAN in another. Colors and logos belong to the school, so every code is
+# mapped to one "home" code: by the alias lists (built in or typed on the
+# Team Colors page), else by the school name in the .hy3 matching a known one.
+_NAME_NOISE = __import__('re').compile(
+    r"\b(high|school|hs|swim(ming)?|team|and|dive|diving|club|the|academy)\b", __import__('re').I)
+
+
+def school_key(name):
+    """'Stansbury High School Swim Team' -> 'stansbury'."""
+    n = _NAME_NOISE.sub(' ', (name or '').lower())
+    return ' '.join(__import__('re').findall(r'[a-z0-9]+', n))
+
+
+def _base_table(settings):
+    merged = {k: dict(v, auto=False, aliases=list(v.get('aliases', []))) for k, v in DEFAULT_TEAM_COLORS.items()}
     for code, v in (settings.get('team_colors') or {}).items():
-        base = merged.get(code, {'name': '', 'color': '', 'alt': ''})
+        base = merged.get(code, {'name': '', 'color': '', 'alt': '', 'aliases': []})
+        aliases = v.get('aliases')
         merged[code] = {
             'name': v.get('name', base['name']),
             'color': v.get('color') or base['color'],
             'alt': v.get('alt') or base.get('alt', ''),
+            'aliases': list(aliases) if aliases is not None else list(base.get('aliases', [])),
             'auto': False,
         }
+    return merged
+
+
+def canonical_codes(settings, codes, team_names=None):
+    """{code: home_code} for the given meet codes (home_code == code when the
+    code is its own school). team_names: {code: full name} from the .hy3."""
+    table = _base_table(settings)
+    owner = {}
+    for key, v in table.items():
+        for a in v.get('aliases', []):
+            a = (a or '').strip().upper()
+            if a and a != key:
+                owner.setdefault(a, key)
+    by_name = {}
+    for key, v in table.items():
+        k = school_key(v.get('name'))
+        if k:
+            by_name.setdefault(k, key)
+    out = {}
+    for code in codes:
+        if not code:
+            continue
+        if code in table:
+            out[code] = code
+        elif code in owner:
+            out[code] = owner[code]
+        else:
+            k = school_key((team_names or {}).get(code, ''))
+            out[code] = by_name.get(k, code) if k else code
+    return out
+
+
+def alias_codes(settings, home):
+    """Every code known for a school: the home code plus its aliases."""
+    v = _base_table(settings).get(home, {})
+    return [home] + [a.upper() for a in v.get('aliases', []) if a and a.upper() != home]
+
+
+def team_colors(settings, schedule_teams=(), team_names=None):
+    """Merge defaults, saved overrides and auto-assigned colors for any team
+    code in the schedule. A code that is another name for a known school gets
+    that school's entry (marked alias_of). Returns {code: {name, color, alt, auto}}."""
+    merged = _base_table(settings)
+    home = canonical_codes(settings, schedule_teams, team_names)
+    for code, h in home.items():
+        if h != code and h in merged:
+            merged[code] = dict(merged[h], alias_of=h, aliases=[])
     used = {v['color'].upper() for v in merged.values() if v.get('color')}
     palette = [c for c in FALLBACK_PALETTE if c.upper() not in used]
     i = 0

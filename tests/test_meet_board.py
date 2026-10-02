@@ -85,3 +85,23 @@ def test_resolved_colors_separate_close_teams():
     assert out['A'] == '#3D8BF5'          # home keeps primary
     assert out['B'] == '#F0546A'          # clash -> alternate
     assert meet_board.delta_e(out['C'], out['A']) >= 15   # auto -> distinct palette color
+
+
+def test_one_school_several_codes():
+    # built-in alias: SHS and STAN are both Stansbury
+    home = meet_board.canonical_codes({}, ['SHS', 'STAN', 'DPHS', 'XYZ'])
+    assert home == {'SHS': 'STAN', 'STAN': 'STAN', 'DPHS': 'DPEAK', 'XYZ': 'XYZ'}
+    c = meet_board.team_colors({}, ['SHS'])
+    assert c['SHS']['alias_of'] == 'STAN' and c['SHS']['color'] == c['STAN']['color'] and not c['SHS']['auto']
+    # .hy3 school name links an unknown code to a known school
+    c = meet_board.team_colors({}, ['THS'], {'THS': 'Tooele High School Swimming'})
+    assert c['THS']['alias_of'] == 'TOOEL'
+    # aliases typed on the Team Colors page
+    s = {'team_colors': {'GHS': {'name': 'Grantsville', 'color': '#E5383B', 'alt': '', 'aliases': ['GRAN']}}}
+    assert meet_board.canonical_codes(s, ['GRAN'])['GRAN'] == 'GHS'
+    assert meet_board.alias_codes(s, 'GHS') == ['GHS', 'GRAN']
+
+
+def test_school_key():
+    assert meet_board.school_key('Uintah High School Swim Team') == 'uintah'
+    assert meet_board.school_key('Cedar Valley High School Swim') == 'cedar valley'

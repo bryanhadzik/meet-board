@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.16
+
+### Added
+- **One school, several team codes.** Meet Manager codes change from meet to
+  meet (Stansbury is `SHS` in one, `STAN` in another). Each code is linked to
+  its school three ways: built-in aliases (STAN = SHS, DPEAK = DPHS), an
+  *Also known as* field per school on Team Colors, and the school name in the
+  `.hy3` (a new code whose name matches a known school links by itself).
+  Linked codes share the school's colors and logo - one `SHS.png` covers STAN.
+
 ## 0.2.15
 
 ### Added

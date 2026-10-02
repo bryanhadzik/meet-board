@@ -41,9 +41,16 @@ shown beside the color, so two similar colors are never ambiguous.</p>
 </div>
 <div class="card">
 <table>
-  <thead><tr><th>Logo</th><th>Code</th><th>School</th><th>Primary</th><th>Alternate</th><th>Preview</th><th></th></tr></thead>
+  <thead><tr><th>Logo</th><th>Code</th><th>School</th><th>Also known as</th><th>Primary</th><th>Alternate</th><th>Preview</th><th></th></tr></thead>
   <tbody>
   {% for code in order %}{% set c = colors[code] %}
+  {% if c.alias_of %}
+  <tr style="opacity:.75">
+    <td>{% if code in logos %}<img src="/team_logo/{{ code }}?v={{ logos[code] }}" alt="" style="width:40px;height:40px;object-fit:contain;background:#fff;border-radius:6px;padding:2px;display:block">{% endif %}</td>
+    <td class="mono"><strong>{{ code }}</strong> {% if code in in_meet %}<span class="tag">in meet</span>{% endif %}</td>
+    <td colspan="6">Same school as <strong class="mono">{{ c.alias_of }}</strong> ({{ c.name }}) &mdash; uses its colors and logo. Edit the {{ c.alias_of }} row.</td>
+  </tr>
+  {% else %}
   <tr>
     <td>{% if code in logos %}<img src="/team_logo/{{ code }}?v={{ logos[code] }}" alt="" style="width:40px;height:40px;object-fit:contain;background:#fff;border-radius:6px;padding:2px;display:block">
         <button class="btn" type="submit" formaction="/team_logos/delete" name="logo_code" value="{{ code }}" style="font-size:11px;padding:1px 6px;margin-top:3px" onclick="return confirm('Remove the {{ code }} logo?')">remove</button>
@@ -52,23 +59,29 @@ shown beside the color, so two similar colors are never ambiguous.</p>
       {% if code in in_meet %}<span class="tag">in meet</span>{% endif %}
       {% if c.auto %}<span class="tag">auto</span>{% endif %}</td>
     <td><input type="text" name="name_{{ code }}" value="{{ c.name }}"></td>
+    <td><input type="text" name="aliases_{{ code }}" value="{{ (c.aliases or [])|join(', ') }}" placeholder="other codes" class="mono" style="width:110px"
+         title="Other team codes Meet Manager uses for this school, e.g. SHS, STAN"></td>
     <td><input type="color" name="color_{{ code }}" value="{{ c.color or '#7d9aa1' }}" oninput="pv(this)"></td>
     <td><input type="color" name="alt_{{ code }}" value="{{ c.alt or '#9aa6ab' }}">
         <label style="font-size:12px"><input type="checkbox" name="noalt_{{ code }}" {% if not c.alt %}checked{% endif %}> none</label></td>
     <td><span class="swatch-preview" id="pv_{{ code }}"><i style="background:{{ c.color }}"></i><span style="color:{{ c.color }}" class="mono">{{ code }}</span> Swimmer</span></td>
     <td><label style="font-size:12px"><input type="checkbox" name="reset_{{ code }}"> reset</label></td>
   </tr>
+  {% endif %}
   {% endfor %}
   <tr>
     <td></td>
     <td><input type="text" name="new_code" placeholder="Add code" class="mono" style="width:90px"></td>
-    <td colspan="5"><input type="color" name="new_color" value="#7d9aa1"> <span style="color:var(--dim);font-size:13px">Add a team code that isn't in the list yet</span></td>
+    <td colspan="6"><input type="color" name="new_color" value="#7d9aa1"> <span style="color:var(--dim);font-size:13px">Add a team code that isn't in the list yet</span></td>
   </tr>
   </tbody>
 </table>
 </div>
 <button class="btn primary" type="submit">Save colors</button>
-<p style="color:var(--dim);font-size:13px;margin-top:14px">Tip: pick a lighter tint of dark school colors (navy, black) &mdash;
+<p style="color:var(--dim);font-size:13px;margin-top:14px"><strong>Same school, different code:</strong> Meet Manager codes
+change from meet to meet (Stansbury is SHS in one file, STAN in another). List the other codes under <em>Also known as</em>
+and they share this school's colors and logo. A code in a .hy3 whose school name matches one here is linked automatically.</p>
+<p style="color:var(--dim);font-size:13px">Tip: pick a lighter tint of dark school colors (navy, black) &mdash;
 the board background is near-black. "reset" drops your override and goes back to the built-in or auto color.</p>
 </form>
 <script>

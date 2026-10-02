@@ -449,6 +449,10 @@ def enrich_from_hy3(loader, hy3):
                     loader.events_uncombined[key][lane] = hit['name']
                 if hit['legs']:
                     loader.relay_legs.setdefault(key, {})[lane] = list(hit['legs'])
+    if getattr(hy3, 'team_names', None):
+        names = dict(hy3.team_names)
+        names.update(getattr(loader, 'team_names', None) or {})
+        loader.team_names = names
     if matched:
         loader.combine_events()   # rebuild the live tables from the enriched copies
     return matched
