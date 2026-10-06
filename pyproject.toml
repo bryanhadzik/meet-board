@@ -35,6 +35,13 @@ only-include = [
     "meet_board.py",
     "updater.py",
     "_version.py",
+    "blackout.py",
+    "cts_signal.py",
+    "music.py",
+    "music_mute.py",
+    "obs_client.py",
+    "serial_monitor.py",
+    "team_logos.py",
 ]
 
 [dependency-groups]
