@@ -1560,13 +1560,28 @@ def _music_folder():
 def _music_songs():
     return music.list_songs(_music_folder())
 
+def _warmup_folder():
+    return music.warmup_dir(app_paths.data_path)
+
+def _warmup_songs():
+    # Not anthem-pinned and a much larger cap: this list is shuffled, and a
+    # warm-up runs far longer than the meet playlist.
+    return music.list_songs(_warmup_folder(), limit=music.MAX_WARMUP, anthem_first=False)
+
+def _warmup_files():
+    return [x['file'] for x in _warmup_songs()]
+
+def _playing_songs():
+    """The list the currently playing track belongs to."""
+    return _warmup_songs() if music_state.mode == 'warmup' else _music_songs()
+
 stream_mute = music_mute.StreamMute(obs, settings, lambda: save_settings())
 screens_black = blackout_mod.Blackout(settings, lambda: save_settings())
 _music_last_status = [None]
 
 
-def _music_state_dict(songs=None):
-    d = music_state.as_dict(songs)
+def _music_state_dict(songs=None, warmup=None):
+    d = music_state.as_dict(songs, warmup)
     d['stream_mute'] = stream_mute.status()
     return d
 
@@ -1576,7 +1591,10 @@ def _music_mute_status():
     (e.g. a public-domain anthem recording) counts as no music playing."""
     if music_state.status != 'playing':
         return music_state.status
-    song = next((x for x in _music_songs() if x['file'] == music_state.track), None)
+    # Look in whichever list is playing. A warm-up track that isn't in the meet
+    # playlist must not fall through as "unknown" - it would still mute, but a
+    # warm-up song you marked OK on stream has to be honoured too.
+    song = next((x for x in _playing_songs() if x['file'] == music_state.track), None)
     return 'stopped' if song and song.get('stream_ok') else 'playing'
 
 
@@ -1586,7 +1604,9 @@ def _music_broadcast(include_songs=False):
     if key != _music_last_status[0]:
         _music_last_status[0] = key
         socketio.start_background_task(_stream_mute_then_broadcast, _music_mute_status())
-    socketio.emit('music_state', _music_state_dict(_music_songs() if include_songs else None),
+    socketio.emit('music_state',
+                  _music_state_dict(_music_songs() if include_songs else None,
+                                    _warmup_songs() if include_songs else None),
                   namespace='/music')
 
 
@@ -1661,7 +1681,8 @@ def route_music_stream_mute():
 @app.route('/music')
 def route_music():
     return flask.render_template('music.html', speaker='speaker' in flask.request.args,
-                                 songs=_music_songs(), music_folder=_music_folder())
+                                 songs=_music_songs(), music_folder=_music_folder(),
+                                 warmup=_warmup_songs(), warmup_folder=_warmup_folder())
 
 @app.route('/music/file/<path:name>')
 def route_music_file(name):
@@ -1715,9 +1736,64 @@ def route_music_delete():
     _music_broadcast(include_songs=True)
     return flask.jsonify({'songs': _music_songs()})
 
+# --- Warm-up list: a separate folder, played on shuffle by one button -----
+@app.route('/warmup/file/<path:name>')
+def route_warmup_file(name):
+    safe = music.safe_filename(name)
+    if not safe or safe != name:
+        return flask.abort(404)
+    return flask.send_from_directory(_warmup_folder(), safe, conditional=True)
+
+@app.route('/warmup/upload', methods=['POST'])
+@flask_login.login_required
+def route_warmup_upload():
+    saved, skipped = [], []
+    folder = _warmup_folder()
+    for f in flask.request.files.getlist('songs'):
+        name = music.safe_filename(f.filename)
+        if not name:
+            skipped.append(f.filename)
+            continue
+        f.save(os.path.join(folder, name))
+        saved.append(name)
+    _music_broadcast(include_songs=True)
+    return flask.jsonify({'saved': saved, 'skipped': skipped, 'warmup': _warmup_songs()})
+
+@app.route('/warmup/meta', methods=['POST'])
+@flask_login.login_required
+def route_warmup_meta():
+    """Edit a warm-up song: {file, title, artist, stream_ok}."""
+    d = flask.request.get_json(silent=True) or {}
+    name = d.get('file', '')
+    safe = music.safe_filename(name)
+    if not safe or safe != name or not os.path.isfile(os.path.join(_warmup_folder(), safe)):
+        return flask.jsonify({'error': 'not found'}), 404
+    music.update_meta(_warmup_folder(), safe, title=d.get('title'), artist=d.get('artist'),
+                      stream_ok=d.get('stream_ok'))
+    _music_last_status[0] = None
+    _music_broadcast(include_songs=True)
+    return flask.jsonify({'ok': True, 'warmup': _warmup_songs()})
+
+@app.route('/warmup/delete', methods=['POST'])
+@flask_login.login_required
+def route_warmup_delete():
+    name = (flask.request.get_json(silent=True) or {}).get('file', '')
+    safe = music.safe_filename(name)
+    if not safe or safe != name or not os.path.isfile(os.path.join(_warmup_folder(), safe)):
+        return flask.jsonify({'error': 'not found'}), 404
+    playing_this = music_state.mode == 'warmup' and music_state.track == safe
+    os.remove(os.path.join(_warmup_folder(), safe))
+    music.forget_meta(_warmup_folder(), safe)
+    if playing_this:
+        # Deleting the song that is playing shouldn't silence the warm-up.
+        music_state.skip_warmup(_warmup_files())
+    _music_broadcast(include_songs=True)
+    return flask.jsonify({'warmup': _warmup_songs()})
+
+
 @socketio.on('connect', namespace='/music')
 def ws_music_connect():
-    flask_socketio.emit('music_state', _music_state_dict(_music_songs()))
+    flask_socketio.emit('music_state', _music_state_dict(_music_songs(), _warmup_songs()))
 
 @socketio.on('disconnect', namespace='/music')
 def ws_music_disconnect(*args):
@@ -1748,6 +1824,9 @@ def ws_music_report(d=None):
             music.update_meta(_music_folder(), music_state.track, duration=music_state.duration)
             _music_broadcast(include_songs=True)
     if ended:
+        # In warm-up the end of a track is a cue, not a stop.
+        if music_state.mode == 'warmup':
+            music_state.advance(_warmup_files())
         _music_broadcast()
     else:
         socketio.emit('music_progress', {'position': music_state.position, 'duration': music_state.duration,
@@ -1756,8 +1835,17 @@ def ws_music_report(d=None):
 @socketio.on('music_cmd', namespace='/music')
 def ws_music_cmd(d=None):
     d = d or {}
-    err = music_state.command(d.get('action'), d.get('track'), d.get('volume'),
-                              [x['file'] for x in _music_songs()])
+    action = d.get('action')
+    if action == 'warmup_start':
+        err = music_state.start_warmup(_warmup_files())
+    elif action == 'warmup_skip':
+        err = music_state.skip_warmup(_warmup_files())
+    elif action == 'warmup_stop':
+        music_state.stop_warmup()
+        err = None
+    else:
+        err = music_state.command(action, d.get('track'), d.get('volume'),
+                                  [x['file'] for x in _music_songs()])
     if err:
         flask_socketio.emit('music_error', {'error': err})
         return

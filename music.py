@@ -5,12 +5,20 @@ on the streaming PC, controlled from any device on the pool network.
   /music?speaker=1       the tab that actually plays audio - open it on the
                          streaming PC (its sound goes to the PC speakers/PA)
 
-Audio files live in the "music" folder next to meet-board.exe (upload them on
-the Music tab or copy them in). Anything with "anthem" or "star spangled" in
-the name is pinned to the top.
+Two separate lists, one player:
+
+  music   - the short meet playlist you tap song by song (anthem, swim songs)
+  warmup  - a longer pile of tracks for warm-up, played on shuffle by one
+            button. Deliberately NOT the same list: warm-up runs for forty
+            minutes unattended and must not put the anthem on at random.
+
+Audio files live in the "music" and "warmup" folders next to meet-board.exe.
+Anything with "anthem" or "star spangled" in the name is pinned to the top of
+the meet playlist (warm-up is not sorted that way - it is shuffled).
 """
 import json
 import os
+import random
 import re
 import threading
 
@@ -21,11 +29,18 @@ except ImportError:              # pragma: no cover - the app still works, just 
 
 AUDIO_EXT = ('.mp3', '.m4a', '.aac', '.wav', '.ogg', '.oga', '.flac', '.webm')
 MAX_SONGS = 30
+MAX_WARMUP = 300          # a 40-minute warm-up is ~12 songs; the cap is just a sanity bound
 _ANTHEM = re.compile(r'anthem|star[\s_-]*spangled', re.I)
 
 
 def music_dir(data_path):
     d = data_path('music')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def warmup_dir(data_path):
+    d = data_path('warmup')
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -143,17 +158,18 @@ def forget_meta(folder, name):
             save_meta(folder, meta)
 
 
-def list_songs(folder):
+def list_songs(folder, limit=MAX_SONGS, anthem_first=True):
     """[{file, title, artist, duration, anthem, stream_ok}] anthem first, then by filename.
-    Title/artist: what you typed on the Music tab, else the file's tags, else the file name."""
+    Title/artist: what you typed on the Music tab, else the file's tags, else the file name.
+    The warm-up list passes anthem_first=False - it is shuffled, so pinning is meaningless."""
     try:
         names = [n for n in os.listdir(folder) if n.lower().endswith(AUDIO_EXT) and not n.startswith('.')]
     except OSError:
         names = []
-    names.sort(key=lambda n: (not is_anthem(n), n.lower()))
+    names.sort(key=lambda n: ((not is_anthem(n)) if anthem_first else False, n.lower()))
     meta = load_meta(folder)
     out = []
-    for n in names[:MAX_SONGS]:
+    for n in names[:limit]:
         m = meta.get(n) or {}
         tags = read_tags(os.path.join(folder, n))
         out.append({
@@ -167,12 +183,56 @@ def list_songs(folder):
     return out
 
 
+class ShuffleQueue:
+    """Shuffle that actually behaves at a swim meet.
+
+    Plain random repeats songs while others never play, which parents notice
+    over a forty-minute warm-up. This deals the whole list in random order and
+    only reshuffles once every song has had a turn, and it will not open a new
+    pass with the song that just finished.
+
+    The file list is passed in each time rather than held, so adding or
+    deleting warm-up songs mid-meet is picked up without restarting anything.
+    """
+
+    def __init__(self):
+        self._queue = []
+        self._last = None
+
+    def reset(self):
+        self._queue = []
+        self._last = None
+
+    @property
+    def remaining(self):
+        return len(self._queue)
+
+    def next(self, files, rng=random):
+        files = [f for f in (files or []) if f]
+        if not files:
+            self._queue = []
+            return None
+        # drop anything deleted since the pass was dealt
+        self._queue = [f for f in self._queue if f in files]
+        if not self._queue:
+            self._queue = list(files)
+            rng.shuffle(self._queue)
+            # don't play the same song twice across the seam between passes
+            if len(self._queue) > 1 and self._queue[0] == self._last:
+                self._queue.append(self._queue.pop(0))
+        nxt = self._queue.pop(0)
+        self._last = nxt
+        return nxt
+
+
 class MusicState:
     """What should be playing. The server is the source of truth; the
     speaker tab follows it and reports position back."""
 
     def __init__(self):
         self.track = None          # filename
+        self.mode = 'manual'       # manual (meet playlist) | warmup (shuffle)
+        self.shuffle = ShuffleQueue()
         self.status = 'stopped'    # stopped | playing | paused
         self.volume = 0.8
         self.position = 0.0
@@ -182,17 +242,22 @@ class MusicState:
         self.speaker_sid = None
         self.speaker_ready = False  # the speaker tab has been clicked (browser autoplay rule)
 
-    def as_dict(self, songs=None):
-        return {'track': self.track, 'status': self.status, 'volume': self.volume,
+    def as_dict(self, songs=None, warmup=None):
+        return {'track': self.track, 'status': self.status, 'volume': self.volume, 'mode': self.mode,
                 'position': self.position, 'duration': self.duration, 'seq': self.seq, 'play_id': self.play_id,
                 'speaker': bool(self.speaker_sid), 'speaker_ready': self.speaker_ready,
-                'songs': songs if songs is not None else None}
+                'songs': songs if songs is not None else None,
+                'warmup': warmup if warmup is not None else None}
 
     def command(self, action, track=None, volume=None, known_tracks=()):
         """Apply a control command. Returns an error string or None."""
         if action == 'play':
             if track not in known_tracks:
                 return 'unknown song'
+            # Tapping a song in the meet playlist ends warm-up: one player, and
+            # the anthem must never be followed by a shuffled pop track.
+            self.mode = 'manual'
+            self.shuffle.reset()
             self.track, self.status, self.position, self.duration = track, 'playing', 0.0, 0.0
             self.play_id += 1
         elif action == 'pause':
@@ -202,6 +267,10 @@ class MusicState:
             if self.status == 'paused' and self.track:
                 self.status = 'playing'
         elif action == 'stop':
+            # Stop means stop, so it leaves warm-up too; otherwise the next
+            # track would start on its own a second later.
+            self.mode = 'manual'
+            self.shuffle.reset()
             self.status, self.position = 'stopped', 0.0
         elif action == 'volume':
             try:
@@ -210,6 +279,41 @@ class MusicState:
                 return 'bad volume'
         else:
             return 'unknown action'
+        self.seq += 1
+        return None
+
+    # --- warm-up shuffle -------------------------------------------------
+    def start_warmup(self, files):
+        """Begin the shuffled warm-up list. Returns an error string or None."""
+        self.shuffle.reset()
+        return self._play_next(files)
+
+    def skip_warmup(self, files):
+        """Operator pressed Skip."""
+        if self.mode != 'warmup':
+            return 'warm-up is not running'
+        return self._play_next(files)
+
+    def advance(self, files):
+        """The track finished on its own - roll on to the next one."""
+        if self.mode != 'warmup':
+            return 'warm-up is not running'
+        return self._play_next(files)
+
+    def stop_warmup(self):
+        self.mode = 'manual'
+        self.shuffle.reset()
+        self.track, self.status, self.position, self.duration = None, 'stopped', 0.0, 0.0
+        self.seq += 1
+
+    def _play_next(self, files):
+        nxt = self.shuffle.next(files)
+        if nxt is None:
+            self.stop_warmup()
+            return 'no warm-up songs'
+        self.mode = 'warmup'
+        self.track, self.status, self.position, self.duration = nxt, 'playing', 0.0, 0.0
+        self.play_id += 1
         self.seq += 1
         return None
 

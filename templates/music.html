@@ -61,6 +61,16 @@
   .srcs label { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); }
   .srcs label:last-child { border-bottom:0; }
   .srcs .kind { color:var(--dim); font-size:12px; margin-left:auto; }
+  /* warm-up */
+  .wurow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+  .wubtn { font-size:17px; padding:12px 22px; font-weight:700; }
+  .wubtn.on { background:#b3301f; border-color:#b3301f; color:#fff; }
+  .wusongs { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .wusong { display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid #d7dde0;
+            border-radius:8px; background:#fff; font-size:14px; }
+  .wusong.cur { border-color:#1d7a46; background:#eefaf2; font-weight:600; }
+  .wusong .rm { color:#b3301f; cursor:pointer; font-size:12px; }
+  .wusong .len { color:#6b7a80; font-size:12px; }
 </style>
 </head>
 <body>
@@ -83,6 +93,25 @@
 
   <div class="songs" id="songs"></div>
   <p class="small" id="empty" hidden>No songs yet. Add MP3s below (or copy them into <span class="mono">{{ music_folder }}</span>).</p>
+
+  <h2>Warm-up music</h2>
+  <div class="card" id="wuCard">
+    <div class="wurow">
+      <button class="btn wubtn" type="button" id="wuBtn">Start warm-up</button>
+      <button class="btn" type="button" id="wuSkip" disabled>Skip</button>
+      <span class="small" id="wuMsg"></span>
+    </div>
+    <p class="small">A separate shuffled list, not the meet playlist above. Every song plays once
+      before any repeats. Tapping a song above, or Stop, ends the warm-up.</p>
+    <div class="wusongs" id="wusongs"></div>
+    <p class="small" id="wuEmpty" hidden>No warm-up songs yet. Add them below (or copy them into
+      <span class="mono">{{ warmup_folder }}</span>).</p>
+    <form id="wuUp" style="margin-top:10px">
+      <input type="file" name="songs" multiple accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac">
+      <button class="btn primary" type="submit">Add warm-up songs</button>
+    </form>
+    <div id="wuUpMsg"></div>
+  </div>
 
   <h2>Songs</h2>
   <div class="card">
@@ -155,11 +184,22 @@
 (function () {
 "use strict";
 var SPEAKER = {{ 'true' if speaker else 'false' }};
-var songs = {{ songs | tojson }}, st = {status: "stopped", volume: 0.8};
+var songs = {{ songs | tojson }}, st = {status: "stopped", volume: 0.8, mode: "manual"};
+var warmup = {{ warmup | tojson }};
 var socket = io.connect(location.protocol + '//' + location.host + '/music');
 function $(id) { return document.getElementById(id); }
 function fmt(t) { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
-function titleOf(f) { for (var i = 0; i < songs.length; i++) if (songs[i].file === f) return songs[i].title; return f || ''; }
+function titleOf(f) {
+  var list = st.mode === 'warmup' ? warmup : songs;
+  for (var i = 0; i < list.length; i++) if (list[i].file === f) return list[i].title;
+  for (var j = 0; j < songs.length; j++) if (songs[j].file === f) return songs[j].title;
+  return f || '';
+}
+// The two lists are served from different folders, so the player has to know
+// which one the current track came from.
+function trackUrl(track, mode) {
+  return (mode === 'warmup' ? '/warmup/file/' : '/music/file/') + encodeURIComponent(track);
+}
 function cmd(action, extra) { var d = extra || {}; d.action = action; socket.emit('music_cmd', d); }
 
 function renderSongs() {
@@ -192,6 +232,56 @@ function renderSongs() {
     box.appendChild(b);
   });
 }
+
+function renderWarmup() {
+  var on = st.mode === 'warmup';
+  var btn = $('wuBtn');
+  btn.textContent = on ? 'Stop warm-up' : 'Start warm-up';
+  btn.classList.toggle('on', on);
+  btn.disabled = !on && warmup.length === 0;
+  $('wuSkip').disabled = !on;
+  $('wuMsg').textContent = on
+    ? 'Shuffling ' + warmup.length + ' song' + (warmup.length === 1 ? '' : 's')
+    : (warmup.length ? warmup.length + ' song' + (warmup.length === 1 ? '' : 's') + ' ready' : '');
+  $('wuEmpty').hidden = warmup.length > 0;
+
+  var box = $('wusongs'); box.textContent = '';
+  warmup.forEach(function (w) {
+    var d = document.createElement('div');
+    d.className = 'wusong' + (on && st.track === w.file ? ' cur' : '');
+    var t = document.createElement('span'); t.textContent = w.title; d.appendChild(t);
+    if (w.duration) { var l = document.createElement('span'); l.className = 'len'; l.textContent = fmt(w.duration); d.appendChild(l); }
+    if (w.stream_ok) { var o = document.createElement('span'); o.className = 'okst'; o.textContent = 'OK ON STREAM'; d.appendChild(o); }
+    var x = document.createElement('span'); x.className = 'rm'; x.textContent = 'Remove';
+    x.addEventListener('click', function () {
+      if (!confirm('Remove "' + w.title + '" from the warm-up list?')) return;
+      fetch('/warmup/delete', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                               body: JSON.stringify({file: w.file})});
+    });
+    d.appendChild(x);
+    box.appendChild(d);
+  });
+}
+
+$('wuBtn').addEventListener('click', function () {
+  cmd(st.mode === 'warmup' ? 'warmup_stop' : 'warmup_start');
+});
+$('wuSkip').addEventListener('click', function () { cmd('warmup_skip'); });
+
+$('wuUp').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var fd = new FormData(ev.target);
+  $('wuUpMsg').textContent = 'Uploading...';
+  fetch('/warmup/upload', {method: 'POST', body: fd})
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.warmup) { warmup = d.warmup; renderWarmup(); }
+      $('wuUpMsg').textContent = 'Added ' + (d.saved || []).length +
+        ((d.skipped || []).length ? ', skipped ' + d.skipped.length + ' (not audio)' : '');
+      ev.target.reset();
+    })
+    .catch(function () { $('wuUpMsg').textContent = 'Upload failed.'; });
+});
 
 var editing = null;
 function openEditor(s) {
@@ -237,7 +327,7 @@ function renderMute() {
     b.className = 'smute ' + (m.unmute_in != null ? 'wait' : 'on');
     b.textContent = m.unmute_in != null ? 'STREAM UNMUTES IN ' + Math.ceil(m.unmute_in) + ' S' : 'STREAM AUDIO MUTED';
   } else {
-    var cur = songs.filter(function (x) { return x.file === st.track; })[0];
+    var cur = (st.mode === 'warmup' ? warmup : songs).filter(function (x) { return x.file === st.track; })[0];
     b.className = 'smute live';
     b.textContent = 'STREAM AUDIO LIVE';
     if (st.status === 'playing' && cur && cur.stream_ok) { b.className = 'smute live'; b.textContent = 'STREAM LIVE \u00b7 SONG OK ON STREAM'; }
@@ -253,7 +343,8 @@ function progress(pos, dur) {
 socket.on('music_state', function (d) {
   for (var k in d) if (d[k] !== null && d[k] !== undefined) st[k] = d[k];
   if (d.songs) songs = d.songs;
-  renderSongs(); renderNow(); renderMute();
+  if (d.warmup) warmup = d.warmup;
+  renderSongs(); renderWarmup(); renderNow(); renderMute();
   if (SPEAKER) follow();
 });
 socket.on('music_progress', function (d) { st.position = d.position; st.duration = d.duration; progress(d.position, d.duration); });
@@ -342,7 +433,7 @@ if (SPEAKER) {
     if (st.play_id !== loadedPlay) {                 // a new "play" tap: start that song from the top
       loadedPlay = st.play_id;
       player.setAttribute('data-track', st.track);
-      player.src = '/music/file/' + encodeURIComponent(st.track);
+      player.src = trackUrl(st.track, st.mode);
       player.currentTime = 0;
     }
     if (st.status === 'playing' && player.paused) {
@@ -365,7 +456,7 @@ if (SPEAKER) {
       '" (unsupported or damaged file).</div>';
   });
 }
-renderSongs(); renderNow();
+renderSongs(); renderWarmup(); renderNow();
 })();
 </script>
 </body>

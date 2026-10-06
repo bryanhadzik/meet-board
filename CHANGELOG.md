@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+- **Warm-up music**: a *Start warm-up* button on the Music tab shuffles a
+  separate list of songs, kept in a `warmup` folder beside `music`. Every song
+  plays once before any repeats and the same song never plays twice in a row.
+  Skip moves on; Stop, or tapping a song in the meet playlist, ends the warm-up.
+- Warm-up songs upload and remove on the Music tab, and the stream mute treats
+  them like meet songs (muted unless marked OK on stream).
+
 ### Changed
 - **Race overlay keeps the last results up**: after a heat finishes, its
   results stay on the stream through the console clearing and the next heat's

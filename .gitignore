@@ -6,5 +6,6 @@ build/
 dist/
 *.log
 music/
+warmup/
 logos/
 captures/
