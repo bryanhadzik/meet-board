@@ -100,6 +100,12 @@
   .row.p3 .pl { background:#c98a4f; color:#2a1604; }
   .row.p1 { background:rgba(232,193,74,.14); }
   .row.fresh { background:rgba(127,224,171,.30); }   /* just touched the wall */
+  /* relays (panel): team + letter, the four legs' last names underneath */
+  .row.relay { height:auto; min-height:calc(44 * var(--s)); padding-top:calc(4 * var(--s)); padding-bottom:calc(4 * var(--s)); }
+  .row.relay .nm .rn { display:block; overflow:hidden; text-overflow:ellipsis; line-height:1.1; }
+  .row.relay .legs { display:block; font-size:calc(16 * var(--s)); font-weight:500; color:#c9d6d9; line-height:1.2;
+                     white-space:normal; }
+  .row.relay .t.seed:empty { visibility:hidden; }
 
   /* ===================================================================
      Band layouts (strip / tiers / race)
@@ -165,6 +171,23 @@
   .ov.band .pl { width:calc(38 * var(--s)); height:calc(34 * var(--s)); font-size:calc(22 * var(--s)); }
   .ov.band .logo { width:calc(38 * var(--s)); height:calc(38 * var(--s)); }
 
+  /* relays in a band: relay name, then the four legs, then time/place. The
+     relay name already says the team, so the code badge is dropped, and the
+     seed is what gives way. Names and legs shrink to fit rather than clip. */
+  .ov.band .row.relay { grid-template-columns:auto 1fr; grid-template-areas:"ln meta" "ln legs" "ln nums"; row-gap:calc(1 * var(--s)); }
+  .ov.band .row.relay.haslogo { grid-template-columns:auto auto 1fr; grid-template-areas:"ln logo meta" "ln logo legs" "ln logo nums"; }
+  .ov.band .row.relay .legs { grid-area:legs; min-width:0; font-size:calc(20 * var(--s)); font-weight:500; color:#c9d6d9;
+                              line-height:1.15; white-space:nowrap; overflow:hidden; }
+  .ov.band .row.relay .legs.wrap { white-space:normal; }
+  .ov.band .row.relay .nm { font-size:calc(28 * var(--s)); line-height:1.1; text-overflow:clip; }
+  .ov.band .row.relay .nums .tm { display:none; }
+  .ov.band .row.relay .nums .t.seed { display:none; }
+  .ov.band .row.relay .nums .drop:empty { display:none; }   /* else the time sits indented */
+  .ov.band .row.relay .t { font-size:calc(24 * var(--s)); }
+  .ov.band.relays .hdr { padding-top:calc(10 * var(--s)); }
+  .ov.band.relays .rows { padding-top:calc(4 * var(--s)); }
+  .ov.band.relays .row { padding-top:calc(4 * var(--s)); padding-bottom:calc(4 * var(--s)); }
+
   /* --- strip: one row of 8. Cells are ~240px wide at 1080p, so last names
          only and the team code shrinks before it can touch the time. --- */
   .ov.lay-strip .rows { grid-template-columns:repeat(8, minmax(0, 1fr)); }
@@ -190,6 +213,12 @@
   .ov.lay-strip .row.haslogo { grid-template-columns:auto 1fr; grid-template-areas:"ln meta" "logo nums"; row-gap:calc(4 * var(--s)); }
   .ov.lay-strip .logo { width:calc(40 * var(--s)); height:calc(40 * var(--s)); }
 
+  .ov.lay-strip .row.relay.haslogo { grid-template-columns:auto 1fr; grid-template-areas:"ln meta" "logo legs" "logo nums"; }
+  .ov.lay-strip .row.relay .nm { font-size:calc(21 * var(--s)); }
+  .ov.lay-strip .row.relay .legs { font-size:calc(15 * var(--s)); }
+  .ov.lay-strip .row.relay .t { font-size:calc(19 * var(--s)); }
+  .ov.lay-strip .row.relay .logo { width:calc(34 * var(--s)); height:calc(34 * var(--s)); }
+
   /* --- tiers / race: 4 across, 2 deep, lanes 5-8 on the top row --- */
   .ov.lay-tiers .rows, .ov.lay-race .rows { grid-template-columns:repeat(4, minmax(0, 1fr)); row-gap:calc(6 * var(--s)); }
   .ov.lay-tiers .row, .ov.lay-race .row { border-left:1px solid rgba(255,255,255,.08); }
@@ -210,6 +239,9 @@
                             grid-template-columns:repeat(4, minmax(0, 1fr)); row-gap:calc(4 * var(--s)); }
   .ov.lay-race.hero .clock { font-size:calc(76 * var(--s)); line-height:1.05; justify-content:flex-start; padding:0; }
   .ov.lay-race.hero .nm { font-size:calc(27 * var(--s)); }
+  .ov.lay-race.hero .row.relay .legs { font-size:calc(17 * var(--s)); }
+  .ov.lay-race.hero .row.relay .nm { font-size:calc(24 * var(--s)); }
+  .ov.lay-race.hero .row.relay .t { font-size:calc(21 * var(--s)); }
   .ov.lay-race.hero .ln { min-width:calc(40 * var(--s)); height:calc(40 * var(--s)); font-size:calc(24 * var(--s)); }
   .ov.lay-race.hero .t  { font-size:calc(24 * var(--s)); }
   .ov.lay-race.hero .tm { font-size:calc(14 * var(--s)); }
@@ -330,6 +362,29 @@ function dropOf(time, seed){
   if (!(t > 0) || !(sd > 0) || t >= sd) return '';
   return '\u2212' + (sd - t).toFixed(2);
 }
+// "Stansbury C" -> "STAN C": used only when the full relay name can't fit its cell
+function relayShort(l){
+  var m = (l.name || '').match(/\s([A-Z])$/);
+  return (l.team || l.name) + (m ? ' ' + m[1] : '');
+}
+// Band cells are fixed-width, so a long relay name ("North Summit A") or a
+// long set of legs would be cut off. Shrink the type to fit instead; a name
+// that still won't fit falls back to "CODE A", and legs wrap to a second line.
+function shrinkToFit(e, minFrac){
+  var size = parseFloat(getComputedStyle(e).fontSize), min = size * minFrac;
+  while (e.scrollWidth > e.clientWidth + 1 && size > min){ size -= 1; e.style.fontSize = size + 'px'; }
+  return e.scrollWidth <= e.clientWidth + 1;
+}
+function fitRelayNames(){
+  var rows = document.querySelectorAll('.ov.band .row.relay');
+  for (var i = 0; i < rows.length; i++){
+    var nm = rows[i].querySelector('.nm'), lg = rows[i].querySelector('.legs');
+    if (nm && !shrinkToFit(nm, 0.75) && nm.getAttribute('data-short')){
+      nm.style.fontSize = ''; nm.textContent = nm.getAttribute('data-short'); shrinkToFit(nm, 0.75);
+    }
+    if (lg && !shrinkToFit(lg, 0.75)){ lg.style.fontSize = ''; lg.classList.add('wrap'); }
+  }
+}
 function lanes(){
   var n = Math.max(parseInt(s.num_lanes, 10) || 8, 1), out = [];
   for (var i = 1; i <= 10; i++){
@@ -339,7 +394,8 @@ function lanes(){
     var place = trim(s['lane_place'+i]);
     if (i > n && !name && !t) continue;
     if (!name && !team && !t) continue;          // don't spend screen on empty lanes
-    out.push({lane:i, name:name, team:team, time:t, place:place, seed:s['lane_seed_time'+i]});
+    var legs = (s['lane_legs'+i] || []).map(trim).filter(Boolean);   // relay swimmers' last names
+    out.push({lane:i, name:name, team:team, time:t, place:place, seed:s['lane_seed_time'+i], legs:legs});
   }
   return out;
 }
@@ -386,6 +442,7 @@ function draw(){
   // so the race layout answers ?running=clock with the hero clock instead.
   ov.classList.toggle('compact', !BAND && ph === 'running' && RUNNING_MODE === 'clock');
   ov.classList.toggle('hero', LAYOUT === 'race' && ph === 'running');
+  ov.classList.toggle('relays', L.some(function(l){ return l.legs.length; }));
 
   if (ph === 'results' && RESULTS_ORDER === 'place'){
     L.sort(function(a, b){
@@ -431,12 +488,23 @@ function draw(){
     var meta = el('div', 'meta'), nums = el('div', 'nums');
     // A 240px strip cell cannot hold "Adelia Schupbach" at a readable size, and
     // a surname is what a parent scans for anyway.
+    var relay = l.legs.length > 0;
     var who = l.name || ('Lane ' + l.lane);
-    if (LAYOUT === 'strip' && who.indexOf(' ') > 0) who = who.split(/\s+/).pop();
-    meta.appendChild(el('div', 'nm', who));
+    // ("Stansbury C" is a relay team, not a surname - keep it whole)
+    if (LAYOUT === 'strip' && !relay && who.indexOf(' ') > 0) who = who.split(/\s+/).pop();
+    var nm = el('div', 'nm', who);
+    meta.appendChild(nm);
+    // Relays: the four swimmers' last names always show. The relay name already
+    // says the team, and the seed is what gives way to make room.
+    var legs = relay ? el('div', 'legs', l.legs.join(' \u00b7 ')) : null;
+    if (relay){
+      r.classList.add('relay');
+      if (BAND){ r.appendChild(legs); nm.setAttribute('data-short', relayShort(l)); }  // legs: own grid row
+      else { nm.textContent = ''; nm.appendChild(el('span', 'rn', who)); nm.appendChild(legs); }
+    }
     // In a band the name owns its own line, so the team code sits with the time.
     (BAND ? nums : meta).appendChild(el('div', 'tm mono', l.team));
-    if (ph === 'startlist') nums.appendChild(el('div', 't seed mono', fmtSeed(l.seed)));
+    if (ph === 'startlist') nums.appendChild(el('div', 't seed mono', relay ? '' : fmtSeed(l.seed)));
     else {
       nums.appendChild(el('div', 'drop mono', showResult ? dropOf(l.time, l.seed) : ''));
       nums.appendChild(el('div', 't mono', l.time));
@@ -447,6 +515,7 @@ function draw(){
     (BAND ? nums : r).appendChild(pl);
     box.appendChild(r);
   });
+  if (BAND) fitRelayNames();
   lastTimes = {};
   L.forEach(function(l){ lastTimes[l.lane] = l.time; });
 }

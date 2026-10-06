@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+- **Relay legs on the stream overlay**: medley and freestyle relays now list
+  all four swimmers' last names under the relay name, in every overlay layout.
+  The seed time gives way to make room (the relay name already says the team,
+  so the team code badge is dropped in the band layouts). Long relay names and
+  legs shrink to fit instead of being cut off.
+
+### Fixed
+- Strip layout showed only the relay letter ("C") for relays.
+
 ### Fixed
 - **Overlay band layouts**: lane numbers were hidden under the school logo when
   logos are uploaded. The logo now has its own spot (beside the lane number in
