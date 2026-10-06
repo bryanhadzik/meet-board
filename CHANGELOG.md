@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed
+- **Settings cleaned up**: a short *Timing console* status (receiving / no
+  data, race clock, event) with the serial port and board update rate, then
+  cards for Screens, Stream (OBS), Meet settings, Team names, Meet Manager
+  files and Ads. The three display checkboxes save as soon as you tick them.
+- **New Debug tab** holds the troubleshooting tools that were on Settings:
+  serial diagnostics, decoded values, raw bytes, *Find the right format*, raw
+  capture, and *Test without the console*.
+- Settings and Debug no longer load Bootstrap from the internet, so they look
+  right on an offline pool PC. The Software Update tab shows a green dot when a
+  newer release is out.
+
 ### Added
 - **Warm-up music**: a *Start warm-up* button on the Music tab shuffles a
   separate list of songs, kept in a `warmup` folder beside `music`. Every song

@@ -1,0 +1,74 @@
+/* Admin pages (Settings, Debug). Local on purpose: the pool PC may be
+   offline, so nothing here comes from a CDN. Also styles the handful of
+   Bootstrap 3 class names the settings forms were written with. */
+:root { --bg:#f4f6f6; --card:#fff; --ink:#14232a; --dim:#5a6c72; --line:#d3dcde; --accent:#0a6b7c;
+        --ok:#227a45; --bad:#a3282d; --warn:#9a6a10; }
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+a { color:var(--accent); }
+code { font-family:Consolas, "Cascadia Mono", monospace; font-size:.92em; background:#eef2f3; padding:0 4px; border-radius:3px; }
+
+.container { max-width:1000px; margin:0 auto; padding:18px 16px 60px; }
+.pagetitle { font-size:26px; margin:6px 0 4px; }
+p.lead { color:var(--dim); margin:0 0 10px; }
+.container > h3 { font-size:13px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
+                  margin:26px 0 8px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin:0 0 6px; }
+.card > :first-child { margin-top:0; }
+
+/* --- form layout (Bootstrap 3 names) --- */
+.row { display:flex; flex-wrap:wrap; gap:0 24px; margin:0 0 14px; }
+.row:last-child { margin-bottom:0; }
+.col-lg-6, .col-lg-8, .col-lg-10, .col-md-4 { flex:1 1 100%; max-width:100%; }
+.col-lg-6 { max-width:560px; } .col-lg-8 { max-width:720px; }
+label { display:inline-block; font-weight:600; margin:0 0 4px; }
+.input-group { display:block; width:100%; }
+.input-group .input-group { display:flex; align-items:stretch; gap:6px; }
+.input-group-btn { display:flex; gap:6px; }
+.form-group { margin-bottom:10px; }
+.form-inline { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.form-control { font:inherit; color:var(--ink); padding:6px 9px; border:1px solid #bfcbce; border-radius:5px; background:#fff;
+                min-width:0; max-width:100%; }
+.input-group .input-group .form-control { flex:0 1 460px; }
+.input-group .input-group input[type=file].form-control { flex:0 1 auto; }
+select.form-control { padding:5px 8px; }
+.form-inline .form-control, .btnrow .form-control { width:auto; display:inline-block; }
+input[type=checkbox] { width:16px; height:16px; vertical-align:-3px; margin-right:6px; accent-color:var(--accent); }
+.help-block, .help-inline, .text-muted { color:var(--dim); font-size:13px; }
+.help-block { display:block; margin:4px 0 0; }
+.row .input-group > label:has(input[type=checkbox]) { font-weight:500; cursor:pointer; }
+.well { background:#f6f9f9; border:1px solid var(--line); border-radius:8px; }
+
+/* --- buttons --- */
+.btn { display:inline-flex; align-items:center; justify-content:center; font:inherit; font-size:14px; font-weight:600;
+       padding:6px 14px; border:1px solid #bfcbce; border-radius:5px; background:#fff; color:var(--ink);
+       cursor:pointer; text-decoration:none; white-space:nowrap; }
+.btn:hover { background:#f0f4f5; text-decoration:none; }
+.btn:disabled, .btn[disabled] { opacity:.45; cursor:default; }
+.btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn-primary:hover { background:#085a68; }
+.btn-success { background:#1f8a4c; border-color:#1f8a4c; color:#fff; }
+.btn-success:hover { background:#18703d; }
+.btn-danger { background:#fff; border-color:#d9a5a7; color:var(--bad); }
+.btn-danger:hover { background:#fbeeee; }
+
+/* --- alerts / labels / tables --- */
+.alert { border-radius:6px; padding:8px 12px; margin:8px 0; font-size:14px; border:1px solid transparent; }
+.alert-success { background:#e9f6ee; border-color:#b9dfc6; color:#1d5e36; }
+.alert-warning { background:#fff6e2; border-color:#ecd49a; color:#6b4b0c; }
+.alert-danger { background:#fbeceb; border-color:#e8b7b4; color:#7d2320; }
+.label { display:inline-block; font-size:12px; font-weight:700; padding:2px 8px; border-radius:4px; background:#e6eef0; color:var(--ink); }
+.label-info { background:#d8edf1; color:#0a5562; }
+table.table { border-collapse:collapse; width:100%; }
+table.table td, table.table th { padding:4px 8px; border-bottom:1px solid var(--line); text-align:left; }
+details > summary { cursor:pointer; }
+img { max-width:100%; }
+
+.footer { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+          margin-top:30px; padding-top:14px; border-top:1px solid var(--line); color:var(--dim); font-size:13px; }
+
+@media (max-width:640px) {
+  .container { padding:12px 12px 40px; }
+  .input-group .input-group { flex-wrap:wrap; }
+}

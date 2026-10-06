@@ -12,6 +12,7 @@
                border:0; border-radius:6px; padding:7px 10px; cursor:pointer; }
   .mbnav .rl.done { background:#7fe0ab; }
   .mbnav .bk { background:#2a3a3d; color:#e6eef0; }
+  .mbnav a .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#3ddc84; margin-left:6px; vertical-align:2px; }
   .mbnav .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
 </style>
 <nav class="mbnav">
@@ -19,7 +20,8 @@
   <a href="/settings" class="{{ 'on' if active == 'settings' else '' }}">Settings</a>
   <a href="/music" class="{{ 'on' if active == 'music' else '' }}">Music</a>
   <a href="/team_colors" class="{{ 'on' if active == 'colors' else '' }}">Team Colors</a>
-  <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}">Software Update</a>
+  <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}" id="mbUpdTab">Software Update</a>
+  <a href="/debug" class="{{ 'on' if active == 'debug' else '' }}">Debug</a>
   <span class="sp"></span>
   <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
   <a href="/overlay/race?test" class="ext" target="_blank">Overlay &#8599;</a>
@@ -44,5 +46,10 @@
       body: JSON.stringify({black: !(st && st.black)})}).then(function(r){return r.json();}).then(show);
   };
   load(); setInterval(load, 15000);
+  // flag the Software Update tab when a newer release is out
+  fetch('/update_check').then(function(r){ return r.json(); }).then(function(d){
+    if (d && d.newer){ var t = document.getElementById('mbUpdTab');
+      t.title = 'Update available: ' + d.latest; t.insertAdjacentHTML('beforeend', '<span class="dot"></span>'); }
+  }).catch(function(){});
 })();
 </script>

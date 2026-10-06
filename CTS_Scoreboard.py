@@ -45,7 +45,7 @@ settings_file = app_paths.data_path('settings.json')
 settings = {
     'meet_title': '',
     'serial_port': 'COM1',
-    'serial_format': '9600-8N1',   # baud-databits/parity/stopbits; Settings -> Serial input -> Find the right format
+    'serial_format': '9600-8N1',   # baud-databits/parity/stopbits; Debug -> Serial input -> Find the right format
     'update_interval': 1.0,        # seconds between board updates from the console
     'music_obs_mute': False,       # mute chosen OBS audio sources while music plays
     'music_obs_inputs': [],
@@ -1496,6 +1496,13 @@ def _dbg_auto_loop():
             _dbg['status'] = 'Auto-run reached the last heat'
             _dbg['auto'] = False
             return
+
+@app.route('/debug')
+@flask_login.login_required
+def route_debug_page():
+    """Troubleshooting: serial diagnostics and the console-free meet simulator."""
+    return flask.render_template('debug.html')
+
 
 @app.route('/debug/<action>', methods=['POST'])
 @flask_login.login_required

@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meet-board: Debug</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+{% set active = "debug" %}{% include "_nav.html" %}
+<div class="container">
+  <h1 class="pagetitle">Debug</h1>
+  <p class="lead">Troubleshooting tools: what the timing console is sending, and a way to drive the boards without it.
+    Nothing here is needed during a normal meet.</p>
+
+  <h3 id="serial">Serial input (CTS console)</h3>
+        <style>
+          .serc { border:1px solid #c9d4d7; border-radius:10px; padding:14px 16px; margin-bottom:22px; background:#fff; max-width:980px; }
+          .serc .top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+          .serc .clockrow { display:flex; align-items:center; gap:18px; flex-wrap:wrap; background:#0b1618; color:#fff;
+                            border-radius:10px; padding:12px 18px; margin-bottom:12px; }
+          .serc .clockrow .lbl { font:600 12px/1 "Segoe UI",system-ui,sans-serif; letter-spacing:.14em; color:#8fb0b7; }
+          .serc .clockrow .clk { font:700 54px/1 Consolas,"Cascadia Mono",monospace; font-variant-numeric:tabular-nums; min-width:5.5ch; }
+          .serc .clockrow .clk.stale { color:#5d7d84; }
+          .serc .clockrow .ev { font:600 17px/1.3 "Segoe UI",system-ui,sans-serif; color:#d7ecef; }
+          .serc .clockrow .ev small { display:block; font-size:13px; color:#8fb0b7; font-weight:500; }
+          .serc .pill { font:700 13px/1 "Segoe UI",system-ui,sans-serif; padding:7px 12px; border-radius:999px; color:#fff; letter-spacing:.04em; }
+          .serc .pill.ok { background:#1f8a4c; } .serc .pill.warn { background:#c9861a; } .serc .pill.bad { background:#c0392b; }
+          .serc .hint { font-size:14px; color:#22343a; flex:1; min-width:260px; }
+          .serc .stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:12px 0 4px; }
+          .serc .st { background:#f2f6f7; border-radius:8px; padding:8px 10px; }
+          .serc .st b { display:block; font:700 20px/1.1 Consolas,"Cascadia Mono",monospace; color:#0b1618; }
+          .serc .st span { font-size:12px; color:#5d7379; text-transform:uppercase; letter-spacing:.06em; }
+          .serc .live { width:10px; height:10px; border-radius:50%; background:#c9d4d7; display:inline-block; vertical-align:middle; margin-right:6px; }
+          .serc .live.on { background:#1fbf5c; box-shadow:0 0 0 3px rgba(31,191,92,.25); }
+          .serc pre { background:#0b1618; color:#cfe6ea; border-radius:8px; padding:10px 12px; font:13px/1.45 Consolas,"Cascadia Mono",monospace;
+                      white-space:pre-wrap; word-break:break-all; margin:6px 0 0; max-height:220px; overflow:auto; }
+          .serc pre .hb { color:#f0c96a; font-weight:700; }
+          .serc .chans { font-size:13px; color:#22343a; margin-top:6px; }
+          .serc .chans span { display:inline-block; background:#e6eef0; border-radius:6px; padding:2px 7px; margin:2px 4px 2px 0; font-family:Consolas,monospace; }
+          .serc .dec { margin-top:12px; }
+          .serc .dec h4 { font:700 13px/1 "Segoe UI",system-ui,sans-serif; letter-spacing:.1em; color:#5d7379; margin:0 0 6px; text-transform:uppercase; }
+          .serc table.dect { border-collapse:collapse; width:100%; font-size:14px; }
+          .serc table.dect th { text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#5d7379; padding:4px 8px; border-bottom:1px solid #c9d4d7; }
+          .serc table.dect td { padding:4px 8px; border-bottom:1px solid #edf2f3; }
+          .serc table.dect td.m { font-family:Consolas,"Cascadia Mono",monospace; }
+          .serc table.dect tr.run td.m.t { color:#1f8a4c; font-weight:700; }
+          .serc table.dect tr.empty td { color:#9fb0b4; }
+          .serc .tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; border-radius:4px; padding:1px 6px; background:#e6eef0; color:#22343a; }
+          .serc .tag.run { background:#1f8a4c; color:#fff; } .serc .tag.done { background:#0a6b7c; color:#fff; }
+          .serc details { margin-top:10px; } .serc summary { cursor:pointer; color:#0a6b7c; font-weight:600; }
+          .serc .btnrow { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:13px; color:#5d7379; }
+        </style>
+        <div class="serc" id="serc">
+          <div class="clockrow">
+            <div><div class="lbl">RACE TIME</div><div class="clk" id="ser_clock">--</div></div>
+            <div class="ev"><span id="ser_ev">No event yet</span><small id="ser_clocknote">waiting for the console clock</small></div>
+          </div>
+          <div class="top">
+            <span class="pill warn" id="ser_pill">CHECKING</span>
+            <span class="hint" id="ser_hint">Checking the serial input...</span>
+          </div>
+          <div class="stats">
+            <div class="st"><span>Port</span><b id="ser_port">-</b></div>
+            <div class="st"><span><i class="live" id="ser_live"></i>Bytes / sec</span><b id="ser_bps">-</b></div>
+            <div class="st"><span>Last byte</span><b id="ser_idle">-</b></div>
+            <div class="st"><span>Bytes total</span><b id="ser_bytes">-</b></div>
+            <div class="st"><span>CTS records</span><b id="ser_recs">-</b></div>
+            <div class="st"><span>Records / sec</span><b id="ser_rps">-</b></div>
+            <div class="st"><span>Clean CTS records</span><b id="ser_valid">-</b></div>
+          </div>
+          <div class="chans" id="ser_chans"></div>
+          <div class="dec">
+            <h4>Decoded values <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; what meet-board understood from the console</span></h4>
+            <table class="dect">
+              <thead><tr><th>Lane</th><th>Status</th><th>Place</th><th>Time</th><th>Seed</th><th>Swimmer (start list)</th><th>Team</th></tr></thead>
+              <tbody id="ser_dec"></tbody>
+            </table>
+            <div class="chans" id="ser_scores" style="margin-top:6px"></div>
+          </div>
+          <details id="ser_rawbox">
+            <summary>Raw bytes and decoded records</summary>
+            <div style="font-size:12px;color:#5d7379;margin-top:6px">Last 96 bytes, newest last. <span style="color:#b07a10;font-weight:700">Gold</span> bytes
+              have the top bit set: each one starts a CTS record. A healthy stream has lots of them; all-gray
+              bytes usually mean the wrong device or baud rate.</div>
+            <pre id="ser_raw">-</pre>
+            <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records: raw bytes and what they mean</div>
+            <pre id="ser_recent">-</pre>
+          </details>
+          <div class="dec" id="ser_fmtbox">
+            <h4>Serial format <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; CTS consoles normally send 9600-8N1; some are set differently</span></h4>
+            <div class="btnrow" style="margin-top:0">
+              <select id="ser_fmt" class="form-control" style="width:auto;display:inline-block" onchange="serSetFmt(this.value)"></select>
+              <button class="btn btn-primary" type="button" id="ser_auto" onclick="serAuto()">Find the right format</button>
+              <span id="ser_automsg"></span>
+            </div>
+            <table class="dect" id="ser_autotab" style="display:none;margin-top:6px">
+              <thead><tr><th>Format</th><th>Bytes</th><th>Records</th><th>Clean CTS records</th></tr></thead><tbody></tbody>
+            </table>
+            <div style="font-size:12px;color:#5d7379;margin-top:4px">Find the right format tries each setting for 5 s (about 45 s total) with
+              the console on, and keeps the one whose data decodes cleanly. The boards may flicker while it runs.</div>
+          </div>
+          <div class="dec">
+            <h4>Raw capture <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; record the console feed to a file to send in or replay</span></h4>
+            <div class="btnrow" style="margin-top:0">
+              <button class="btn btn-default" type="button" id="ser_capbtn" onclick="serCapture(30)">Record 30 s</button>
+              <span id="ser_capmsg"></span>
+            </div>
+            <div id="ser_caplist" style="font-size:13px;margin-top:4px"></div>
+          </div>
+          <div class="btnrow">
+            <button class="btn btn-default" type="button" onclick="fetch('/api/serial/reset',{method:'POST'}).then(serPoll)">Reset counters</button>
+            <span id="ser_ports"></span>
+          </div>
+        </div>
+        <script>
+        (function(){
+          function $(id){ return document.getElementById(id); }
+          function ago(s){ if (s == null) return 'never'; if (s < 1) return 'just now'; if (s < 90) return Math.round(s) + ' s ago';
+                           return Math.round(s/60) + ' min ago'; }
+          window.serPoll = function(){
+            fetch('/api/serial', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){
+              var label = {ok:'RECEIVING', warn:'CHECK', bad:'NO DATA'}[d.verdict] || d.verdict;
+              if (d.source === 'replay') label = 'REPLAY';
+              $('ser_pill').className = 'pill ' + d.verdict; $('ser_pill').textContent = label;
+              $('ser_hint').textContent = d.hint;
+              var clk = d.running_time || '';
+              $('ser_clock').textContent = clk || '--';
+              var fresh = d.clock_age != null && d.clock_age < 5;
+              $('ser_clock').className = 'clk' + (fresh || d.source === 'replay' ? '' : ' stale');
+              var st = {Running:'racing', Finished:'finished'}[d.race_state] || (/PreRace$/.test(d.race_state || '') ? 'on the blocks' : (d.race_state || '').toLowerCase());
+              $('ser_ev').textContent = d.event && d.event !== '0'
+                ? 'Event ' + d.event + (d.heat ? ' \u00b7 Heat ' + d.heat : '') + (st ? ' \u00b7 ' + st : '')
+                : 'No event yet';
+              $('ser_clocknote').textContent = d.event_name ? d.event_name + ' \u00b7 ' : '';
+              $('ser_clocknote').textContent += d.clock_age == null ? 'no race-time record from the console yet'
+                : (fresh ? 'live from the console' : 'last race-time record ' + ago(d.clock_age));
+              $('ser_port').textContent = (d.port || 'none') + (d.state && d.state !== 'open' ? ' (' + d.state + ')' : '');
+              $('ser_bps').textContent = d.bytes_per_sec;
+              $('ser_live').className = 'live' + (d.bytes_per_sec > 0 ? ' on' : '');
+              $('ser_idle').textContent = ago(d.idle_seconds);
+              $('ser_bytes').textContent = d.bytes_total.toLocaleString();
+              $('ser_recs').textContent = d.records_total.toLocaleString();
+              $('ser_rps').textContent = d.records_per_sec;
+              $('ser_valid').textContent = d.valid_pct == null ? '-' : d.valid_pct + '%';
+              var sel = $('ser_fmt');
+              if (sel.options.length !== (d.serial_formats || []).length){
+                sel.innerHTML = (d.serial_formats || []).map(function(f){ return '<option value="' + f + '">' + f.replace('-INV', ' inverted signal') + (f === '9600-8N1' ? ' (CTS default)' : '') + '</option>'; }).join('');
+              }
+              if (!serAutoRunning && document.activeElement !== sel) sel.value = d.serial_format;
+              var rs = $('ser_rate');
+              if (rs && d.update_intervals && rs.options.length !== d.update_intervals.length){
+                rs.innerHTML = d.update_intervals.map(function(o){ return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+              }
+              if (rs && document.activeElement !== rs && d.update_interval != null) rs.value = String(d.update_interval);
+              var named = d.channels.filter(function(c){ return !/^ch /.test(c.name); });
+              var other = d.channels.filter(function(c){ return /^ch /.test(c.name); }).reduce(function(t, c){ return t + c.n; }, 0);
+              $('ser_chans').innerHTML = d.channels.length ? 'Channels seen: ' + named.map(function(c){
+                  return '<span>' + c.name + ' &times;' + c.n + '</span>'; }).join('') + (other ? '<span>other &times;' + other + '</span>' : '') : '';
+              if ($('ser_rawbox').open){
+                $('ser_raw').innerHTML = d.raw_hex.length ? d.raw_hex.map(function(h){
+                    return parseInt(h,16) & 0x80 ? '<span class="hb">' + h + '</span>' : h; }).join(' ') : '(nothing yet)';
+                $('ser_recent').textContent = d.recent.length ? d.recent.map(function(r){
+                    return r.hex.padEnd(27) + '  ' + (r.text || ''); }).join('\n') : '(no records yet)';
+              }
+              if (d.decoded){
+                var dc = d.decoded, rows = [];
+                function seedTxt(v){ if (v == null || v === '') return ''; var t = +v, m = Math.floor(t / 60), sec = t - m * 60;
+                  return m ? m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(2) : sec.toFixed(2); }
+                function esc(x){ return String(x == null ? '' : x).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+                dc.lanes.forEach(function(l){
+                  var has = l.time || l.place || l.running || l.name;
+                  if (!has && l.lane > 8) return;
+                  var st = l.running ? '<span class="tag run">RUNNING</span>' : (l.time ? '<span class="tag done">FINISHED</span>' : '<span class="tag">-</span>');
+                  rows.push('<tr class="' + (l.running ? 'run' : '') + (has ? '' : ' empty') + '"><td class="m">' + l.lane + '</td><td>' + st +
+                    '</td><td class="m">' + esc(l.place || '') + '</td><td class="m t">' + esc(l.running ? (dc.running_time || '') : (l.time || '')) +
+                    '</td><td class="m">' + seedTxt(l.seed) + '</td><td>' + esc(l.name || '') + '</td><td class="m">' + esc(l.team || '') + '</td></tr>');
+                });
+                $('ser_dec').innerHTML = rows.join('');
+                var sc = dc.scores || {}, parts = [];
+                [['score_home','Home'],['score_guest1','Guest 1'],['score_guest2','Guest 2'],['score_guest3','Guest 3']].forEach(function(p){
+                  if (sc[p[0]]) parts.push('<span>' + p[1] + ' ' + esc(sc[p[0]]) + '</span>'); });
+                $('ser_scores').innerHTML = parts.length ? 'Team scores: ' + parts.join('') : '';
+              }
+              $('ser_ports').textContent = d.ports && d.ports.length
+                ? 'Ports on this PC: ' + d.ports.map(function(p){ return p.device + (p.description && p.description !== p.device ? ' (' + p.description + ')' : ''); }).join(', ')
+                : 'No serial ports found on this PC - is the USB adapter plugged in?';
+            }).catch(function(){ $('ser_pill').className = 'pill bad'; $('ser_pill').textContent = 'OFFLINE';
+                                 $('ser_hint').textContent = 'Can\'t reach meet-board.'; });
+          };
+          var serAutoRunning = false;
+          window.serSetRate = function(v){
+            fetch('/api/serial/update_interval', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({interval: parseFloat(v)})})
+              .then(function(r){ return r.json(); }).then(function(d){
+                $('ser_ratemsg').textContent = d.ok ? 'Saved. The boards update at the new rate right away.' : (d.message || 'Not saved');
+              });
+          };
+          window.serSetFmt = function(f){
+            fetch('/api/serial/format', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({format:f})}).then(serPoll);
+          };
+          function autoShow(a){
+            serAutoRunning = a.running;
+            $('ser_auto').disabled = a.running;
+            $('ser_auto').textContent = a.running ? 'Searching...' : 'Find the right format';
+            $('ser_automsg').textContent = a.message || '';
+            var tab = $('ser_autotab');
+            tab.style.display = a.results && a.results.length ? '' : 'none';
+            tab.querySelector('tbody').innerHTML = (a.results || []).map(function(r){
+              return '<tr><td class="m">' + r.format + '</td><td class="m">' + r.bytes + '</td><td class="m">' + r.records +
+                     '</td><td class="m"><b>' + r.valid_pct + '%</b>' + (r.error ? ' <span style="color:#c0392b">' + r.error + '</span>' : '') + '</td></tr>';
+            }).join('');
+            if (a.running) setTimeout(function(){ fetch('/api/serial/autodetect').then(function(r){ return r.json(); }).then(autoShow); }, 1000);
+          }
+          window.serAuto = function(){
+            fetch('/api/serial/autodetect', {method:'POST'}).then(function(r){ return r.json(); }).then(autoShow);
+          };
+          function capShow(c){
+            var st = c.status;
+            $('ser_capbtn').disabled = !!st;
+            $('ser_capmsg').textContent = st ? 'Recording... ' + st.bytes + ' bytes, ' + Math.ceil(st.seconds_left) + ' s left'
+                                             : (c.last ? 'Saved ' + c.last : '');
+            $('ser_caplist').innerHTML = (c.files || []).length ? 'Captures: ' + c.files.map(function(f){
+              return '<a href="/api/serial/captures/' + f + '">' + f + '</a>'; }).join(' &middot; ') : '';
+            if (st) setTimeout(function(){ fetch('/api/serial/capture').then(function(r){ return r.json(); }).then(capShow); }, 1000);
+          }
+          window.serCapture = function(sec){
+            fetch('/api/serial/capture', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({seconds:sec})})
+              .then(function(r){ return r.json(); }).then(capShow);
+          };
+          fetch('/api/serial/autodetect').then(function(r){ return r.json(); }).then(autoShow).catch(function(){});
+          fetch('/api/serial/capture').then(function(r){ return r.json(); }).then(capShow).catch(function(){});
+          serPoll(); setInterval(serPoll, 1000);
+        })();
+        </script>
+
+
+  <h3 id="sim">Test without the console</h3>
+        <div class="row">
+            <div class="col-lg-10">
+                <p class="help-block">Drives the meet board and the OBS overlay from the loaded start lists, with made-up
+                    times (seed times when the .hy3 has them). If the console is connected its data still arrives and
+                    will fight with this &mdash; use it with the console off.</p>
+                <div class="well" style="padding:12px 16px;">
+                    <div style="font-size:18px; margin-bottom:10px;">
+                        <strong id="dbg_where">&ndash;</strong>
+                        <span class="label label-info" id="dbg_state" style="margin-left:8px;"></span>
+                        <span class="text-muted" id="dbg_status" style="margin-left:8px;"></span>
+                    </div>
+                    <div class="form-inline" style="margin-bottom:10px;">
+                        <button class="btn btn-default" type="button" onclick="dbg('prev')">&larr; Prev heat</button>
+                        <button class="btn btn-default" type="button" onclick="dbg('next')">Next heat &rarr;</button>
+                        <select class="form-control" id="dbg_heat" onchange="dbgGoto(this.value)" style="min-width:260px;"></select>
+                    </div>
+                    <div class="form-inline" style="margin-bottom:10px;">
+                        <button class="btn btn-default" type="button" onclick="dbg('startlist')">1. Start list</button>
+                        <button class="btn btn-success" type="button" onclick="dbg('start')">2. Start race</button>
+                        <button class="btn btn-default" type="button" onclick="dbg('finish')">3. Everyone touches</button>
+                        <button class="btn btn-default" type="button" onclick="dbg('clear')">Clear lanes</button>
+                        <button class="btn btn-default" type="button" onclick="dbg('blank')">Blank</button>
+                        <label style="margin-left:14px; font-weight:normal;">Race clock speed
+                            <select class="form-control" id="dbg_speed" onchange="dbg('status', {speed: this.value})">
+                                <option value="1">1&times; (real time)</option>
+                                <option value="4" selected>4&times;</option>
+                                <option value="10">10&times;</option>
+                            </select></label>
+                        <label style="margin-left:14px; font-weight:normal;">Seed times
+                            <select class="form-control" id="dbg_seeds" onchange="dbg('status', {seeds: this.value})">
+                                <option value="mixed" selected>Mixed</option>
+                                <option value="beat">Everyone beats their seed</option>
+                                <option value="miss">Nobody beats their seed</option>
+                            </select></label>
+                    </div>
+                    <div class="form-inline">
+                        <button class="btn btn-primary" type="button" id="dbg_auto" onclick="dbg('auto', {on: !dbgAuto})">Auto-run the meet</button>
+                        <span class="text-muted" style="margin-left:8px;">Loops heat after heat: start list 6 s, race, results 8 s.</span>
+                        <span style="margin-left:14px;">Watch: <a href="/web/meetboard" target="_blank">meet board</a> &middot;
+                            <a href="/overlay/race?test" target="_blank">stream overlay</a></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+        var dbgAuto = false, dbgHeatsKey = '';
+        function dbgShow(d) {
+            if (!d || !d.ok) return;
+            document.getElementById('dbg_where').textContent = 'Event ' + d.event + ' heat ' + d.heat + (d.event_name ? ' - ' + d.event_name : '');
+            document.getElementById('dbg_state').textContent = d.race_state;
+            document.getElementById('dbg_status').textContent = d.status || '';
+            dbgAuto = d.auto;
+            var b = document.getElementById('dbg_auto');
+            b.textContent = d.auto ? 'Stop auto-run' : 'Auto-run the meet';
+            b.className = d.auto ? 'btn btn-danger' : 'btn btn-primary';
+            document.getElementById('dbg_speed').value = String(Math.round(d.speed));
+            if (d.seeds) document.getElementById('dbg_seeds').value = d.seeds;
+            var key = JSON.stringify(d.heats);
+            var sel = document.getElementById('dbg_heat');
+            if (key !== dbgHeatsKey) {
+                dbgHeatsKey = key; sel.innerHTML = '';
+                if (!d.heats.length) { var o = document.createElement('option'); o.textContent = 'Load start lists first'; sel.appendChild(o); }
+                d.heats.forEach(function (k) {
+                    var o = document.createElement('option'); o.value = k[0] + ',' + k[1];
+                    o.textContent = 'Event ' + k[0] + ' heat ' + k[1]; sel.appendChild(o);
+                });
+            }
+            sel.value = d.event + ',' + d.heat;
+        }
+        function dbg(action, body) {
+            fetch('/debug/' + action, {method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body || {speed: document.getElementById('dbg_speed').value})})
+                .then(function (r) { return r.json(); }).then(dbgShow).catch(function () {});
+        }
+        function dbgGoto(v) { var p = v.split(','); if (p.length === 2) dbg('goto', {event: p[0], heat: p[1]}); }
+        dbg('status', {});
+        setInterval(function () { dbg('status', {}); }, 1500);
+        </script>
+
+</div>
+</body>
+</html>
