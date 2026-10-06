@@ -180,6 +180,7 @@
                               line-height:1.15; white-space:nowrap; overflow:hidden; }
   .ov.band .row.relay .legs.wrap { white-space:normal; }
   .ov.band .row.relay .nm { font-size:calc(28 * var(--s)); line-height:1.1; text-overflow:clip; }
+  .ov.band .row.relayteam .nm { text-overflow:clip; }
   .ov.band .row.relay .nums .tm { display:none; }
   .ov.band .row.relay .nums .t.seed { display:none; }
   .ov.band .row.relay .nums .drop:empty { display:none; }   /* else the time sits indented */
@@ -376,7 +377,7 @@ function shrinkToFit(e, minFrac){
   return e.scrollWidth <= e.clientWidth + 1;
 }
 function fitRelayNames(){
-  var rows = document.querySelectorAll('.ov.band .row.relay');
+  var rows = document.querySelectorAll('.ov.band .row.relay, .ov.band .row.relayteam');
   for (var i = 0; i < rows.length; i++){
     var nm = rows[i].querySelector('.nm'), lg = rows[i].querySelector('.legs');
     if (nm && !shrinkToFit(nm, 0.75) && nm.getAttribute('data-short')){
@@ -488,12 +489,15 @@ function draw(){
     var meta = el('div', 'meta'), nums = el('div', 'nums');
     // A 240px strip cell cannot hold "Adelia Schupbach" at a readable size, and
     // a surname is what a parent scans for anyway.
-    var relay = l.legs.length > 0;
+    var relay = l.legs.length > 0;                       // has swimmers' names to list
+    // A relay team ("Stansbury C") is not a person: keep it whole, even when the
+    // meet file has no relay swimmers to list under it.
+    var relayTeam = relay || !!s.event_is_relay || /\s[A-Z]$/.test(l.name);
     var who = l.name || ('Lane ' + l.lane);
-    // ("Stansbury C" is a relay team, not a surname - keep it whole)
-    if (LAYOUT === 'strip' && !relay && who.indexOf(' ') > 0) who = who.split(/\s+/).pop();
+    if (LAYOUT === 'strip' && !relayTeam && who.indexOf(' ') > 0) who = who.split(/\s+/).pop();
     var nm = el('div', 'nm', who);
     meta.appendChild(nm);
+    if (relayTeam && BAND){ r.classList.add('relayteam'); nm.setAttribute('data-short', relayShort(l)); }
     // Relays: the four swimmers' last names always show. The relay name already
     // says the team, and the seed is what gives way to make room.
     var legs = relay ? el('div', 'legs', l.legs.join(' \u00b7 ')) : null;

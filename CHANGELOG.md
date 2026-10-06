@@ -3,6 +3,20 @@
 ## Unreleased
 
 ### Added
+- **Lane rail overlay** (`/overlay/lanes`): a column of lane chips down the
+  side of the picture - lane number in team colour, logo, name, and team (or
+  the relay's swimmers) - in the same order as the water, lane 8 at the top.
+  Shown only while a heat is on the blocks; gone the instant the race starts.
+  Add it as its own OBS Browser source above the camera. Options: `side=`,
+  `top=`/`bottom=` to line it up with the blocks, `order=down`, `width=`,
+  `scale=`, `logos=0`, and `demo` to keep it up while you position it.
+
+### Fixed
+- Relay names ("Stansbury B") were cut to the letter in the strip overlay when
+  the meet file has no relay swimmers. The server now marks relay events, and
+  long relay names shrink to fit.
+
+### Added
 - **Relay legs on the stream overlay**: medley and freestyle relays now list
   all four swimmers' last names under the relay name, in every overlay layout.
   The seed time gives way to make room (the relay name already says the team,

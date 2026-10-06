@@ -924,6 +924,9 @@ def send_event_info():
     update["current_heat"] = str(last_event_sent[1])
     update["event_name"] = event_info.get_event_name(last_event_sent[0])
     update["schedule_has_names"] = event_info.has_names
+    # Lets the overlays treat "Stansbury B" as a relay even when the meet file
+    # carries no relay swimmers (e.g. an .scb start list)
+    update["event_is_relay"] = bool((getattr(event_info, 'event_meta', {}).get(last_event_sent[0]) or {}).get('relay'))
     qt_results, qt_show_age = _get_qualifying_times(last_event_sent[0])
     rec_set_results, rec_show_age = _get_matching_records(last_event_sent[0])
     show_age_codes = qt_show_age or rec_show_age
