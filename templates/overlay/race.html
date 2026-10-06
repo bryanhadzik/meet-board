@@ -16,12 +16,27 @@
     blank          -> fades out
 
   URL options (combine with &):
-    pos=bl|br|tl|tr    corner (default bl = bottom-left)
+    layout=panel|strip|tiers|race
+                       panel (default) corner panel, as before
+                       strip  full-width bottom band, one row of 8 lanes
+                       tiers  full-width bottom band, 4+4 with lanes 5-8 on top
+                              (matches the water: lane 8 is the far side)
+                       race   like tiers, but the running clock becomes a hero
+                              clock on the left while the race is on
+    bandh=NNN          band height in 1080p px (strip 284, tiers/race 392)
+    guide              draw the band outline + the OBS transform numbers
+    pos=bl|br|tl|tr    corner, panel layout only (default bl = bottom-left)
     scale=1.0          size multiplier, e.g. 0.85 or 1.2
     running=list|clock during the race show the lane list (default) or only the clock bar
     results=place|lane order of the results (default place)
     test               show a pool photo behind it for positioning (never in OBS)
   e.g.  /overlay/race?pos=br&scale=0.9
+        /overlay/race?layout=tiers
+        /overlay/race?layout=race&guide     (to set the OBS crop, then drop &guide)
+
+  The band layouts expect the camera source to be pushed up in OBS so the
+  ceiling leaves the top of the canvas: scale the source to 1920 x (1080-bandh)
+  and anchor it to the bottom. ?guide prints the exact numbers on screen.
 -->
 <style>
   :root { --u: calc(100vw / 1920); --scale: 1; --s: calc(var(--u) * var(--scale)); }
@@ -85,6 +100,121 @@
   .row.p3 .pl { background:#c98a4f; color:#2a1604; }
   .row.p1 { background:rgba(232,193,74,.14); }
   .row.fresh { background:rgba(127,224,171,.30); }   /* just touched the wall */
+
+  /* ===================================================================
+     Band layouts (strip / tiers / race)
+
+     The panel layout above is untouched. Band layouts turn .ov into a
+     full-width bar pinned to the bottom, and .rows into a grid of cells.
+     .meta and .nums are display:contents in panel, so the panel row stays a
+     single flat flex line exactly as before.
+     =================================================================== */
+  .ov .meta, .ov .nums { display:contents; }
+
+  .ov.band { left:0; right:0; bottom:0; top:auto; width:100vw;
+             height:calc(var(--bandh) * var(--u)); display:grid;
+             grid-template-columns:1fr; grid-template-rows:auto 1fr;
+             background:#091113; box-shadow:none; }
+  .ov.band::before { content:""; position:absolute; left:0; right:0; top:calc(-5 * var(--u));
+                     height:calc(5 * var(--u)); background:#3ddc84; }
+  .ov.band.off { transform:translateY(calc(40 * var(--u))); }
+  .ov.band .state { right:calc(44 * var(--u)); top:calc(-34 * var(--u));
+                    border-radius:calc(6 * var(--u)) calc(6 * var(--u)) 0 0; }
+
+  .ov.band .hdr { height:auto; border-radius:0; box-shadow:none; background:transparent;
+                  align-items:center; padding:calc(18 * var(--s)) calc(44 * var(--u)) 0; gap:calc(18 * var(--s)); }
+  .ov.band .evbox { background:transparent; padding:0; }
+  .ov.band .evno { font-size:calc(22 * var(--s)); color:#3ddc84; letter-spacing:.16em; }
+  .ov.band .evname { font-size:calc(36 * var(--s)); }
+  .ov.band .heat { background:transparent; }
+  .ov.band .heat .k { font-size:calc(14 * var(--s)); }
+  .ov.band .heat .v { font-size:calc(30 * var(--s)); }
+  .ov.band .clock { background:transparent; width:auto; color:#ffd60a; font-size:calc(52 * var(--s)); }
+
+  .ov.band .rows { background:transparent; border-radius:0; box-shadow:none;
+                   display:grid; align-content:start; overflow:visible;
+                   padding:calc(10 * var(--s)) calc(32 * var(--u)) 0; column-gap:0; }
+  .ov.band .row { height:auto; border-top:0; min-width:0; padding:calc(6 * var(--s)) calc(12 * var(--u));
+                  display:grid; align-items:center; gap:0 calc(12 * var(--s));
+                  grid-template-columns:auto 1fr; grid-template-areas:"ln meta" "ln nums"; }
+  .ov.band .ln   { grid-area:ln; }
+  .ov.band .meta { grid-area:meta; }
+  .ov.band .nums { grid-area:nums; justify-content:flex-start; }
+  .ov.band .logo { grid-area:ln; }
+  .ov.band .row + .row { border-top:0; }
+  .ov.band .stripe { display:none; }
+  .ov.band .meta { display:block; min-width:0; }
+  .ov.band .nums { display:flex; align-items:center; gap:calc(10 * var(--s)); min-width:0; overflow:hidden; }
+  .ov.band .nums .t, .ov.band .nums .tm { flex:0 0 auto; }
+
+  /* lane number becomes a team-coloured badge, which is what makes the strip
+     scannable from the stands */
+  .ov.band .ln { width:auto; min-width:calc(46 * var(--s)); height:calc(46 * var(--s));
+                 display:flex; align-items:center; justify-content:center;
+                 background:var(--tc, #2a3b40); color:var(--ink, #fff);
+                 border-radius:calc(12 * var(--s)); font-size:calc(28 * var(--s)); font-weight:800; }
+  .ov.band .nm { font-size:calc(34 * var(--s)); font-weight:700; }
+  .ov.band .tm { min-width:0; font-size:calc(16 * var(--s)); border-radius:calc(999 * var(--s));
+                 padding:calc(2 * var(--s)) calc(9 * var(--s)); display:inline-block; }
+  .ov.band .t { width:auto; font-size:calc(28 * var(--s)); }
+  .ov.band .t.seed { font-size:calc(26 * var(--s)); color:#9fb3b8; }
+  .ov.band .drop { min-width:0; font-size:calc(18 * var(--s)); }
+  .ov.band .pl { width:calc(38 * var(--s)); height:calc(34 * var(--s)); font-size:calc(22 * var(--s)); }
+  .ov.band .logo { width:calc(38 * var(--s)); height:calc(38 * var(--s)); }
+
+  /* --- strip: one row of 8. Cells are ~240px wide at 1080p, so last names
+         only and the team code shrinks before it can touch the time. --- */
+  .ov.lay-strip .rows { grid-template-columns:repeat(8, minmax(0, 1fr)); }
+  .ov.lay-strip .row { border-left:1px solid rgba(255,255,255,.08); }
+  .ov.lay-strip .row.col1 { border-left:0; }
+  .ov.lay-strip .ln { align-self:start; }
+  .ov.lay-strip .nm { font-size:calc(25 * var(--s)); text-transform:uppercase; letter-spacing:.01em; }
+  .ov.lay-strip .ln { min-width:calc(40 * var(--s)); height:calc(40 * var(--s)); font-size:calc(25 * var(--s)); }
+  .ov.lay-strip .nums { gap:calc(6 * var(--s)); }
+  .ov.lay-strip .tm { font-size:calc(13 * var(--s)); padding:calc(2 * var(--s)) calc(6 * var(--s)); }
+  .ov.lay-strip .t  { font-size:calc(19 * var(--s)); }
+  .ov.lay-strip .t.seed { font-size:calc(19 * var(--s)); }
+  .ov.lay-strip .drop { display:none; }   /* no room; the tier layouts keep it */
+  .ov.lay-strip .pl { width:calc(26 * var(--s)); height:calc(24 * var(--s)); font-size:calc(16 * var(--s)); }
+  .ov.lay-strip .row { padding-left:calc(10 * var(--u)); padding-right:calc(10 * var(--u)); gap:0 calc(9 * var(--s)); }
+
+  /* --- tiers / race: 4 across, 2 deep, lanes 5-8 on the top row --- */
+  .ov.lay-tiers .rows, .ov.lay-race .rows { grid-template-columns:repeat(4, minmax(0, 1fr)); row-gap:calc(6 * var(--s)); }
+  .ov.lay-tiers .row, .ov.lay-race .row { border-left:1px solid rgba(255,255,255,.08); }
+  .ov.lay-tiers .row.col1, .ov.lay-race .row.col1 { border-left:0; }
+
+  /* --- race: hero clock on the left while the race is running --- */
+  .ov.lay-race.hero { grid-template-columns:calc(400 * var(--u)) 1fr; grid-template-rows:1fr;
+                      grid-template-areas:"hdr rows"; }
+  .ov.lay-race.hero .hdr  { grid-area:hdr; flex-direction:column; align-items:flex-start; justify-content:center;
+                            padding:0 calc(36 * var(--u)); gap:calc(2 * var(--s)); }
+  /* .evbox carries flex:1 for the horizontal header; in this column it would
+     grow vertically and shove the clock onto the floor of the band. */
+  .ov.lay-race.hero .evbox { flex:0 0 auto; width:100%; }
+  /* The band height is fixed by the OBS crop, so it cannot grow for the race.
+     Four columns x two rows it is - the same grid as tiers, just narrower,
+     so the type steps down a size to keep every name whole. */
+  .ov.lay-race.hero .rows { grid-area:rows; align-content:center; padding:0 calc(28 * var(--u));
+                            grid-template-columns:repeat(4, minmax(0, 1fr)); row-gap:calc(4 * var(--s)); }
+  .ov.lay-race.hero .clock { font-size:calc(76 * var(--s)); line-height:1.05; justify-content:flex-start; padding:0; }
+  .ov.lay-race.hero .nm { font-size:calc(27 * var(--s)); }
+  .ov.lay-race.hero .ln { min-width:calc(40 * var(--s)); height:calc(40 * var(--s)); font-size:calc(24 * var(--s)); }
+  .ov.lay-race.hero .t  { font-size:calc(24 * var(--s)); }
+  .ov.lay-race.hero .tm { font-size:calc(14 * var(--s)); }
+  .ov.lay-race.hero .evno { font-size:calc(19 * var(--s)); }
+  .ov.lay-race.hero .evname { font-size:calc(26 * var(--s)); white-space:normal; }
+  .ov.lay-race.hero .heat { flex-direction:row; gap:calc(8 * var(--s)); align-items:baseline; padding:0; }
+
+  /* --- ?guide: a positioning aid, never left on for a real stream --- */
+  .guide { position:fixed; inset:0; pointer-events:none; z-index:9; }
+  .guide .vid { position:absolute; left:0; right:0; top:0; bottom:calc(var(--bandh) * var(--u));
+                outline:calc(3 * var(--u)) dashed #3ddc84; outline-offset:calc(-3 * var(--u)); }
+  .guide .chrome { position:absolute; left:0; right:0; bottom:0; height:calc(74 * var(--u));
+                   background:repeating-linear-gradient(45deg,rgba(255,90,110,.22) 0 14px,transparent 14px 28px); }
+  .guide .tip { position:absolute; left:calc(40 * var(--u)); top:calc(40 * var(--u));
+                background:rgba(0,0,0,.82); color:#ffd60a; padding:calc(14 * var(--u)) calc(18 * var(--u));
+                border-radius:calc(8 * var(--u)); font:600 calc(20 * var(--u))/1.5 Consolas, monospace;
+                white-space:pre; }
 </style>
 </head>
 <body class="{{ 'test' if test_background else '' }}">
@@ -97,6 +227,7 @@
   </div>
   <div class="rows" id="rows"></div>
 </div>
+<div class="guide" id="guide" hidden><div class="vid"></div><div class="chrome"></div><div class="tip" id="tip"></div></div>
 
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
 <script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
@@ -107,11 +238,40 @@ var q = new URLSearchParams(location.search);
 var POS = ({bl:1, br:1, tl:1, tr:1})[q.get('pos')] ? q.get('pos') : 'bl';
 var SCALE = Math.max(0.4, Math.min(2.5, parseFloat(q.get('scale')) || 1));
 var RUNNING_MODE = q.get('running') === 'clock' ? 'clock' : 'list';
-var RESULTS_ORDER = q.get('results') === 'lane' ? 'lane' : 'place';
 var SHOW_LOGOS = q.get('logos') !== '0';   // ?logos=0 hides school logos
+
+var LAYOUT = ({panel:1, strip:1, tiers:1, race:1})[q.get('layout')] ? q.get('layout') : 'panel';
+var BAND = LAYOUT !== 'panel';
+var DEFAULT_BANDH = LAYOUT === 'strip' ? 284 : 392;   // clears the player controls
+var BANDH = Math.max(140, Math.min(560, parseInt(q.get('bandh'), 10) || DEFAULT_BANDH));
+// A band is a map of the pool, so the cells must stay in lane order or a
+// parent loses the lane they were watching. Place order is still the default
+// for the corner panel, and ?results=place can force it back.
+var RESULTS_ORDER = q.get('results') ? (q.get('results') === 'lane' ? 'lane' : 'place')
+                                     : (BAND ? 'lane' : 'place');
+
 var ov = document.getElementById('ov');
-ov.classList.add('pos-' + POS);
 document.documentElement.style.setProperty('--scale', SCALE);
+if (BAND) {
+  ov.classList.add('band', 'lay-' + LAYOUT);
+  document.documentElement.style.setProperty('--bandh', BANDH);
+} else {
+  ov.classList.add('pos-' + POS);
+}
+
+if (q.has('guide') && BAND) {
+  var g = document.getElementById('guide');
+  g.hidden = false;
+  document.getElementById('tip').textContent =
+    'layout=' + LAYOUT + '  bandh=' + BANDH + '\n\n' +
+    'OBS camera source transform:\n' +
+    '  size      1920 x ' + (1080 - BANDH) + '\n' +
+    '  position  0, 0   (anchor top-left)\n' +
+    '  crop      take the BOTTOM ' + (1080 - BANDH) + '/1080 of the framing\n' +
+    '            so the ceiling leaves the top and the deck stays\n\n' +
+    'green dashes = video area    red hatch = player controls\n' +
+    'remove &guide before you go live';
+}
 
 var s = {};
 var lastTimes = {}, freshUntil = {};
@@ -206,7 +366,10 @@ function draw(){
   document.getElementById('clock').style.display = (ph === 'startlist' || !clock) ? 'none' : '';
   document.getElementById('state').textContent =
     ph === 'startlist' ? 'START LIST' : ph === 'results' ? 'RESULTS' : '';
-  ov.classList.toggle('compact', ph === 'running' && RUNNING_MODE === 'clock');
+  // 'compact' (clock bar only) is a panel idea - an empty band looks broken,
+  // so the race layout answers ?running=clock with the hero clock instead.
+  ov.classList.toggle('compact', !BAND && ph === 'running' && RUNNING_MODE === 'clock');
+  ov.classList.toggle('hero', LAYOUT === 'race' && ph === 'running');
 
   if (ph === 'results' && RESULTS_ORDER === 'place'){
     L.sort(function(a, b){
@@ -215,9 +378,24 @@ function draw(){
     });
   }
 
+  // Lane 1 is nearest the camera and lane 8 is the far side, so the top row of
+  // the grid holds the high lanes: the strip reads the same way up as the water.
+  var COLS = 1;
+  if (LAYOUT === 'tiers' || LAYOUT === 'race'){
+    COLS = 4;
+    L.sort(function(a, b){
+      var ga = a.lane > 4 ? 0 : 1, gb = b.lane > 4 ? 0 : 1;
+      return ga - gb || a.lane - b.lane;
+    });
+  } else if (LAYOUT === 'strip'){
+    COLS = 8;
+    L.sort(function(a, b){ return a.lane - b.lane; });
+  }
+
   var box = document.getElementById('rows'); box.textContent = '';
-  L.forEach(function(l){
+  L.forEach(function(l, idx){
     var r = el('div', 'row');
+    if (BAND && idx % COLS === 0) r.classList.add('col1');
     var c = colorOf(l.team);
     if (c){ r.style.setProperty('--tc', c); r.style.setProperty('--ink', inkOf(c)); }
     var showResult = ph !== 'startlist' && l.time;
@@ -232,14 +410,25 @@ function draw(){
       if (v){ var im = el('img'); im.alt = ''; im.src = '/team_logo/' + encodeURIComponent(l.team) + '?v=' + v; lg.appendChild(im); }
       r.appendChild(lg);
     }
-    r.appendChild(el('div', 'nm', l.name || ('Lane ' + l.lane)));
-    r.appendChild(el('div', 'tm mono', l.team));
-    if (ph === 'startlist') r.appendChild(el('div', 't seed mono', fmtSeed(l.seed)));
+    // .meta and .nums are display:contents in the panel layout, so the panel
+    // row is still one flat flex line; the band layouts use them as real boxes.
+    var meta = el('div', 'meta'), nums = el('div', 'nums');
+    // A 240px strip cell cannot hold "Adelia Schupbach" at a readable size, and
+    // a surname is what a parent scans for anyway.
+    var who = l.name || ('Lane ' + l.lane);
+    if (LAYOUT === 'strip' && who.indexOf(' ') > 0) who = who.split(/\s+/).pop();
+    meta.appendChild(el('div', 'nm', who));
+    // In a band the name owns its own line, so the team code sits with the time.
+    (BAND ? nums : meta).appendChild(el('div', 'tm mono', l.team));
+    if (ph === 'startlist') nums.appendChild(el('div', 't seed mono', fmtSeed(l.seed)));
     else {
-      r.appendChild(el('div', 'drop mono', showResult ? dropOf(l.time, l.seed) : ''));
-      r.appendChild(el('div', 't mono', l.time));
+      nums.appendChild(el('div', 'drop mono', showResult ? dropOf(l.time, l.seed) : ''));
+      nums.appendChild(el('div', 't mono', l.time));
     }
-    r.appendChild(el('div', 'pl mono', showResult ? l.place : ''));
+    r.appendChild(meta);
+    r.appendChild(nums);
+    var pl = el('div', 'pl mono', showResult ? l.place : '');
+    (BAND ? nums : r).appendChild(pl);
     box.appendChild(r);
   });
   lastTimes = {};

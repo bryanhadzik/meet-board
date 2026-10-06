@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Overlay layouts**: `/overlay/race?layout=strip|tiers|race` put the data in
+  a full-width band along the bottom instead of a corner panel, so the camera
+  can be pushed up and the ceiling cropped out. `?bandh=NNN` sets the band
+  height; `?guide` draws the video area and prints the OBS source transform.
+- Band layouts keep lanes in pool order with lane 8 on the top row, show names
+  at roughly twice the panel's size, and keep clear of the bottom 74px where
+  the player controls sit.
+- `layout=panel` (the default) is unchanged.
+
 ## 0.2.28
 
 ### Added
