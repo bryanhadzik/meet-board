@@ -13,7 +13,7 @@
     on the blocks  -> start list (lane, swimmer, team, seed)
     racing         -> running clock; each lane's time and place appear as they touch
     finished       -> results, sorted by place, top three marked
-    blank          -> fades out
+    blank          -> keeps the last results up until the next race starts (hold=), then fades
 
   URL options (combine with &):
     layout=panel|strip|tiers|race
@@ -29,6 +29,8 @@
     scale=1.0          size multiplier, e.g. 0.85 or 1.2
     running=list|clock during the race show the lane list (default) or only the clock bar
     results=place|lane order of the results (default place)
+    hold=start|list|0  keep the last heat's results up until the next race starts
+                       (default), until the next start list appears, or not at all
     test               show a pool photo behind it for positioning (never in OBS)
   e.g.  /overlay/race?pos=br&scale=0.9
         /overlay/race?layout=tiers
@@ -296,6 +298,10 @@ var BANDH = Math.max(140, Math.min(560, parseInt(q.get('bandh'), 10) || DEFAULT_
 // A band is a map of the pool, so the cells must stay in lane order or a
 // parent loses the lane they were watching. Place order is still the default
 // for the corner panel, and ?results=place can force it back.
+// hold=start (default): keep the last results up until the next race starts
+// hold=list: until the next heat's start list appears;  hold=0: fade out as soon as the console clears
+var HOLD = ({'0':0, 'list':'list', 'start':'start'})[q.get('hold')];
+if (HOLD === undefined) HOLD = 'start';
 var RESULTS_ORDER = q.get('results') ? (q.get('results') === 'lane' ? 'lane' : 'place')
                                      : (BAND ? 'lane' : 'place');
 
@@ -408,6 +414,7 @@ function render(){
 }
 
 var hideSince = 0, hideTimer = null, dropTimer = null;
+var held = null, holding = false;   // last heat's results (see HOLD)
 function draw(){
   var ph = phase();
   var ev = trim(s.current_event), ht = trim(s.current_heat);
@@ -420,6 +427,18 @@ function draw(){
     if (swimmers.length && swimmers.every(function(l){ return l.time && l.place; })) ph = 'results';
   }
   var show = ph !== 'off' && hasEvent && (L.length > 0 || ph === 'running');
+  // Hold the last heat's results on screen through the console clearing and the
+  // next heat's start list, until the next race actually starts.
+  if (HOLD && !holding){
+    if (show && ph === 'results') held = JSON.parse(JSON.stringify(s));
+    else if (ph === 'running') held = null;
+    var holdNow = held && (ph === 'off' || (HOLD === 'start' && ph === 'startlist'));
+    if (holdNow){
+      var live = s; s = held; holding = true;
+      try { draw(); } finally { s = live; holding = false; }
+      return;
+    }
+  }
   // Only hide once "nothing to show" has lasted 1.5 s: a single odd update from
   // the console (or a re-sync) must not blink the whole overlay off and on.
   if (show) { hideSince = 0; ov.classList.remove('off'); }

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+- **Race overlay keeps the last results up**: after a heat finishes, its
+  results stay on the stream through the console clearing and the next heat's
+  start list, and switch to the new heat when that race starts (the lane rail
+  covers who's on the blocks). `?hold=list` switches at the next start list
+  instead; `?hold=0` restores the old fade-out.
+
 ### Added
 - **Lane rail overlay** (`/overlay/lanes`): a column of lane chips down the
   side of the picture - lane number in team colour, logo, name, and team (or
