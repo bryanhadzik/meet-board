@@ -140,7 +140,10 @@
   .ov.band .ln   { grid-area:ln; }
   .ov.band .meta { grid-area:meta; }
   .ov.band .nums { grid-area:nums; justify-content:flex-start; }
-  .ov.band .logo { grid-area:ln; }
+  /* the school logo gets its own column next to the lane badge; sharing the
+     lane's grid area put it on top of the lane number */
+  .ov.band .logo { grid-area:logo; }
+  .ov.band .row.haslogo { grid-template-columns:auto auto 1fr; grid-template-areas:"ln logo meta" "ln logo nums"; }
   .ov.band .row + .row { border-top:0; }
   .ov.band .stripe { display:none; }
   .ov.band .meta { display:block; min-width:0; }
@@ -170,13 +173,22 @@
   .ov.lay-strip .ln { align-self:start; }
   .ov.lay-strip .nm { font-size:calc(25 * var(--s)); text-transform:uppercase; letter-spacing:.01em; }
   .ov.lay-strip .ln { min-width:calc(40 * var(--s)); height:calc(40 * var(--s)); font-size:calc(25 * var(--s)); }
-  .ov.lay-strip .nums { gap:calc(6 * var(--s)); }
+  .ov.lay-strip .nums { gap:calc(5 * var(--s)); }
+  /* the team code gives way before the time or place can be cut off */
+  .ov.band .nums .tm { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:clip; white-space:nowrap; }
+  .ov.band .nums .t, .ov.band .nums .pl, .ov.band .nums .drop { flex:0 0 auto; }
+  /* where cells are tightest the school's logo already names the team, so drop
+     the code rather than show it clipped */
+  .ov.lay-strip .row.withlogo .nums .tm, .ov.lay-race.hero .row.withlogo .nums .tm { display:none; }
   .ov.lay-strip .tm { font-size:calc(13 * var(--s)); padding:calc(2 * var(--s)) calc(6 * var(--s)); }
   .ov.lay-strip .t  { font-size:calc(19 * var(--s)); }
   .ov.lay-strip .t.seed { font-size:calc(19 * var(--s)); }
   .ov.lay-strip .drop { display:none; }   /* no room; the tier layouts keep it */
   .ov.lay-strip .pl { width:calc(26 * var(--s)); height:calc(24 * var(--s)); font-size:calc(16 * var(--s)); }
   .ov.lay-strip .row { padding-left:calc(10 * var(--u)); padding-right:calc(10 * var(--u)); gap:0 calc(9 * var(--s)); }
+  /* strip cells are too narrow for a logo column: stack it under the lane number */
+  .ov.lay-strip .row.haslogo { grid-template-columns:auto 1fr; grid-template-areas:"ln meta" "logo nums"; row-gap:calc(4 * var(--s)); }
+  .ov.lay-strip .logo { width:calc(40 * var(--s)); height:calc(40 * var(--s)); }
 
   /* --- tiers / race: 4 across, 2 deep, lanes 5-8 on the top row --- */
   .ov.lay-tiers .rows, .ov.lay-race .rows { grid-template-columns:repeat(4, minmax(0, 1fr)); row-gap:calc(6 * var(--s)); }
@@ -201,6 +213,10 @@
   .ov.lay-race.hero .ln { min-width:calc(40 * var(--s)); height:calc(40 * var(--s)); font-size:calc(24 * var(--s)); }
   .ov.lay-race.hero .t  { font-size:calc(24 * var(--s)); }
   .ov.lay-race.hero .tm { font-size:calc(14 * var(--s)); }
+  /* hero cells are the narrowest per lane: tighten so time and place stay whole */
+  .ov.lay-race.hero .row { gap:0 calc(8 * var(--s)); }
+  .ov.lay-race.hero .nums { gap:calc(6 * var(--s)); }
+  .ov.lay-race.hero .logo { width:calc(32 * var(--s)); height:calc(32 * var(--s)); }
   .ov.lay-race.hero .evno { font-size:calc(19 * var(--s)); }
   .ov.lay-race.hero .evname { font-size:calc(26 * var(--s)); white-space:normal; }
   .ov.lay-race.hero .heat { flex-direction:row; gap:calc(8 * var(--s)); align-items:baseline; padding:0; }
@@ -408,7 +424,7 @@ function draw(){
     if (SHOW_LOGOS && s.team_logos && Object.keys(s.team_logos).length){
       var v = l.team ? s.team_logos[l.team] : null, lg = el('div', 'logo' + (v ? '' : ' none'));
       if (v){ var im = el('img'); im.alt = ''; im.src = '/team_logo/' + encodeURIComponent(l.team) + '?v=' + v; lg.appendChild(im); }
-      r.appendChild(lg);
+      r.appendChild(lg); r.classList.add('haslogo'); if (v) r.classList.add('withlogo');
     }
     // .meta and .nums are display:contents in the panel layout, so the panel
     // row is still one flat flex line; the band layouts use them as real boxes.

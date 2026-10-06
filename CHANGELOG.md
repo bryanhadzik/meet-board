@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+- **Overlay band layouts**: lane numbers were hidden under the school logo when
+  logos are uploaded. The logo now has its own spot (beside the lane number in
+  tiers/race, under it in strip).
+- Strip and the race view no longer cut off the place number for long team
+  codes (TOOEL, EMERY): the team code gives way first, and is dropped where the
+  team's logo is already showing.
+
 ### Added
 - **Overlay layouts**: `/overlay/race?layout=strip|tiers|race` put the data in
   a full-width band along the bottom instead of a corner panel, so the camera
