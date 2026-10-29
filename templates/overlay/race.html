@@ -31,6 +31,7 @@
     results=place|lane order of the results (default place)
     hold=start|list|0  keep the last heat's results up until the next race starts
                        (default), until the next start list appears, or not at all
+    warmup=band|full|0 the warm-up slide: a bottom band (default), the whole picture, or never
     test               show a pool photo behind it for positioning (never in OBS)
   e.g.  /overlay/race?pos=br&scale=0.9
         /overlay/race?layout=tiers
@@ -282,6 +283,7 @@
 
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
 <script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
+<script src="{{ url_for('static', filename='warmup-slide.js') }}"></script>
 <script>
 (function(){
 "use strict";
@@ -546,6 +548,11 @@ function draw(){
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
     if (window.mbAutoReload) window.mbAutoReload(socket);
 socket.on('update_scoreboard', function(u){ for (var k in u) s[k] = u[k]; render(); });
+// Warm-up slide: takes the band's place before the meet (?warmup=full for the
+// whole picture, ?warmup=0 to never show it on this source)
+if (window.mbWarmupSlide && q.get('warmup') !== '0')
+  window.mbWarmupSlide(socket, {mode: q.get('warmup') === 'full' ? 'full' : 'band', bandh: BAND ? BANDH : 392,
+    onShow: function(on){ ov.style.visibility = on ? 'hidden' : ''; }});
 // Lost the server: keep the last picture for 5 s (a quick reconnect shouldn't flash)
 socket.on('disconnect', function(){ clearTimeout(dropTimer); dropTimer = setTimeout(function(){ ov.classList.add('off'); }, 5000); });
 socket.on('connect', function(){ clearTimeout(dropTimer); });

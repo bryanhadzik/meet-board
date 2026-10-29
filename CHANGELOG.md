@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+- **Warm-up slide**: the meet name, every team in the start lists (logos and
+  colours, each school once), and the start time with a live countdown.
+  Full screen on the meet board / scoreboard TVs; a band along the bottom of
+  the stream overlay so the camera still shows warm-ups (`?warmup=full` for the
+  whole picture, `?warmup=0` to keep it off that source). Toggle it with the
+  *Warm-up slide* button in the tab bar or on Settings -> Warm-up slide, where
+  the meet name, second line and start time are set. Name and pool fill in
+  from the .hy3 when left blank. It comes down by itself when the first race
+  starts.
+
 ### Changed
 - **Settings cleaned up**: a short *Timing console* status (receiving / no
   data, race clock, event) with the serial port and board update rate, then

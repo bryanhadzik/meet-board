@@ -188,6 +188,9 @@ function draw(){
 
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
 if (window.mbAutoReload) window.mbAutoReload(socket);
+// the warm-up slide owns the screen while it is up
+var slideUp = false;
+socket.on('warmup_slide', function(d){ slideUp = !!(d && d.on); rail.style.visibility = slideUp ? 'hidden' : ''; });
 socket.on('update_scoreboard', function(u){ for (var k in u) s[k] = u[k]; render(); });
 socket.on('disconnect', function(){ setTimeout(function(){ if (!socket.connected) rail.classList.add('off'); }, 5000); });
 })();

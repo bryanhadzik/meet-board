@@ -53,6 +53,10 @@ settings = {
     'blackout_auto': True,
     'blackout_after_hours': 2.0,
     'blackout_manual': False,
+    'warmup_slide_on': False,     # warm-up slide on the meet boards and stream
+    'warmup_title': '',           # blank = meet title, else the meet name in the .hy3
+    'warmup_subtitle': '',        # blank = the pool name in the .hy3
+    'warmup_start': '',           # meet start time, HH:MM (24 h)
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
@@ -139,6 +143,14 @@ def _emit_and_remember(event, *args, **kwargs):
         res = _socketio_emit(event, *args, **kwargs)
         if woke:
             _blackout_broadcast()
+        # The first race of the meet takes the warm-up slide down by itself
+        if args[0].get('race_state') == 'Running' and settings.get('warmup_slide_on'):
+            settings['warmup_slide_on'] = False
+            try:
+                save_settings()
+            except Exception:
+                pass
+            _warmup_broadcast()
         return res
     return _socketio_emit(event, *args, **kwargs)
 
@@ -963,6 +975,7 @@ def send_event_info():
     update["board_style"] = settings.get('board_style', 'classic')
 
     socketio.emit('update_scoreboard', update, namespace='/scoreboard')
+    _warmup_broadcast()
 
 def send_scores_info():
     update = {}
@@ -996,6 +1009,7 @@ def ws_scoreboard():
     flask_socketio.emit('server_info', {'version': __version__, 'boot': BOOT_ID})
     if screens_black:
         flask_socketio.emit('blackout', screens_black.status())
+    flask_socketio.emit('warmup_slide', _warmup_slide())
 
 @socketio.on('next_heat', namespace='/scoreboard')
 def ws_next_heat(d):
@@ -1630,6 +1644,52 @@ def blackout_worker():
             _blackout_broadcast()
         except Exception:
             traceback.print_exc()
+
+
+def _warmup_slide():
+    """Payload for the warm-up slide (meet, teams, start time)."""
+    meet_teams = meet_board.schedule_teams(event_info)
+    teams = meet_board.slide_teams(settings, meet_teams, _team_names(), _meet_logos(meet_teams))
+    return meet_board.slide_payload(settings, getattr(event_info, 'meet_info', None) or {}, teams)
+
+
+def _warmup_broadcast():
+    try:
+        _socketio_emit('warmup_slide', _warmup_slide(), namespace='/scoreboard')
+    except Exception:
+        traceback.print_exc()
+
+
+_HHMM = re.compile(r'^([01]?\d|2[0-3]):([0-5]\d)$')
+
+
+@app.route('/api/warmup_slide', methods=['GET', 'POST'])
+def route_api_warmup_slide():
+    """GET: what the warm-up slide shows. POST any of {on, title, subtitle, start}."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        if 'start' in d:
+            start = str(d.get('start') or '').strip()
+            m = _HHMM.match(start)
+            if start and not m:
+                return flask.jsonify({'error': 'start time must be HH:MM'}), 400
+            settings['warmup_start'] = '%02d:%s' % (int(m.group(1)), m.group(2)) if m else ''
+        for k in ('title', 'subtitle'):
+            if k in d:
+                settings['warmup_' + k] = str(d.get(k) or '').strip()[:120]
+        if 'on' in d:
+            settings['warmup_slide_on'] = bool(d['on'])
+        save_settings()
+        _warmup_broadcast()
+    out = _warmup_slide()
+    meet_info = getattr(event_info, 'meet_info', None) or {}
+    out['defaults'] = {'title': settings.get('meet_title') or meet_info.get('name') or '',
+                       'subtitle': meet_info.get('facility') or ''}
+    out['saved'] = {'title': settings.get('warmup_title', ''), 'subtitle': settings.get('warmup_subtitle', ''),
+                    'start': settings.get('warmup_start', '')}
+    return flask.jsonify(out)
 
 
 @app.route('/api/blackout', methods=['GET', 'POST'])

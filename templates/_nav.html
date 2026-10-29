@@ -12,6 +12,8 @@
                border:0; border-radius:6px; padding:7px 10px; cursor:pointer; }
   .mbnav .rl.done { background:#7fe0ab; }
   .mbnav .bk { background:#2a3a3d; color:#e6eef0; }
+  .mbnav .wu { background:#2a3a3d; color:#e6eef0; }
+  .mbnav .wu.on { background:#3ddc84; color:#0b1618; }
   .mbnav a .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#3ddc84; margin-left:6px; vertical-align:2px; }
   .mbnav .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
 </style>
@@ -27,6 +29,7 @@
   <a href="/overlay/race?test" class="ext" target="_blank">Overlay &#8599;</a>
   <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
     onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
+  <button class="rl wu" id="mbWarmBtn" type="button" title="Show the warm-up slide (meet, teams, start time) on the meet boards and the stream">Warm-up slide</button>
   <button class="rl bk" id="mbBlackBtn" type="button" title="Blank the meet board and scoreboard TVs (the OBS overlay is not affected)">Go black</button>
 </nav>
 <script>
@@ -46,6 +49,18 @@
       body: JSON.stringify({black: !(st && st.black)})}).then(function(r){return r.json();}).then(show);
   };
   load(); setInterval(load, 15000);
+  // warm-up slide toggle
+  var w = document.getElementById('mbWarmBtn'), wOn = false;
+  function wShow(d){ wOn = !!(d && d.on); w.classList.toggle('on', wOn);
+    w.textContent = wOn ? 'Warm-up slide: ON' : 'Warm-up slide';
+    if (window.wuShow) window.wuShow(d); }
+  function wLoad(){ fetch('/api/warmup_slide',{cache:'no-store'}).then(function(r){return r.json();}).then(wShow).catch(function(){}); }
+  w.onclick = function(){
+    fetch('/api/warmup_slide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!wOn})})
+      .then(function(r){return r.json();}).then(wShow);
+  };
+  window.wuNavShow = wShow;
+  wLoad(); setInterval(wLoad, 15000);
   // flag the Software Update tab when a newer release is out
   fetch('/update_check').then(function(r){ return r.json(); }).then(function(d){
     if (d && d.newer){ var t = document.getElementById('mbUpdTab');

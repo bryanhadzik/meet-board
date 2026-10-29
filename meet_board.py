@@ -267,3 +267,47 @@ def resolved_colors(colors, meet_teams, home=''):
         taken.append(pick)
         out[code] = pick
     return out
+
+
+# ---------------------------------------------------------------- warm-up slide
+def _pretty_school(name):
+    """'TOOELE HIGH SCHOOL' -> 'Tooele High School' (keeps short all-caps like 'HS')."""
+    name = (name or '').strip()
+    if name.isupper() and len(name) > 4:
+        name = ' '.join(w if len(w) <= 2 else w.capitalize() for w in name.split())
+    return name
+
+
+def slide_teams(settings, meet_teams, team_names=None, logos=None):
+    """Teams for the warm-up slide: one entry per school (STAN and SHS are the
+    same school, so it appears once), in schedule order.
+    -> [{code, name, color, logo}] where logo is the cache-busting mtime or None."""
+    team_names = team_names or {}
+    logos = logos or {}
+    colors = team_colors(settings, meet_teams, team_names)
+    home = canonical_codes(settings, meet_teams, team_names)
+    out, seen = [], set()
+    for code in meet_teams or []:
+        school = home.get(code, code)
+        if not code or school in seen:
+            continue
+        seen.add(school)
+        c = colors.get(code) or colors.get(school) or {}
+        name = (team_names.get(code) or team_names.get(school) or c.get('name') or code)
+        out.append({'code': code, 'name': _pretty_school(name), 'color': c.get('color') or '',
+                    'logo': logos.get(code) or logos.get(school)})
+    return out
+
+
+def slide_payload(settings, meet_info, teams):
+    """What the warm-up slide shows. Typed values on Settings win over the
+    meet file; the start time is HH:MM (24 h) and is shown in local time."""
+    meet_info = meet_info or {}
+    return {
+        'on': bool(settings.get('warmup_slide_on')),
+        'title': (settings.get('warmup_title') or settings.get('meet_title') or meet_info.get('name') or '').strip(),
+        'subtitle': (settings.get('warmup_subtitle') or meet_info.get('facility') or '').strip(),
+        'start': (settings.get('warmup_start') or '').strip(),
+        'date': meet_info.get('date') or '',
+        'teams': teams,
+    }

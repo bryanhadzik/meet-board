@@ -127,7 +127,61 @@
           </div>
         </section>
 
-        <h3 id="obs">Stream (OBS)</h3>
+                <h3 id="warmup">Warm-up slide</h3>
+        <section class="card">
+          <style>
+            .wu-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px 20px; max-width:860px; }
+            .wu-grid label { display:block; }
+            .wu-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:14px; }
+            .wu-state { font-weight:700; }
+            .wu-state.on { color:var(--ok); }
+          </style>
+          <p class="help-block" style="margin-top:0">Shows the meet, every team in the start lists (with logos), and the start
+            time with a countdown &mdash; full screen on the meet board TVs, and as a band along the bottom of the stream
+            so the camera still shows warm-ups. It comes down by itself when the first race starts.</p>
+          <div class="wu-grid">
+            <div><label for="wu_title">Meet name</label><input class="form-control" id="wu_title" style="width:100%"></div>
+            <div><label for="wu_sub">Second line</label><input class="form-control" id="wu_sub" style="width:100%"></div>
+            <div><label for="wu_start">Meet starts at</label><input class="form-control" id="wu_start" type="time"></div>
+          </div>
+          <div class="help-block">Leave the meet name or second line blank to use the meet file (meet name, pool).</div>
+          <div class="wu-row">
+            <button class="btn" type="button" onclick="wuSave()">Save</button>
+            <button class="btn btn-primary" type="button" id="wu_toggle" onclick="wuSave(!wuOn)">Show warm-up slide</button>
+            <span class="wu-state" id="wu_state"></span>
+            <a href="/web/meetboard" target="_blank">Meet board &#8599;</a>
+            <span class="help-inline" id="wu_teams"></span>
+          </div>
+        </section>
+        <script>
+        (function(){
+          function $(id){ return document.getElementById(id); }
+          var loaded = false;
+          window.wuOn = false;
+          window.wuShow = function(d){
+            if (!d) return;
+            wuOn = !!d.on;
+            $('wu_state').textContent = wuOn ? 'ON — showing on the boards and stream' : 'Off';
+            $('wu_state').className = 'wu-state' + (wuOn ? ' on' : '');
+            $('wu_toggle').textContent = wuOn ? 'Hide warm-up slide' : 'Show warm-up slide';
+            $('wu_teams').textContent = (d.teams || []).length ? (d.teams.length + ' teams: ' + d.teams.map(function(t){ return t.name; }).join(', ')) : 'No start list loaded yet - teams appear once one is.';
+            if (d.defaults){ $('wu_title').placeholder = d.defaults.title || 'Meet name'; $('wu_sub').placeholder = d.defaults.subtitle || 'e.g. the pool'; }
+            if (!loaded && d.saved){ loaded = true; $('wu_title').value = d.saved.title; $('wu_sub').value = d.saved.subtitle; $('wu_start').value = d.saved.start; }
+          };
+          window.wuSave = function(on){
+            var body = {title: $('wu_title').value, subtitle: $('wu_sub').value, start: $('wu_start').value};
+            if (on !== undefined) body.on = on;
+            fetch('/api/warmup_slide', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+              .then(function(r){ return r.json(); }).then(function(d){
+                if (d.error){ $('wu_state').textContent = d.error; return; }
+                wuShow(d); if (window.wuNavShow) window.wuNavShow(d);
+              });
+          };
+          fetch('/api/warmup_slide', {cache:'no-store'}).then(function(r){ return r.json(); }).then(wuShow).catch(function(){});
+        })();
+        </script>
+
+<h3 id="obs">Stream (OBS)</h3>
 <section class="card">
         <style>
         .obsc{--obsc-bg:#111b1d;--obsc-line:#26383c;--obsc-dim:#8fa3a8;--obsc-fg:#e8eeee;

@@ -453,6 +453,8 @@ def enrich_from_hy3(loader, hy3):
         names = dict(hy3.team_names)
         names.update(getattr(loader, 'team_names', None) or {})
         loader.team_names = names
+    if getattr(hy3, 'meet_info', None) and not getattr(loader, 'meet_info', None):
+        loader.meet_info = dict(hy3.meet_info)    # meet name / pool / date for the warm-up slide
     if matched:
         loader.combine_events()   # rebuild the live tables from the enriched copies
     return matched

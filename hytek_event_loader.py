@@ -194,6 +194,7 @@ class HytekEventLoader():
         self.seed_times_uncombined = {}
         self.relay_legs = {}   # (event, heat) -> {lane: [last names of the 4 legs]}
         self.team_names = {}   # team code -> full school name from the .hy3 (none in .scb)
+        self.meet_info = {}    # {name, facility, date} from the .hy3 (none in .scb)
         self.combined = {}
         self.has_names = False
         if file_name:
@@ -213,6 +214,7 @@ class HytekEventLoader():
         self.has_names = False
 
     def clear(self):
+        self.meet_info = {}
         self.event_names.clear()
         self.event_meta.clear()
         self.events.clear()
@@ -247,6 +249,12 @@ class HytekEventLoader():
 
     def _load_from_parsed(self, parsed):
         meet = parsed.meet
+        start = getattr(meet, 'start_date', None)
+        self.meet_info = {
+            'name': (getattr(meet, 'name', '') or '').strip(),
+            'facility': (getattr(meet, 'facility', '') or '').strip(),
+            'date': start.isoformat() if start else '',
+        }
         self.team_names = {}
         for code, team in (getattr(meet, 'teams', None) or {}).items():
             name = (getattr(team, 'name', '') or '').strip()
