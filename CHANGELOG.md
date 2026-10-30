@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+- **The server now starts again after Settings -> Update.** The update swapped
+  the exe but the new one exited at once: it inherited the old one-file exe's
+  PyInstaller variables (pointing at a temp folder that was already deleted)
+  and took itself for the inner half of the old app. The restart now runs with
+  `PYINSTALLER_RESET_ENVIRONMENT=1` and those variables removed. (The update
+  *to* this version still runs the old updater, so start the server by hand
+  once after it.)
+
 ### Changed
 - **Meet Files tab**: start lists (.hy3 / .scb), the CTS watch folder, time
   standards and records moved off Settings onto their own tab.

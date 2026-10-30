@@ -117,6 +117,24 @@ def status():
     return dict(_status)
 
 
+def clean_env(env=None):
+    """Environment for restarting ourselves.
+
+    A one-file PyInstaller exe runs as an outer and an inner process and passes
+    _PYI_* variables (pointing at its temporary unpack folder) to anything it
+    starts. A new copy of the exe that inherits them thinks it is the inner half
+    of the old app, looks for that folder - deleted by the time it starts - and
+    quits without a word. That is why the server didn't come back after an
+    update. PYINSTALLER_RESET_ENVIRONMENT=1 is PyInstaller's switch for "this is
+    a new instance"; dropping the leftovers as well makes it doubly sure."""
+    env = dict(os.environ if env is None else env)
+    for k in list(env):
+        if k.upper().startswith(('_PYI_', '_MEIPASS')):
+            del env[k]
+    env['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+    return env
+
+
 def _swap_script(exe, new_exe, pid, args):
     arg_str = subprocess.list2cmdline(args)
     # Plain goto loops (no parenthesised blocks) so %vars% re-expand each pass.
@@ -139,6 +157,9 @@ def _swap_script(exe, new_exe, pid, args):
         'timeout /t 1 /nobreak >nul',
         'goto swap',
         ':launch',
+        # Start the new exe as a fresh app, not as the inner half of the old one
+        # (see clean_env). Without this it exits at once and nothing restarts.
+        'set PYINSTALLER_RESET_ENVIRONMENT=1',
         'start "" "%s" %s' % (exe, arg_str),
         '(goto) 2>nul & del "%~f0"',
         '',
@@ -173,7 +194,7 @@ def _run_update(asset_url, token, on_exit):
             f.write(_swap_script(exe, new_exe, os.getpid(), sys.argv[1:]))
         _status.update(state='restarting', message='Restarting with the new version...', progress=100)
         flags = getattr(subprocess, 'CREATE_NEW_CONSOLE', 0)
-        subprocess.Popen(['cmd.exe', '/c', script], creationflags=flags, close_fds=True)
+        subprocess.Popen(['cmd.exe', '/c', script], creationflags=flags, close_fds=True, env=clean_env())
         time.sleep(1.0)  # let the browser get the status response
         on_exit()
     except Exception as e:
