@@ -12,16 +12,20 @@
      mbWarmupSlide(socket, {mode: 'band', bandh: 392,           stream overlay
                             onShow: function (shown) {...}})
 
-   URL options on the page: ?wuspeed=30 (full: scroll speed, px/s at 1080p),
-   ?wuhold=7 (band: seconds per heat), ?nowarmup (never show it here).
+   Scroll speed and band hold time come from Settings -> Warm-up slide (sent
+   with the slide, applied live). URL options on a page override them:
+   ?wuspeed=30 (full: scroll speed, px/s at 1080p), ?wuhold=7 (band: seconds
+   per heat), ?nowarmup (never show it here).
 */
 window.mbWarmupSlide = function (socket, opts) {
   opts = opts || {};
   var MODE = opts.mode === 'band' ? 'band' : 'full';
   var BANDH = opts.bandh || 392;
   var q = new URLSearchParams(location.search);
-  var SPEED = Math.max(5, Math.min(200, parseFloat(q.get('wuspeed')) || 30));   // px per second at 1920 wide
-  var HOLD = Math.max(3, Math.min(60, parseFloat(q.get('wuhold')) || 7));       // band: seconds per heat
+  function clamp(v, lo, hi) { v = parseFloat(v); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null; }
+  var SPEED_URL = clamp(q.get('wuspeed'), 5, 200), HOLD_URL = clamp(q.get('wuhold'), 3, 60);
+  function speed() { return SPEED_URL || clamp(data && data.speed, 5, 200) || 30; }   // px per second at 1920 wide
+  function hold() { return HOLD_URL || clamp(data && data.hold, 3, 60) || 7; }        // band: seconds per heat
   var data = null, tick = null, raf = null, rotate = null, sigShown = '';
 
   var css = document.createElement('style');
@@ -215,9 +219,10 @@ window.mbWarmupSlide = function (socket, opts) {
     requestAnimationFrame(function () {
       if (grid.offsetHeight <= view.clientHeight) return;
       track.appendChild(grid.cloneNode(true));
-      var loop = grid.offsetHeight, y = 0, last = null, pxs = SPEED * window.innerWidth / 1920;
+      var loop = grid.offsetHeight, y = 0, last = null;
       function step(t) {
-        if (last !== null) { y += (t - last) / 1000 * pxs; if (y >= loop) y -= loop; }
+        // speed is read every frame, so a change in Settings applies smoothly
+        if (last !== null) { y += (t - last) / 1000 * speed() * window.innerWidth / 1920; if (y >= loop) y -= loop; }
         last = t;
         track.style.transform = 'translateY(' + (-y).toFixed(1) + 'px)';
         raf = requestAnimationFrame(step);
@@ -253,7 +258,7 @@ window.mbWarmupSlide = function (socket, opts) {
     if (list.length > 1) rotate = setInterval(function () {
       stage.classList.add('fade');
       setTimeout(function () { i++; show(); stage.classList.remove('fade'); }, 480);
-    }, HOLD * 1000);
+    }, hold() * 1000);
   }
 
   function stop() { cancelAnimationFrame(raf); raf = null; clearInterval(rotate); rotate = null; }
@@ -275,7 +280,9 @@ window.mbWarmupSlide = function (socket, opts) {
     if (data.on) {
       // the server re-sends on every heat change; only redraw (and restart the
       // scroll) when what's on the slide actually changed
-      var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events]);
+      // (speed is read live by the scroll; the band's hold time needs a restart)
+      var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events,
+                                MODE === 'band' ? hold() : 0]);
       if (sig !== sigShown || !root.classList.contains('on')) { sigShown = sig; draw(); }
     } else sigShown = '';
     show(!!data.on);

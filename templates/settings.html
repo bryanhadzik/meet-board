@@ -135,6 +135,10 @@
             .wu-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:14px; }
             .wu-state { font-weight:700; }
             .wu-state.on { color:var(--ok); }
+            .wu-speed { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+            .wu-speed input[type=range] { flex:1 1 220px; max-width:360px; accent-color:var(--accent); }
+            .wu-speed .wu-val { min-width:120px; font-weight:600; }
+            .wu-speed .wu-ends { color:var(--dim); font-size:13px; }
           </style>
           <p class="help-block" style="margin-top:0">Shows the meet, the start time with a countdown, the teams, and a slow listing of every event
             and the swimmers in each heat &mdash; full screen on the meet board TVs (the heats scroll slowly up), and as a
@@ -146,6 +150,28 @@
             <div><label for="wu_start">Meet starts at</label><input class="form-control" id="wu_start" type="time"></div>
           </div>
           <div class="help-block">Leave the meet name or second line blank to use the meet file (meet name, pool).</div>
+          <div class="wu-grid" style="margin-top:14px">
+            <div>
+              <label for="wu_speed">Scroll speed on the TVs</label>
+              <div class="wu-speed">
+                <span class="wu-ends">Slow</span>
+                <input type="range" id="wu_speed" min="5" max="120" step="1" value="30"
+                       oninput="wuSpeedLabel()" onchange="wuSet({speed: +this.value})">
+                <span class="wu-ends">Fast</span>
+                <span class="wu-val" id="wu_speed_val"></span>
+              </div>
+              <span class="help-block">Changes the boards right away, even while the slide is up.
+                <a href="#" onclick="var e=document.getElementById('wu_speed'); e.value=30; wuSpeedLabel(); wuSet({speed:30}); return false">Reset</a></span>
+            </div>
+            <div>
+              <label for="wu_hold">Stream band: each heat shows for</label>
+              <select class="form-control" id="wu_hold" onchange="wuSet({hold: +this.value})">
+                <option value="4">4 seconds</option><option value="5">5 seconds</option><option value="7">7 seconds</option>
+                <option value="10">10 seconds</option><option value="15">15 seconds</option><option value="20">20 seconds</option>
+                <option value="30">30 seconds</option>
+              </select>
+            </div>
+          </div>
           <div class="wu-row">
             <button class="btn" type="button" onclick="wuSave()">Save</button>
             <button class="btn btn-primary" type="button" id="wu_toggle" onclick="wuSave(!wuOn)">Show warm-up slide</button>
@@ -168,6 +194,27 @@
             $('wu_teams').textContent = (d.teams || []).length ? (d.teams.length + ' teams: ' + d.teams.map(function(t){ return t.name; }).join(', ')) : 'No start list loaded yet - teams appear once one is.';
             if (d.defaults){ $('wu_title').placeholder = d.defaults.title || 'Meet name'; $('wu_sub').placeholder = d.defaults.subtitle || 'e.g. the pool'; }
             if (!loaded && d.saved){ loaded = true; $('wu_title').value = d.saved.title; $('wu_sub').value = d.saved.subtitle; $('wu_start').value = d.saved.start; }
+            if (d.speed != null && document.activeElement !== $('wu_speed')){ $('wu_speed').value = d.speed; wuSpeedLabel(); }
+            if (d.hold != null){
+              var h = $('wu_hold'), v = String(+d.hold);
+              if (![].some.call(h.options, function(o){ return o.value === v; })){
+                var o = document.createElement('option'); o.value = v; o.textContent = v + ' seconds'; h.appendChild(o);
+              }
+              h.value = v;
+            }
+          };
+          window.wuSpeedLabel = function(){
+            var v = +$('wu_speed').value;
+            var word = v <= 15 ? 'Very slow' : v <= 25 ? 'Slow' : v <= 40 ? 'Normal' : v <= 70 ? 'Fast' : 'Very fast';
+            $('wu_speed_val').textContent = word + ' (' + v + ')';
+          };
+          // speed / hold save on their own, without touching the typed fields
+          window.wuSet = function(body){
+            fetch('/api/warmup_slide', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+              .then(function(r){ return r.json(); }).then(function(d){
+                if (d.error){ $('wu_state').textContent = d.error; return; }
+                wuShow(d);
+              });
           };
           window.wuSave = function(on){
             var body = {title: $('wu_title').value, subtitle: $('wu_sub').value, start: $('wu_start').value};

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+- **Warm-up scroll speed** on Settings -> Warm-up slide: a Slow-to-Fast slider
+  for how fast the heats scroll up the TVs (default 30, the old speed), and how
+  long each heat stays on the stream band (default 7 s). Both save at once and
+  change the boards live, without restarting the scroll. `?wuspeed=` /
+  `?wuhold=` on a page still override it for that screen.
+
 ### Fixed
 - **The server now starts again after Settings -> Update.** The update swapped
   the exe but the new one exited at once: it inherited the old one-file exe's

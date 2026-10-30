@@ -75,3 +75,36 @@ def test_listing_only_sent_while_the_slide_is_up(monkeypatch):
 
 def test_go_black_default_is_four_hours():
     assert C.settings['blackout_after_hours'] == 4.0 or C.settings.get('blackout_hours_v4')
+
+
+def test_speed_and_hold_defaults_and_clamping():
+    p = meet_board.slide_payload({}, {}, [])
+    assert p['speed'] == 30 and p['hold'] == 7
+    p = meet_board.slide_payload({'warmup_speed': 999, 'warmup_hold': 1}, {}, [])
+    assert p['speed'] == meet_board.SPEED_MAX and p['hold'] == meet_board.HOLD_MIN
+    p = meet_board.slide_payload({'warmup_speed': 'junk', 'warmup_hold': None}, {}, [])
+    assert p['speed'] == 30 and p['hold'] == 7
+
+
+def test_api_sets_speed_and_broadcasts_it(monkeypatch):
+    monkeypatch.setattr(C, 'save_settings', lambda: None)
+    c = C.app.test_client()
+    sent = []
+    real = C._socketio_emit
+    monkeypatch.setattr(C, '_socketio_emit', lambda ev, *a, **k: sent.append((ev, a[0] if a else None)))
+    old = {k: C.settings.get(k) for k in ('warmup_speed', 'warmup_hold', 'warmup_title')}
+    try:
+        C.settings['warmup_title'] = 'Keep Me'
+        assert c.post('/api/warmup_slide', json={'speed': 'fast'}).status_code == 400
+        r = c.post('/api/warmup_slide', json={'speed': 55}).get_json()
+        assert r['speed'] == 55 and r['hold'] == 7 and r['title'] == 'Keep Me'   # other fields untouched
+        assert sent[-1][0] == 'warmup_slide' and sent[-1][1]['speed'] == 55
+        r = c.post('/api/warmup_slide', json={'speed': 500, 'hold': 12}).get_json()
+        assert r['speed'] == meet_board.SPEED_MAX and r['hold'] == 12
+        assert C.settings['warmup_speed'] == meet_board.SPEED_MAX
+        assert r['limits']['speed'][2] == 30
+    finally:
+        monkeypatch.setattr(C, '_socketio_emit', real)
+        defaults = {'warmup_speed': 30, 'warmup_hold': 7, 'warmup_title': ''}
+        for k, v in old.items():
+            C.settings[k] = defaults[k] if v is None else v

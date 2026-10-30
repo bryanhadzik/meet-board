@@ -310,7 +310,31 @@ def slide_payload(settings, meet_info, teams):
         'start': (settings.get('warmup_start') or '').strip(),
         'date': meet_info.get('date') or '',
         'teams': teams,
+        'speed': slide_speed(settings),
+        'hold': slide_hold(settings),
     }
+
+
+SPEED_MIN, SPEED_MAX, SPEED_DEFAULT = 5, 120, 30   # TV scroll, px per second at 1080p
+HOLD_MIN, HOLD_MAX, HOLD_DEFAULT = 3, 30, 7        # stream band, seconds per heat
+
+
+def _clamp(v, lo, hi, default):
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return default
+    if v != v:   # NaN
+        return default
+    return max(lo, min(hi, v))
+
+
+def slide_speed(settings):
+    return _clamp(settings.get('warmup_speed', SPEED_DEFAULT), SPEED_MIN, SPEED_MAX, SPEED_DEFAULT)
+
+
+def slide_hold(settings):
+    return _clamp(settings.get('warmup_hold', HOLD_DEFAULT), HOLD_MIN, HOLD_MAX, HOLD_DEFAULT)
 
 
 def slide_events(event_info, num_lanes=8):

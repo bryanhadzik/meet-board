@@ -57,6 +57,8 @@ settings = {
     'warmup_title': '',           # blank = meet title, else the meet name in the .hy3
     'warmup_subtitle': '',        # blank = the pool name in the .hy3
     'warmup_start': '',           # meet start time, HH:MM (24 h)
+    'warmup_speed': 30,           # TV scroll speed, px per second at 1080p
+    'warmup_hold': 7,             # stream band: seconds per heat
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
@@ -1677,7 +1679,7 @@ _HHMM = re.compile(r'^([01]?\d|2[0-3]):([0-5]\d)$')
 
 @app.route('/api/warmup_slide', methods=['GET', 'POST'])
 def route_api_warmup_slide():
-    """GET: what the warm-up slide shows. POST any of {on, title, subtitle, start}."""
+    """GET: what the warm-up slide shows. POST any of {on, title, subtitle, start, speed, hold}."""
     if flask.request.method == 'POST':
         if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
             return flask.jsonify({'error': 'login required'}), 401
@@ -1691,6 +1693,13 @@ def route_api_warmup_slide():
         for k in ('title', 'subtitle'):
             if k in d:
                 settings['warmup_' + k] = str(d.get(k) or '').strip()[:120]
+        for k, fn in (('speed', meet_board.slide_speed), ('hold', meet_board.slide_hold)):
+            if k in d:
+                try:
+                    float(d[k])
+                except (TypeError, ValueError):
+                    return flask.jsonify({'error': k + ' must be a number'}), 400
+                settings['warmup_' + k] = fn({'warmup_' + k: d[k]})
         if 'on' in d:
             settings['warmup_slide_on'] = bool(d['on'])
         save_settings()
@@ -1701,6 +1710,8 @@ def route_api_warmup_slide():
                        'subtitle': meet_info.get('facility') or ''}
     out['saved'] = {'title': settings.get('warmup_title', ''), 'subtitle': settings.get('warmup_subtitle', ''),
                     'start': settings.get('warmup_start', '')}
+    out['limits'] = {'speed': [meet_board.SPEED_MIN, meet_board.SPEED_MAX, meet_board.SPEED_DEFAULT],
+                     'hold': [meet_board.HOLD_MIN, meet_board.HOLD_MAX, meet_board.HOLD_DEFAULT]}
     return flask.jsonify(out)
 
 
