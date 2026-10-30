@@ -311,3 +311,25 @@ def slide_payload(settings, meet_info, teams):
         'date': meet_info.get('date') or '',
         'teams': teams,
     }
+
+
+def slide_events(event_info, num_lanes=8):
+    """Every event in swim order with its heats and the swimmers in each lane,
+    for the warm-up listing. Empty lanes are left out.
+    -> [{event, name, heats: [{heat, count, lanes: [{lane, name, team, legs}]}]}]"""
+    out, by_event = [], {}
+    for e, h in heat_order(event_info):
+        lanes = [{'lane': l['lane'], 'name': l['name'], 'team': l['team'],
+                  'legs': [x for x in (l.get('legs') or []) if x]}
+                 for l in lanes_for(event_info, (e, h), num_lanes) if (l['name'] or '').strip() or l['team']]
+        if not lanes:
+            continue
+        ev = by_event.get(e)
+        if ev is None:
+            ev = by_event[e] = {'event': e, 'name': event_info.get_event_name(e) or '', 'heats': []}
+            out.append(ev)
+        ev['heats'].append({'heat': h, 'lanes': lanes})
+    for ev in out:
+        for hh in ev['heats']:
+            hh['count'] = len(ev['heats'])
+    return out

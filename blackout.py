@@ -3,7 +3,7 @@
 Two ways a screen goes black:
   - manual: the "Go black" button in the admin tab bar. Stays black until
     someone presses "Wake screens".
-  - auto: no meet activity for `blackout_after_hours` (default 2). Activity is
+  - auto: no meet activity for `blackout_after_hours` (default 4). Activity is
     anything that means a meet is happening: a race starting or finishing,
     the race clock running, lane times or places changing, or the event/heat
     changing (from the console or the admin pages). Auto black clears on its
@@ -38,9 +38,9 @@ class Blackout:
     @property
     def after_hours(self):
         try:
-            return max(0.05, float(self.settings.get('blackout_after_hours', 2.0)))
+            return max(0.05, float(self.settings.get('blackout_after_hours', 4.0)))
         except (TypeError, ValueError):
-            return 2.0
+            return 4.0
 
     @property
     def manual(self):

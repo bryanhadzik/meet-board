@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Changed
+- **Meet Files tab**: start lists (.hy3 / .scb), the CTS watch folder, time
+  standards and records moved off Settings onto their own tab.
+- **Warm-up slide lists the meet**: the TVs now show every event and the
+  swimmers in each heat, scrolling slowly up like credits and looping (team
+  chips and the start-time countdown stay at the top). The stream band steps
+  through the heats one at a time. Relay legs show in full. `?wuspeed=` sets
+  the TV scroll speed, `?wuhold=` the seconds per heat on the stream.
+- **Go black** now waits 4 hours with no meet activity (was 2). An existing
+  2-hour setting moves to 4 once; other choices are kept.
+- Tab bar: "Software Update" is now "Update", and the board/overlay links hide
+  on narrow screens so the bar stays on one line.
+
 ### Added
 - **Warm-up slide**: the meet name, every team in the start lists (logos and
   colours, each school once), and the start time with a live countdown.

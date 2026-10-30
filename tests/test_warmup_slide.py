@@ -44,3 +44,34 @@ def test_api_and_race_start_takes_it_down(monkeypatch):
         monkeypatch.setattr(C, '_socketio_emit', real)
         for k in ('warmup_title', 'warmup_start'):
             C.settings[k] = ''
+
+
+def test_listing_has_every_heat_in_order_with_swimmers():
+    import os, scb_loader
+    from hytek_event_loader import HytekEventLoader
+    ei = HytekEventLoader()
+    scb_loader.load_scb_into(ei, scb_loader.read_scb_folder(os.path.join(os.path.dirname(__file__), '..', 'samples', 'scb')))
+    evs = meet_board.slide_events(ei)
+    keys = [(e['event'], h['heat']) for e in evs for h in e['heats']]
+    assert keys == [k for k in meet_board.heat_order(ei) if k in set(keys)] and keys
+    for e in evs:
+        assert e['name']
+        for h in e['heats']:
+            assert h['count'] == len(e['heats'])
+            assert h['lanes'] and all(l['name'] or l['team'] for l in h['lanes'])
+
+
+def test_listing_only_sent_while_the_slide_is_up(monkeypatch):
+    monkeypatch.setattr(C, 'save_settings', lambda: None)
+    C.settings['warmup_slide_on'] = False
+    assert 'events' not in C._warmup_slide()
+    C.settings['warmup_slide_on'] = True
+    try:
+        d = C._warmup_slide()
+        assert 'events' in d and 'colors' in d
+    finally:
+        C.settings['warmup_slide_on'] = False
+
+
+def test_go_black_default_is_four_hours():
+    assert C.settings['blackout_after_hours'] == 4.0 or C.settings.get('blackout_hours_v4')

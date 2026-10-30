@@ -51,7 +51,7 @@ settings = {
     'music_obs_inputs': [],
     'music_unmute_delay': 2.0,
     'blackout_auto': True,
-    'blackout_after_hours': 2.0,
+    'blackout_after_hours': 4.0,
     'blackout_manual': False,
     'warmup_slide_on': False,     # warm-up slide on the meet boards and stream
     'warmup_title': '',           # blank = meet title, else the meet name in the .hy3
@@ -199,6 +199,11 @@ def load_settings():
     try:
         with open(settings_file, "rt") as f:
             settings.update(json.load(f))
+        # Go-black default moved from 2 to 4 hours: carry the old default over once
+        if not settings.get('blackout_hours_v4'):
+            if float(settings.get('blackout_after_hours', 4.0) or 0) == 2.0:
+                settings['blackout_after_hours'] = 4.0
+            settings['blackout_hours_v4'] = True
         if 'event_info' in settings:
             event_info.from_object(settings['event_info'])
         if 'time_standards' in settings:
@@ -1650,7 +1655,14 @@ def _warmup_slide():
     """Payload for the warm-up slide (meet, teams, start time)."""
     meet_teams = meet_board.schedule_teams(event_info)
     teams = meet_board.slide_teams(settings, meet_teams, _team_names(), _meet_logos(meet_teams))
-    return meet_board.slide_payload(settings, getattr(event_info, 'meet_info', None) or {}, teams)
+    out = meet_board.slide_payload(settings, getattr(event_info, 'meet_info', None) or {}, teams)
+    # The full start list rides along only while the slide is up: no point
+    # sending every swimmer to every TV on each heat change during the meet.
+    if out['on']:
+        out['events'] = meet_board.slide_events(event_info, int(settings.get('num_lanes', 8) or 8))
+        out['colors'] = {c: (v.get('color') or '') for c, v in
+                         meet_board.team_colors(settings, meet_teams, _team_names()).items()}
+    return out
 
 
 def _warmup_broadcast():
@@ -1932,6 +1944,7 @@ def route_web(name):
     return flask.render_template(web_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'], test_event=test_event, test_heat=test_heat, ad_url=settings['ad_url'], schedule_has_names=event_info.has_names, team_names=[('score_home', settings.get('team_home', '')), ('score_guest1', settings.get('team_guest1', '')), ('score_guest2', settings.get('team_guest2', '')), ('score_guest3', settings.get('team_guest3', ''))], team_tags=[('score_home', settings.get('team_home_tag', '')), ('score_guest1', settings.get('team_guest1_tag', '')), ('score_guest2', settings.get('team_guest2_tag', '')), ('score_guest3', settings.get('team_guest3_tag', ''))])
 
 @app.route('/settings', methods=['POST', 'GET'])
+@app.route('/meet_files', methods=['POST', 'GET'])
 @flask_login.login_required
 def route_settings():
     global settings
@@ -2236,7 +2249,9 @@ def route_settings():
         if tag:
             team_tag_options.append((tag, '%s (%s)' % (tag, name) if name else tag))
     
-    return flask.render_template('settings.html', 
+    # /meet_files is the same handler (uploads post here) with its own page
+    page = 'meet_files.html' if flask.request.path == '/meet_files' else 'settings.html'
+    return flask.render_template(page, 
                 meet_title=settings['meet_title'], 
                 serial_port=settings['serial_port'],
                 serial_port_list=comm_port_list,
@@ -2289,7 +2304,7 @@ def route_schedule_clear():
     settings.pop('hy3_source', None)
     with open(settings_file, "wt") as f:
         json.dump(settings, f, sort_keys=True, indent=4)
-    return flask.redirect('/settings')
+    return flask.redirect('/meet_files')
 
 @app.route('/schedule_undo')
 @flask_login.login_required
@@ -2303,7 +2318,7 @@ def route_schedule_undo():
         settings['event_info_prev'], settings['schedule_filename_prev'] = cur, cur_name  # undo the undo
         save_settings()
         send_event_info()
-    return flask.redirect('/settings')
+    return flask.redirect('/meet_files')
 
 # ---------------------------------------------------------------- team logos
 def _logo_folder():
@@ -2573,7 +2588,7 @@ def route_standards_clear():
     settings.pop('std_desc_overrides', None)
     with open(settings_file, "wt") as f:
         json.dump(settings, f, sort_keys=True, indent=4)
-    return flask.redirect('/settings')
+    return flask.redirect('/meet_files')
 
 @app.route('/records_remove/<int:set_id>')
 @flask_login.login_required
@@ -2587,7 +2602,7 @@ def route_records_remove(set_id):
         settings.pop('swim_record_sets', None)
     with open(settings_file, "wt") as f:
         json.dump(settings, f, sort_keys=True, indent=4)
-    return flask.redirect('/settings')
+    return flask.redirect('/meet_files')
                 
 _shutdown_nonces = []
 

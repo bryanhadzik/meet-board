@@ -3,7 +3,7 @@
   .mbnav { display:flex; gap:2px; flex-wrap:wrap; align-items:flex-end; background:#0b1618; padding:10px 16px 0;
            font:600 14px/1 "Segoe UI", system-ui, sans-serif; position:sticky; top:0; z-index:50; }
   .mbnav .brand { color:#bfe6ec; margin-right:14px; padding-bottom:11px; letter-spacing:.04em; }
-  .mbnav a { color:#9fb6bb; text-decoration:none; padding:10px 16px; border-radius:8px 8px 0 0; }
+  .mbnav a { color:#9fb6bb; text-decoration:none; padding:10px 12px; border-radius:8px 8px 0 0; }
   .mbnav a:hover { color:#fff; background:#16282c; text-decoration:none; }
   .mbnav a.on { color:#0b1618; background:#f4f6f6; }
   .mbnav .sp { flex:1; }
@@ -11,6 +11,8 @@
   .mbnav .rl { margin:0 0 6px 8px; font:600 12px/1 "Segoe UI", system-ui, sans-serif; color:#0b1618; background:#d9a441;
                border:0; border-radius:6px; padding:7px 10px; cursor:pointer; }
   .mbnav .rl.done { background:#7fe0ab; }
+  @media (max-width:1340px) { .mbnav a.ext { display:none; } }
+  @media (max-width:1180px) { .mbnav .brand { display:none; } .mbnav a { padding:10px 9px; } }
   .mbnav .bk { background:#2a3a3d; color:#e6eef0; }
   .mbnav .wu { background:#2a3a3d; color:#e6eef0; }
   .mbnav .wu.on { background:#3ddc84; color:#0b1618; }
@@ -20,9 +22,10 @@
 <nav class="mbnav">
   <span class="brand">meet-board</span>
   <a href="/settings" class="{{ 'on' if active == 'settings' else '' }}">Settings</a>
+  <a href="/meet_files" class="{{ 'on' if active == 'files' else '' }}">Meet Files</a>
   <a href="/music" class="{{ 'on' if active == 'music' else '' }}">Music</a>
   <a href="/team_colors" class="{{ 'on' if active == 'colors' else '' }}">Team Colors</a>
-  <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}" id="mbUpdTab">Software Update</a>
+  <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}" id="mbUpdTab" title="Software update">Update</a>
   <a href="/debug" class="{{ 'on' if active == 'debug' else '' }}">Debug</a>
   <span class="sp"></span>
   <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
@@ -52,7 +55,7 @@
   // warm-up slide toggle
   var w = document.getElementById('mbWarmBtn'), wOn = false;
   function wShow(d){ wOn = !!(d && d.on); w.classList.toggle('on', wOn);
-    w.textContent = wOn ? 'Warm-up slide: ON' : 'Warm-up slide';
+    w.textContent = wOn ? 'Warm-up: ON' : 'Warm-up slide';
     if (window.wuShow) window.wuShow(d); }
   function wLoad(){ fetch('/api/warmup_slide',{cache:'no-store'}).then(function(r){return r.json();}).then(wShow).catch(function(){}); }
   w.onclick = function(){
