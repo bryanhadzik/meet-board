@@ -1061,6 +1061,36 @@ def _state_cuts_from_st2(tag):
     return out
 
 
+def _state_cut_now(cuts):
+    """What the meet board shows for the event in the water right now, or why
+    it shows nothing - so a missing cut can be sorted out from Meet Files."""
+    ev, heat = last_event_sent
+    name = event_info.get_event_name(ev) if ev else ''
+    head = ('Event %s %s' % (ev, name)).strip() if ev else 'No event'
+    if not cuts.get('on'):
+        return {'ok': False, 'text': 'Off - tick "Show on the meet board".'}
+    meta = (getattr(event_info, 'event_meta', {}) or {}).get(ev)
+    if not ev or not meta:
+        return {'ok': False, 'text': head + ': not in the loaded start lists - load the meet (.hy3 or .scb) above.'}
+    if not any((meta.get('stroke_code'), meta.get('distance'), bool(meta.get('relay'))) == e[:3] for e in meet_board.HS_EVENTS) \
+            or not meta.get('sex_codes'):
+        return {'ok': False, 'text': head + ': not one of the 11 high school events, so there is no state cut.'}
+    p = _state_cut_payload(ev, heat)
+    if p:
+        return {'ok': True, 'text': head + ': showing ' + ', '.join(
+            '%s %s%s' % (x['cls'], (x['sex'] + ' ') if len({i['sex'] for i in p['items']}) > 1 else '', x['time'])
+            for x in p['items'])}
+    teams = list(dict.fromkeys([event_info.get_team_code(ev, heat, i) or '' for i in range(1, 11)]
+                               + meet_board.schedule_teams(event_info)))
+    teams = [t for t in teams if t]
+    classes, _tc = _state_cut_classes(cuts, meet_board.schedule_teams(event_info),
+                                      [event_info.get_team_code(ev, heat, i) or '' for i in range(1, 11)])
+    if not classes:
+        return {'ok': False, 'text': head + ': none of the teams (' + ', '.join(teams[:8]) +
+                ') has a classification - set them under Team classifications.'}
+    return {'ok': False, 'text': head + ': no ' + '/'.join(classes) + ' time entered for this event.'}
+
+
 def _state_cuts_view():
     cuts = _state_cuts()
     tables = cuts.get('classes') or {}
@@ -1087,7 +1117,7 @@ def _state_cuts_view():
               'cls': over.get(c, meet_board.DEFAULT_TEAM_CLASS.get(c, '')),
               'default': meet_board.DEFAULT_TEAM_CLASS.get(c, ''), 'in_meet': c in canon.values()}
              for c in homes]
-    return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''),
+    return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''), 'now': _state_cut_now(cuts),
             'default_label': meet_board.STATE_CUTS_YEAR + ' State', 'year': meet_board.STATE_CUTS_YEAR,
             'classes': classes, 'builtin_classes': sorted(builtin, key=meet_board.CLASSES.index),
             'rows': rows, 'teams': teams, 'all_classes': meet_board.CLASSES,

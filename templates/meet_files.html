@@ -256,6 +256,7 @@
               <input class="form-control" id="sc_label" maxlength="30" style="width:22ch"></div>
           </div>
 
+          <div class="alert" id="sc_now" style="margin:0 0 6px"></div>
           <div class="sc-sub">Team classifications <span class="help-inline">(UHSAA 2025-27; change one if it's wrong)</span></div>
           <div class="sc-teams" id="sc_teams"></div>
 
@@ -334,6 +335,7 @@
           function show(d, table){
             view = d;
             $('sc_on').checked = !!d.on; $('sc_year').textContent = d.year;
+            if (d.now){ $('sc_now').textContent = 'Meet board right now \u2014 ' + d.now.text; $('sc_now').className = 'alert ' + (d.now.ok ? 'alert-success' : 'alert-warning'); }
             $('sc_label').placeholder = d.default_label;
             if (document.activeElement !== $('sc_label')) $('sc_label').value = d.label || '';
             var tags = d.st2_tags || [];

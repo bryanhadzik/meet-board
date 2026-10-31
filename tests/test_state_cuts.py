@@ -142,3 +142,24 @@ def test_fill_from_loaded_st2(monkeypatch, quiet):
     assert [t['tag'] for t in d['st2_tags']] == ['ST', 'AA']
     assert C.settings['state_cuts']['classes']['3A'][M.cut_key(2, 1, 50, False)] == 25.5
     assert c.post('/api/state_cuts', json={'cls': '3A', 'from_tag': 'ZZ'}).status_code == 400
+
+
+def test_now_line_explains_why(monkeypatch, quiet):
+    C.settings['state_cuts'] = M.default_state_cuts()
+    meta = {7: {'stroke_code': 3, 'distance': 100, 'relay': False, 'sex_codes': [1]},
+            9: {'stroke_code': 1, 'distance': 25, 'relay': False, 'sex_codes': [1]}}
+    monkeypatch.setattr(C.event_info, 'event_meta', meta, raising=False)
+    monkeypatch.setattr(C.event_info, 'get_event_name', lambda e: 'Boys 100 Breast', raising=False)
+    lanes = {1: 'TOOEL'}
+    monkeypatch.setattr(C.event_info, 'get_team_code', lambda e, h, l: lanes.get(l, ''), raising=False)
+    monkeypatch.setattr(C.meet_board, 'schedule_teams', lambda ei: list(lanes.values()))
+    monkeypatch.setattr(C, 'last_event_sent', (7, 1))
+    assert C._state_cut_now(C.settings['state_cuts'])['ok'] is True
+    assert '4A 1:10.96' in C._state_cut_now(C.settings['state_cuts'])['text']
+    lanes[1] = 'XYZ'
+    assert 'classification' in C._state_cut_now(C.settings['state_cuts'])['text']
+    monkeypatch.setattr(C, 'last_event_sent', (9, 1))
+    assert 'high school events' in C._state_cut_now(C.settings['state_cuts'])['text']
+    monkeypatch.setattr(C, 'last_event_sent', (42, 1))
+    assert 'not in the loaded' in C._state_cut_now(C.settings['state_cuts'])['text']
+    assert 'Off' in C._state_cut_now(dict(C.settings['state_cuts'], on=False))['text']

@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- **"Meet board right now" line on Meet Files -> State qualifying times**:
+  says which cut the board is showing for the event in the water, or exactly
+  why it shows none (switched off, event not in the loaded start lists, not a
+  high school event, teams with no classification, or no time for that class).
 - **State cuts fill themselves in, per classification.** Built in: the 2026
   UHSAA 4A and 3A cuts. UHSAA has no fixed qualifying times (each class takes
   its 32 fastest per event, 20 relays), so a "cut" is the slowest seed that
