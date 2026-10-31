@@ -3,6 +3,13 @@
 ## Unreleased
 
 ### Added
+- **State qualifying times on the meet board.** Meet Files -> State qualifying
+  times: type last season's state cuts for the 11 high school events (girls
+  and boys), or fill them from a standard in a loaded .st2, give them a label
+  ("2025 4A State") and tick *Show on the meet board*. The board then shows
+  the cut beside IN THE WATER for that event, and a gold STATE tag beside
+  every finish time at or under it (single-sex events; a mixed event shows
+  both cuts without tags).
 - **Warm-up scroll speed** on Settings -> Warm-up slide: a Slow-to-Fast slider
   for how fast the heats scroll up the TVs (default 30, the old speed), and how
   long each heat stays on the stream band (default 7 s). Both save at once and

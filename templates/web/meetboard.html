@@ -106,6 +106,17 @@
   .then .lbl { font-size:.85cqw; letter-spacing:.16em; color:#5d7d84; }
   .then .txt { font-size:1cqw; font-weight:600; color:#b7cace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+  /* last season's state cut for the event in the water (Meet Files > State qualifying times) */
+  .ctitle .cut { font-size:1.15cqw; font-weight:700; letter-spacing:.06em; color:#f0c96a; white-space:nowrap; flex:0 0 auto; margin-left:1.2cqw; }
+  .ctitle .cut b { font-weight:800; color:#fff; margin-left:.35cqw; }
+  .ctitle .cut i { font-style:normal; color:#c9a85a; margin-left:.9cqw; }
+  .style-light .ctitle .cut { color:#8a5d00; } .style-light .ctitle .cut b { color:#10202a; } .style-light .ctitle .cut i { color:#8a5d00; }
+  .q { flex:0 0 auto; width:7cqw; display:flex; justify-content:flex-end; }
+  .q span { font-size:1.15cqw; font-weight:800; letter-spacing:.08em; background:#f0c96a; color:#1c1404;
+            border-radius:.4cqw; padding:.2cqw .55cqw; white-space:nowrap; }
+  .colhead .h-q { width:7cqw; text-align:right; color:#f0c96a; }
+  .style-light .colhead .h-q { color:#8a5d00; }
+
   .empty-panel { flex:1; display:flex; align-items:center; justify-content:center; color:#5d7d84; font-size:1.3cqw; text-align:center; padding:1.5cqw; }
 
   /* ================= styles (Settings > Team Colors, or ?style=) ================= */
@@ -185,7 +196,7 @@
 
   <div class="bbody">
     <div class="colL">
-      <div class="ctitle"><span class="lbl mono">IN THE WATER</span><span class="sub mono" id="subL"></span></div>
+      <div class="ctitle"><span class="lbl mono">IN THE WATER</span><span class="cut mono" id="cutL"></span><span class="sub mono" id="subL"></span></div>
       <div class="colhead mono" id="headL"></div>
       <div class="rows" id="rowsL"></div>
     </div>
@@ -347,7 +358,27 @@ function stateLabel(){
   return '';
 }
 
+// Last season's state cut for this event: {label, items:[{sex, time, seconds}]}
+function stateCut(){ var c = s.state_cut; return c && c.items && c.items.length ? c : null; }
+function renderCut(){
+  var c = stateCut(), box = document.getElementById('cutL'); box.textContent = '';
+  if (!c) return;
+  box.appendChild(document.createTextNode((trim(c.label) ? trim(c.label).toUpperCase() + ' CUT' : 'STATE CUT')));
+  c.items.forEach(function(it, i){
+    if (c.items.length > 1 && it.sex) box.appendChild(el('i', '', it.sex.toUpperCase()));
+    box.appendChild(el('b', '', it.time));
+  });
+}
+// A finish time that beats the cut (single-sex events only: in a mixed
+// event we can't tell which cut a lane is racing against)
+function beatsCut(t){
+  var c = stateCut(); if (!c || c.items.length !== 1) return false;
+  var v = secs(t); return v > 0 && v <= c.items[0].seconds + 1e-6;
+}
+
 function renderCurrent(){
+  renderCut();
+  var hasCut = !!stateCut() && stateCut().items.length === 1, anyQ = false;
   var box = document.getElementById('rowsL'); box.textContent = '';
   var sub = document.getElementById('subL');
   sub.textContent = connected ? stateLabel() : 'RECONNECTING';
@@ -368,6 +399,11 @@ function renderCurrent(){
     var dr = t ? dropOf(t, s['lane_seed_time'+i]) : '';
     if (dr) drops = true;
     if (t) anyTime = true;
+    if (hasCut){
+      var q = el('div','q mono');
+      if (t && beatsCut(t)){ q.appendChild(el('span', '', 'STATE')); anyQ = true; }
+      r.appendChild(q);
+    }
     r.appendChild(el('div','drop mono', dr));
     // On the blocks: show the entry seed where the finish time will go
     var pre = !t && !running && /PreRace$/.test(s.race_state || '');
@@ -383,6 +419,7 @@ function renderCurrent(){
   if (logos) { var lg = el('div','h-sp'); lg.style.width = '3.4cqw'; h.appendChild(lg); }
   h.appendChild(el('div','h-nm', ''));
   h.appendChild(el('div','h-tm' + (logos ? '' : ' code'), 'TEAM'));
+  if (hasCut) h.appendChild(el('div','h-q', ''));
   h.appendChild(el('div','h-drop', drops ? 'DROP' : ''));
   h.appendChild(el('div','h-tmr' + (!anyTime && pre ? ' seed' : ''), anyTime ? 'TIME' : (pre ? 'SEED' : '')));
   h.appendChild(el('div','h-pl', anyTime ? 'PL' : ''));

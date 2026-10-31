@@ -5,6 +5,8 @@ that swims next (from the loaded start lists alone, so it keeps working if the
 console link drops).
 """
 
+import re
+
 # Meet board looks, chosen on the Team Colors page (or ?style= per TV)
 BOARD_STYLES = {
     'classic': 'Classic - dark board, team color stripe beside each lane',
@@ -356,4 +358,68 @@ def slide_events(event_info, num_lanes=8):
     for ev in out:
         for hh in ev['heats']:
             hh['count'] = len(ev['heats'])
+    return out
+
+
+# ---------------------------------------------------------------- state cuts
+# Last season's state qualifying times, typed in on Meet Files (or filled from
+# a loaded .st2) and shown on the meet board for the event in the water.
+# Stroke codes follow the .st2 / hy3 mapping: 1 free, 2 back, 3 breast, 4 fly, 5 IM/medley.
+HS_EVENTS = [
+    (5, 200, True, '200 Medley Relay'),
+    (1, 200, False, '200 Freestyle'),
+    (5, 200, False, '200 IM'),
+    (1, 50, False, '50 Freestyle'),
+    (4, 100, False, '100 Butterfly'),
+    (1, 100, False, '100 Freestyle'),
+    (1, 500, False, '500 Freestyle'),
+    (1, 200, True, '200 Free Relay'),
+    (2, 100, False, '100 Backstroke'),
+    (3, 100, False, '100 Breaststroke'),
+    (1, 400, True, '400 Free Relay'),
+]
+SEX_NAMES = {2: 'Girls', 1: 'Boys'}
+
+
+def cut_key(sex, stroke, distance, relay):
+    return '%d|%d|%d|%s' % (sex, stroke, distance, 'R' if relay else 'I')
+
+
+def parse_swim_time(text):
+    """'1:52.34' / '52.3' / '1:52' -> seconds; '' -> None; junk -> ValueError."""
+    t = str(text or '').strip()
+    if not t:
+        return None
+    m = re.match(r'^(?:(\d{1,2}):)?(\d{1,2}(?:\.\d{1,2})?)$', t)
+    if not m or (m.group(1) and float(m.group(2)) >= 60):
+        raise ValueError('not a swim time: %r' % t)
+    secs = (int(m.group(1)) * 60 if m.group(1) else 0) + float(m.group(2))
+    if secs <= 0:
+        raise ValueError('not a swim time: %r' % t)
+    return round(secs, 2)
+
+
+def format_swim_time(secs):
+    if secs is None:
+        return ''
+    secs = round(float(secs) + 1e-9, 2)
+    m, s = int(secs // 60), secs - int(secs // 60) * 60
+    return '%d:%05.2f' % (m, s) if m else '%.2f' % s
+
+
+def state_cut_for(meta, cuts):
+    """The state cut(s) for an event: [{sex, label, time, seconds}], girls first.
+    Empty when the feature is off, the event is unknown, or no time is set."""
+    cuts = cuts or {}
+    if not meta or not cuts.get('on'):
+        return []
+    times = cuts.get('times') or {}
+    stroke, dist = meta.get('stroke_code'), meta.get('distance')
+    if not stroke or not dist:
+        return []
+    out = []
+    for sex in sorted(meta.get('sex_codes') or [], key=lambda c: 0 if c == 2 else 1):
+        v = times.get(cut_key(sex, stroke, dist, bool(meta.get('relay'))))
+        if v:
+            out.append({'sex': SEX_NAMES.get(sex, ''), 'time': format_swim_time(v), 'seconds': v})
     return out

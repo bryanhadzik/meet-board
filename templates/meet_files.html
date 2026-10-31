@@ -223,6 +223,92 @@
         {% endif %}
 
         </section>
+
+        <h3 id="statecuts">State qualifying times</h3>
+        <section class="card">
+          <style>
+            .sc-top { display:flex; gap:12px 20px; align-items:flex-end; flex-wrap:wrap; margin-bottom:12px; }
+            .sc-tbl { border-collapse:collapse; }
+            .sc-tbl th { text-align:left; font-size:13px; color:var(--dim); font-weight:600; padding:2px 10px 4px 0; }
+            .sc-tbl td { padding:2px 10px 2px 0; }
+            .sc-tbl td:first-child { padding-right:18px; white-space:nowrap; }
+            .sc-tbl input { width:9ch; font-family:Consolas, "Cascadia Mono", monospace; text-align:right; }
+            .sc-tbl input.bad { border-color:var(--bad); background:#fbeceb; }
+            .sc-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+            #sc_msg.ok { color:var(--ok); font-weight:600; } #sc_msg.err { color:var(--bad); font-weight:600; }
+          </style>
+          <p class="help-block" style="margin-top:0">Last season's state qualifying times. When this is on, the meet board shows
+            the cut for the event in the water, and tags every swimmer whose finish time beats it.</p>
+          <div class="sc-top">
+            <label style="font-weight:500;cursor:pointer;margin:0"><input type="checkbox" id="sc_on" onchange="scSave({on: this.checked})"> Show on the meet board</label>
+            <div><label for="sc_label">Label</label><br>
+              <input class="form-control" id="sc_label" maxlength="30" placeholder="e.g. 2025 4A State" style="width:22ch"></div>
+            <div id="sc_fill" style="display:none"><label for="sc_tag">Fill from the loaded .st2</label><br>
+              <select class="form-control" id="sc_tag" style="width:auto;display:inline-block"></select>
+              <button class="btn" type="button" onclick="scFill()">Fill</button></div>
+          </div>
+          <table class="sc-tbl">
+            <thead><tr><th>Event</th><th>Girls</th><th>Boys</th></tr></thead>
+            <tbody id="sc_body"></tbody>
+          </table>
+          <div class="sc-row">
+            <button class="btn btn-primary" type="button" onclick="scSaveAll()">Save times</button>
+            <button class="btn btn-danger" type="button" onclick="if(confirm('Clear all state qualifying times?')) scSave({clear:true})">Clear</button>
+            <span id="sc_msg"></span>
+          </div>
+          <span class="help-block">Times like <code>1:52.34</code> or <code>23.45</code>. Leave a box blank for no cut in that event.</span>
+        </section>
+        <script>
+        (function(){
+          function $(id){ return document.getElementById(id); }
+          var RE = /^(?:\d{1,2}:[0-5]?\d(?:\.\d{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/;
+          function msg(t, cls){ $('sc_msg').textContent = t || ''; $('sc_msg').className = cls || ''; }
+          // table=false (label / on-off saves) leaves the time boxes alone so
+          // nothing typed into them is lost
+          function show(d, table){
+            $('sc_on').checked = !!d.on;
+            if (document.activeElement !== $('sc_label')) $('sc_label').value = d.label || '';
+            var tags = d.st2_tags || [];
+            $('sc_fill').style.display = tags.length ? '' : 'none';
+            if ($('sc_tag').options.length !== tags.length){
+              $('sc_tag').innerHTML = '';
+              tags.forEach(function(t){ var o = document.createElement('option'); o.value = t.tag; o.textContent = t.tag + ' - ' + t.desc; $('sc_tag').appendChild(o); });
+            }
+            if (table === false) return;
+            var b = $('sc_body'); b.textContent = '';
+            d.rows.forEach(function(r){
+              var tr = document.createElement('tr');
+              var td = document.createElement('td'); td.textContent = r.name; tr.appendChild(td);
+              [r.girls, r.boys].forEach(function(c){
+                var td = document.createElement('td'), inp = document.createElement('input');
+                inp.className = 'form-control'; inp.dataset.key = c.key; inp.value = c.time; inp.placeholder = '-';
+                inp.oninput = function(){ inp.classList.toggle('bad', !!inp.value.trim() && !RE.test(inp.value.trim())); };
+                td.appendChild(inp); tr.appendChild(td);
+              });
+              b.appendChild(tr);
+            });
+          }
+          window.scSave = function(body, okText){
+            var table = 'times' in body || 'from_tag' in body || 'clear' in body;
+            return fetch('/api/state_cuts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+              .then(function(r){ return r.json(); }).then(function(d){
+                if (d.error){ msg(d.error, 'err'); return; }
+                show(d, table); msg(okText || 'Saved', 'ok');
+              }).catch(function(){ msg('Could not reach the server', 'err'); });
+          };
+          window.scSaveAll = function(){
+            var times = {}, bad = false;
+            document.querySelectorAll('#sc_body input').forEach(function(i){
+              var v = i.value.trim(); if (v && !RE.test(v)) bad = true; times[i.dataset.key] = v;
+            });
+            if (bad){ msg('Fix the boxes marked in red (use 1:52.34 or 23.45)', 'err'); return; }
+            scSave({times: times, label: $('sc_label').value});
+          };
+          window.scFill = function(){ scSave({from_tag: $('sc_tag').value}, 'Filled from the .st2 - check them, then Save times if you change any'); };
+          $('sc_label').addEventListener('change', function(){ scSave({label: $('sc_label').value}); });
+          fetch('/api/state_cuts', {cache:'no-store'}).then(function(r){ return r.json(); }).then(show).catch(function(){});
+        })();
+        </script>
 </div>
 </body>
 </html>

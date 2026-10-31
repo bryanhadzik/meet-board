@@ -57,6 +57,7 @@ settings = {
     'warmup_title': '',           # blank = meet title, else the meet name in the .hy3
     'warmup_subtitle': '',        # blank = the pool name in the .hy3
     'warmup_start': '',           # meet start time, HH:MM (24 h)
+    'state_cuts': {'on': False, 'label': '', 'times': {}},   # last season's state qualifying times (meet board)
     'warmup_speed': 30,           # TV scroll speed, px per second at 1080p
     'warmup_hold': 7,             # stream band: seconds per heat
     'username': 'admin',
@@ -980,9 +981,61 @@ def send_event_info():
     update["home_team"] = settings.get('board_home_team') or settings.get('team_home_tag', '')
     update["meet_title"] = settings.get('meet_title', '')
     update["board_style"] = settings.get('board_style', 'classic')
+    update["state_cut"] = _state_cut_payload(last_event_sent[0])
 
     socketio.emit('update_scoreboard', update, namespace='/scoreboard')
     _warmup_broadcast()
+
+
+def _state_cut_payload(event_number):
+    cuts = settings.get('state_cuts') or {}
+    meta = (getattr(event_info, 'event_meta', {}) or {}).get(event_number)
+    items = meet_board.state_cut_for(meta, cuts)
+    return {'label': (cuts.get('label') or '').strip(), 'items': items} if items else None
+
+
+def _state_cuts_from_st2(tag):
+    """Pull one standard (e.g. the state cut) out of the loaded .st2 for the
+    high school events. Returns {key: seconds}."""
+    out = {}
+    if time_standards is None:
+        return out
+    course = settings.get('pool_course', 'SCY')
+    for stroke, dist, relay, _name in meet_board.HS_EVENTS:
+        for sex in (2, 1):
+            best = None
+            for ev in time_standards.events:
+                if (ev.stroke_code, ev.distance, ev.sex_code) != (stroke, dist, sex):
+                    continue
+                if ev.event_type != ('Relay' if relay else 'Individual'):
+                    continue
+                for cs in ev.courses:
+                    if cs.course != course:
+                        continue
+                    for qt in cs.times:
+                        if qt.standard.tag == tag and qt.time_seconds:
+                            # several age groups: the open / widest one wins
+                            span = (ev.age_group_max or 999) - (ev.age_group_min or 0)
+                            if best is None or span > best[0]:
+                                best = (span, round(qt.time_seconds, 2))
+            if best:
+                out[meet_board.cut_key(sex, stroke, dist, relay)] = best[1]
+    return out
+
+
+def _state_cuts_view():
+    cuts = settings.get('state_cuts') or {}
+    times = cuts.get('times') or {}
+    rows = []
+    for stroke, dist, relay, name in meet_board.HS_EVENTS:
+        row = {'name': name}
+        for sex, col in ((2, 'girls'), (1, 'boys')):
+            k = meet_board.cut_key(sex, stroke, dist, relay)
+            row[col] = {'key': k, 'time': meet_board.format_swim_time(times.get(k))}
+        rows.append(row)
+    return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''), 'rows': rows,
+            'st2_tags': [{'tag': st.tag, 'desc': settings.get('std_desc_overrides', {}).get(st.tag, st.description)}
+                         for st in time_standards.header.standards] if time_standards else []}
 
 def send_scores_info():
     update = {}
@@ -1713,6 +1766,51 @@ def route_api_warmup_slide():
     out['limits'] = {'speed': [meet_board.SPEED_MIN, meet_board.SPEED_MAX, meet_board.SPEED_DEFAULT],
                      'hold': [meet_board.HOLD_MIN, meet_board.HOLD_MAX, meet_board.HOLD_DEFAULT]}
     return flask.jsonify(out)
+
+
+@app.route('/api/state_cuts', methods=['GET', 'POST'])
+def route_api_state_cuts():
+    """GET: last season's state qualifying times. POST any of {on, label,
+    times: {key: '1:52.34'}} or {from_tag} to fill them from the loaded .st2."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        cuts = dict(settings.get('state_cuts') or {})
+        times = dict(cuts.get('times') or {})
+        if 'times' in d:
+            valid = {meet_board.cut_key(sex, *e[:3]) for e in meet_board.HS_EVENTS for sex in (1, 2)}
+            bad = []
+            for k, v in (d.get('times') or {}).items():
+                if k not in valid:
+                    continue
+                try:
+                    secs = meet_board.parse_swim_time(v)
+                except ValueError:
+                    bad.append(str(v))
+                    continue
+                if secs is None:
+                    times.pop(k, None)
+                else:
+                    times[k] = secs
+            if bad:
+                return flask.jsonify({'error': 'Not a time: ' + ', '.join(bad[:3]) + ' (use 1:52.34 or 23.45)'}), 400
+        if d.get('from_tag'):
+            got = _state_cuts_from_st2(str(d['from_tag']))
+            if not got:
+                return flask.jsonify({'error': 'No high school event times for that standard in the loaded .st2'}), 400
+            times.update(got)
+        if 'clear' in d and d['clear']:
+            times = {}
+        if 'label' in d:
+            cuts['label'] = str(d.get('label') or '').strip()[:30]
+        if 'on' in d:
+            cuts['on'] = bool(d['on'])
+        cuts['times'] = times
+        settings['state_cuts'] = cuts
+        save_settings()
+        send_event_info()
+    return flask.jsonify(_state_cuts_view())
 
 
 @app.route('/api/blackout', methods=['GET', 'POST'])
