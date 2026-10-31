@@ -3,6 +3,16 @@
 ## Unreleased
 
 ### Added
+- **State cuts fill themselves in, per classification.** Built in: the 2026
+  UHSAA 4A and 3A cuts. UHSAA has no fixed qualifying times (each class takes
+  its 32 fastest per event, 20 relays), so a "cut" is the slowest seed that
+  made the Feb 2026 state psych sheet. Teams map to their 2025-27 class
+  (Tooele, Stansbury, Deseret Peak = 4A Region 11; Grantsville = 3A Region 12),
+  changeable on Meet Files. The meet board shows the cut for each class in the
+  water ("2026 STATE CUT 4A 1:02.24 3A 1:35.41") and tags each swimmer against
+  their own school's cut. Times stay editable per class, with *Reset to the
+  state meet times*; anything typed into the old single table moves to 4A.
+  Turned on by default when nothing had been entered yet.
 - **State qualifying times on the meet board.** Meet Files -> State qualifying
   times: type last season's state cuts for the 11 high school events (girls
   and boys), or fill them from a standard in a loaded .st2, give them a label

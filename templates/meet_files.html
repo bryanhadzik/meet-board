@@ -227,46 +227,114 @@
         <h3 id="statecuts">State qualifying times</h3>
         <section class="card">
           <style>
-            .sc-top { display:flex; gap:12px 20px; align-items:flex-end; flex-wrap:wrap; margin-bottom:12px; }
+            .sc-top { display:flex; gap:12px 20px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
+            .sc-sub { font-weight:700; margin:14px 0 6px; }
+            .sc-teams { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:6px 18px; max-width:880px; }
+            .sc-teams label { display:flex; align-items:center; gap:8px; font-weight:500; margin:0; }
+            .sc-teams label span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .sc-teams select { width:auto; }
+            .sc-teams .dim { color:var(--dim); }
+            .sc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+            .sc-tabs .btn.on { background:var(--accent); border-color:var(--accent); color:#fff; }
             .sc-tbl { border-collapse:collapse; }
             .sc-tbl th { text-align:left; font-size:13px; color:var(--dim); font-weight:600; padding:2px 10px 4px 0; }
             .sc-tbl td { padding:2px 10px 2px 0; }
             .sc-tbl td:first-child { padding-right:18px; white-space:nowrap; }
             .sc-tbl input { width:9ch; font-family:Consolas, "Cascadia Mono", monospace; text-align:right; }
+            .sc-tbl input.edited { border-color:#d9a441; background:#fff8e6; }
             .sc-tbl input.bad { border-color:var(--bad); background:#fbeceb; }
             .sc-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
             #sc_msg.ok { color:var(--ok); font-weight:600; } #sc_msg.err { color:var(--bad); font-weight:600; }
           </style>
-          <p class="help-block" style="margin-top:0">Last season's state qualifying times. When this is on, the meet board shows
-            the cut for the event in the water, and tags every swimmer whose finish time beats it.</p>
+          <p class="help-block" style="margin-top:0">The meet board shows last season's state cut for the event in the water,
+            for the classification of each team in the heat, and tags every swimmer whose finish time beats their
+            school's cut. UHSAA has no fixed cuts &mdash; each class takes its 32 fastest per event (20 relays) &mdash; so the
+            built-in times are the slowest seed that made the <span id="sc_year">2026</span> state psych sheet.</p>
           <div class="sc-top">
             <label style="font-weight:500;cursor:pointer;margin:0"><input type="checkbox" id="sc_on" onchange="scSave({on: this.checked})"> Show on the meet board</label>
             <div><label for="sc_label">Label</label><br>
-              <input class="form-control" id="sc_label" maxlength="30" placeholder="e.g. 2025 4A State" style="width:22ch"></div>
-            <div id="sc_fill" style="display:none"><label for="sc_tag">Fill from the loaded .st2</label><br>
-              <select class="form-control" id="sc_tag" style="width:auto;display:inline-block"></select>
-              <button class="btn" type="button" onclick="scFill()">Fill</button></div>
+              <input class="form-control" id="sc_label" maxlength="30" style="width:22ch"></div>
           </div>
+
+          <div class="sc-sub">Team classifications <span class="help-inline">(UHSAA 2025-27; change one if it's wrong)</span></div>
+          <div class="sc-teams" id="sc_teams"></div>
+
+          <div class="sc-sub">Cut times</div>
+          <div class="sc-tabs" id="sc_tabs"></div>
           <table class="sc-tbl">
             <thead><tr><th>Event</th><th>Girls</th><th>Boys</th></tr></thead>
             <tbody id="sc_body"></tbody>
           </table>
           <div class="sc-row">
             <button class="btn btn-primary" type="button" onclick="scSaveAll()">Save times</button>
-            <button class="btn btn-danger" type="button" onclick="if(confirm('Clear all state qualifying times?')) scSave({clear:true})">Clear</button>
+            <button class="btn" type="button" id="sc_reset" onclick="scReset()">Reset to the state meet times</button>
+            <span id="sc_fill" style="display:none">
+              <select class="form-control" id="sc_tag" style="width:auto;display:inline-block"></select>
+              <button class="btn" type="button" onclick="scFill()">Fill from .st2</button></span>
             <span id="sc_msg"></span>
           </div>
-          <span class="help-block">Times like <code>1:52.34</code> or <code>23.45</code>. Leave a box blank for no cut in that event.</span>
+          <span class="help-block" id="sc_note"></span>
         </section>
         <script>
         (function(){
           function $(id){ return document.getElementById(id); }
           var RE = /^(?:\d{1,2}:[0-5]?\d(?:\.\d{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/;
-          function msg(t, cls){ $('sc_msg').textContent = t || ''; $('sc_msg').className = cls || ''; }
-          // table=false (label / on-off saves) leaves the time boxes alone so
-          // nothing typed into them is lost
+          var view = null, cls = '';
+          function msg(t, c){ $('sc_msg').textContent = t || ''; $('sc_msg').className = c || ''; }
+          function tabs(){
+            var set = {};
+            view.classes.forEach(function(c){ set[c] = 1; });
+            view.teams.forEach(function(t){ if (t.cls) set[t.cls] = 1; });
+            return view.all_classes.filter(function(c){ return set[c]; });
+          }
+          function drawTeams(){
+            var box = $('sc_teams'); box.textContent = '';
+            view.teams.forEach(function(t){
+              var l = document.createElement('label'), sp = document.createElement('span'), sel = document.createElement('select');
+              sp.textContent = t.name; if (!t.in_meet) sp.className = 'dim';
+              sp.title = t.in_meet ? 'In the loaded meet' : 'Not in the loaded meet';
+              sel.className = 'form-control';
+              ['none'].concat(view.all_classes).forEach(function(c){
+                var o = document.createElement('option'); o.value = c; o.textContent = c === 'none' ? '—' : c; sel.appendChild(o);
+              });
+              sel.value = t.cls || 'none';
+              sel.onchange = function(){ var m = {}; m[t.code] = sel.value; scSave({team_class: m}, 'Saved', false); };
+              l.appendChild(sp); l.appendChild(sel); box.appendChild(l);
+            });
+          }
+          function drawTimes(){
+            var list = tabs();
+            if (list.indexOf(cls) < 0) cls = list.indexOf('4A') >= 0 ? '4A' : (list[0] || '4A');
+            var tb = $('sc_tabs'); tb.textContent = '';
+            list.forEach(function(c){
+              var b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (c === cls ? ' on' : ''); b.textContent = c;
+              b.onclick = function(){ cls = c; drawTimes(); msg(''); };
+              tb.appendChild(b);
+            });
+            var body = $('sc_body'); body.textContent = '';
+            view.rows.forEach(function(r){
+              var tr = document.createElement('tr'), td = document.createElement('td'); td.textContent = r.name; tr.appendChild(td);
+              var cells = r.cells[cls] || {};
+              ['girls', 'boys'].forEach(function(col){
+                var c = cells[col] || {}, td = document.createElement('td'), inp = document.createElement('input');
+                inp.className = 'form-control' + (c.time && !c.builtin && view.builtin_classes.indexOf(cls) >= 0 ? ' edited' : '');
+                inp.dataset.key = c.key || ''; inp.value = c.time || ''; inp.placeholder = '-';
+                if (!c.key){ var e = r.cells[Object.keys(r.cells)[0]]; inp.dataset.key = e ? e[col].key : ''; }
+                inp.oninput = function(){ inp.classList.toggle('bad', !!inp.value.trim() && !RE.test(inp.value.trim())); };
+                td.appendChild(inp); tr.appendChild(td);
+              });
+              body.appendChild(tr);
+            });
+            var builtin = view.builtin_classes.indexOf(cls) >= 0;
+            $('sc_reset').style.display = builtin ? '' : 'none';
+            $('sc_note').innerHTML = builtin
+              ? 'Built-in ' + cls + ' times: slowest qualifier on the ' + view.year + ' UHSAA ' + cls + ' state psych sheet. Boxes you changed are outlined in gold.'
+              : 'No built-in ' + cls + ' times &mdash; type them in (<code>1:52.34</code> or <code>23.45</code>) or fill them from a .st2.';
+          }
           function show(d, table){
-            $('sc_on').checked = !!d.on;
+            view = d;
+            $('sc_on').checked = !!d.on; $('sc_year').textContent = d.year;
+            $('sc_label').placeholder = d.default_label;
             if (document.activeElement !== $('sc_label')) $('sc_label').value = d.label || '';
             var tags = d.st2_tags || [];
             $('sc_fill').style.display = tags.length ? '' : 'none';
@@ -274,22 +342,20 @@
               $('sc_tag').innerHTML = '';
               tags.forEach(function(t){ var o = document.createElement('option'); o.value = t.tag; o.textContent = t.tag + ' - ' + t.desc; $('sc_tag').appendChild(o); });
             }
-            if (table === false) return;
-            var b = $('sc_body'); b.textContent = '';
-            d.rows.forEach(function(r){
-              var tr = document.createElement('tr');
-              var td = document.createElement('td'); td.textContent = r.name; tr.appendChild(td);
-              [r.girls, r.boys].forEach(function(c){
-                var td = document.createElement('td'), inp = document.createElement('input');
-                inp.className = 'form-control'; inp.dataset.key = c.key; inp.value = c.time; inp.placeholder = '-';
-                inp.oninput = function(){ inp.classList.toggle('bad', !!inp.value.trim() && !RE.test(inp.value.trim())); };
-                td.appendChild(inp); tr.appendChild(td);
-              });
-              b.appendChild(tr);
+            drawTeams();
+            if (table !== false || !$('sc_body').children.length) drawTimes();
+            else drawTimesTabsOnly();   // keep typed boxes; a team may have moved class
+          }
+          function drawTimesTabsOnly(){
+            var list = tabs(), tb = $('sc_tabs'); tb.textContent = '';
+            list.forEach(function(c){
+              var b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (c === cls ? ' on' : ''); b.textContent = c;
+              b.onclick = function(){ cls = c; drawTimes(); msg(''); };
+              tb.appendChild(b);
             });
           }
-          window.scSave = function(body, okText){
-            var table = 'times' in body || 'from_tag' in body || 'clear' in body;
+          window.scSave = function(body, okText, table){
+            if (table === undefined) table = 'times' in body || 'from_tag' in body || 'reset' in body;
             return fetch('/api/state_cuts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
               .then(function(r){ return r.json(); }).then(function(d){
                 if (d.error){ msg(d.error, 'err'); return; }
@@ -302,11 +368,14 @@
               var v = i.value.trim(); if (v && !RE.test(v)) bad = true; times[i.dataset.key] = v;
             });
             if (bad){ msg('Fix the boxes marked in red (use 1:52.34 or 23.45)', 'err'); return; }
-            scSave({times: times, label: $('sc_label').value});
+            scSave({cls: cls, times: times, label: $('sc_label').value}, cls + ' times saved');
           };
-          window.scFill = function(){ scSave({from_tag: $('sc_tag').value}, 'Filled from the .st2 - check them, then Save times if you change any'); };
-          $('sc_label').addEventListener('change', function(){ scSave({label: $('sc_label').value}); });
-          fetch('/api/state_cuts', {cache:'no-store'}).then(function(r){ return r.json(); }).then(show).catch(function(){});
+          window.scReset = function(){
+            if (confirm('Put the ' + view.year + ' state meet times back for ' + cls + '?')) scSave({cls: cls, reset: true}, cls + ' reset');
+          };
+          window.scFill = function(){ scSave({cls: cls, from_tag: $('sc_tag').value}, 'Filled ' + cls + ' from the .st2'); };
+          $('sc_label').addEventListener('change', function(){ scSave({label: $('sc_label').value}, 'Saved', false); });
+          fetch('/api/state_cuts', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){ show(d, true); }).catch(function(){});
         })();
         </script>
 </div>

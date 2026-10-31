@@ -362,8 +362,11 @@ def slide_events(event_info, num_lanes=8):
 
 
 # ---------------------------------------------------------------- state cuts
-# Last season's state qualifying times, typed in on Meet Files (or filled from
-# a loaded .st2) and shown on the meet board for the event in the water.
+# UHSAA has no fixed state qualifying times: each classification takes the 32
+# fastest per individual event (20 relays) from the season's Top 100 lists.
+# "Last year's state cut" is therefore the slowest seed that made last
+# February's state psych sheet. These are the Feb 2026 numbers (4A and 3A
+# psych sheets on uhsaa.org, 2/13-14/2026); editable on Meet Files.
 # Stroke codes follow the .st2 / hy3 mapping: 1 free, 2 back, 3 breast, 4 fly, 5 IM/medley.
 HS_EVENTS = [
     (5, 200, True, '200 Medley Relay'),
@@ -379,6 +382,73 @@ HS_EVENTS = [
     (1, 400, True, '400 Free Relay'),
 ]
 SEX_NAMES = {2: 'Girls', 1: 'Boys'}
+STATE_CUTS_YEAR = '2026'
+
+
+def _cuts_table(rows):
+    """[(girls, boys), ...] in HS_EVENTS order -> {key: seconds}."""
+    out = {}
+    for (stroke, dist, relay, _n), (g, b) in zip(HS_EVENTS, rows):
+        out['%d|%d|%d|%s' % (2, stroke, dist, 'R' if relay else 'I')] = parse_swim_time(g)
+        out['%d|%d|%d|%s' % (1, stroke, dist, 'R' if relay else 'I')] = parse_swim_time(b)
+    return out
+
+
+# Slowest seed on the Feb 2026 state psych sheets. In 3A some relays (and the
+# boys 100 back) had fewer entries than spots, so every entry made it: the
+# slowest seed there is just the slowest team that entered.
+_STATE_2026 = {
+    '4A': [('2:10.32', '1:50.39'), ('2:20.16', '2:00.82'), ('2:43.25', '2:23.41'), ('27.95', '24.55'),
+           ('1:12.56', '1:00.36'), ('1:02.24', '54.89'), ('6:26.71', '5:40.86'), ('1:54.99', '1:38.54'),
+           ('1:13.04', '1:03.30'), ('1:21.03', '1:10.96'), ('4:18.02', '3:35.87')],
+    '3A': [('2:49.68', '2:02.89'), ('2:53.53', '2:33.19'), ('3:34.23', '3:11.02'), ('33.85', '29.17'),
+           ('1:51.47', '1:33.48'), ('1:35.41', '1:14.87'), ('8:03.65', '7:17.28'), ('2:27.27', '2:06.27'),
+           ('1:37.92', '1:40.08'), ('1:38.93', '1:24.78'), ('5:30.14', '4:56.08')],
+}
+CLASSES = ['6A', '5A', '4A', '3A', '2A']
+
+# UHSAA 2025-27 alignment (home codes from DEFAULT_TEAM_COLORS). Region 11 is
+# 4A; Grantsville is 3A Region 12 with Morgan. Override per team on Meet Files.
+DEFAULT_TEAM_CLASS = {
+    'TOOEL': '4A', 'STAN': '4A', 'DPEAK': '4A', 'GHS': '3A',
+    'BRHS': '4A', 'SVHS': '4A', 'MCHS': '4A', 'RIDGE': '4A', 'GCHS': '4A',
+    'MOR': '3A',
+}
+
+
+def builtin_state_cuts():
+    return {c: _cuts_table(rows) for c, rows in _STATE_2026.items()}
+
+
+def default_state_cuts():
+    return {'on': True, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {}, 'v': 2}
+
+
+def migrate_state_cuts(cuts):
+    """v0.2.40 kept one table ({on, label, times}); now it's one per class.
+    Anything typed into the old table becomes the 4A table's overrides."""
+    if isinstance(cuts, dict) and cuts.get('v') == 2:
+        return cuts
+    old = cuts if isinstance(cuts, dict) else {}
+    new = default_state_cuts()
+    typed = old.get('times') or {}
+    new['classes']['4A'].update(typed)
+    new['label'] = old.get('label', '') or ''
+    # nothing was ever entered: switch it on now that it fills itself
+    new['on'] = bool(old.get('on')) or not typed
+    return new
+
+
+def team_class_map(cuts, codes, canon):
+    """{meet code: class} for the given codes. canon = {code: home code}."""
+    over = (cuts or {}).get('team_class') or {}
+    out = {}
+    for c in codes:
+        home = canon.get(c, c)
+        cls = over.get(home, over.get(c, DEFAULT_TEAM_CLASS.get(home, DEFAULT_TEAM_CLASS.get(c, ''))))
+        if cls:
+            out[c] = cls
+    return out
 
 
 def cut_key(sex, stroke, distance, relay):
@@ -407,19 +477,22 @@ def format_swim_time(secs):
     return '%d:%05.2f' % (m, s) if m else '%.2f' % s
 
 
-def state_cut_for(meta, cuts):
-    """The state cut(s) for an event: [{sex, label, time, seconds}], girls first.
+def state_cut_for(meta, cuts, classes):
+    """The state cut(s) for an event, one per classification in `classes`
+    (in the order given) and sex (girls first): [{cls, sex, time, seconds}].
     Empty when the feature is off, the event is unknown, or no time is set."""
     cuts = cuts or {}
     if not meta or not cuts.get('on'):
         return []
-    times = cuts.get('times') or {}
     stroke, dist = meta.get('stroke_code'), meta.get('distance')
     if not stroke or not dist:
         return []
+    tables = cuts.get('classes') or {}
     out = []
-    for sex in sorted(meta.get('sex_codes') or [], key=lambda c: 0 if c == 2 else 1):
-        v = times.get(cut_key(sex, stroke, dist, bool(meta.get('relay'))))
-        if v:
-            out.append({'sex': SEX_NAMES.get(sex, ''), 'time': format_swim_time(v), 'seconds': v})
+    for cls in classes:
+        times = tables.get(cls) or {}
+        for sex in sorted(meta.get('sex_codes') or [], key=lambda c: 0 if c == 2 else 1):
+            v = times.get(cut_key(sex, stroke, dist, bool(meta.get('relay'))))
+            if v:
+                out.append({'cls': cls, 'sex': SEX_NAMES.get(sex, ''), 'time': format_swim_time(v), 'seconds': v})
     return out

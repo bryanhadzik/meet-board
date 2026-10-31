@@ -358,27 +358,48 @@ function stateLabel(){
   return '';
 }
 
-// Last season's state cut for this event: {label, items:[{sex, time, seconds}]}
+// Last season's state cut for this event, per classification of the teams
+// in the water: {label, items:[{cls, sex, time, seconds}], team_class:{code: cls}}
 function stateCut(){ var c = s.state_cut; return c && c.items && c.items.length ? c : null; }
 function renderCut(){
   var c = stateCut(), box = document.getElementById('cutL'); box.textContent = '';
   if (!c) return;
-  box.appendChild(document.createTextNode((trim(c.label) ? trim(c.label).toUpperCase() + ' CUT' : 'STATE CUT')));
-  c.items.forEach(function(it, i){
-    if (c.items.length > 1 && it.sex) box.appendChild(el('i', '', it.sex.toUpperCase()));
+  box.appendChild(document.createTextNode((trim(c.label) || 'STATE').toUpperCase() + ' CUT'));
+  var classes = {}, sexes = {};
+  c.items.forEach(function(it){ classes[it.cls] = 1; sexes[it.sex] = 1; });
+  var multiC = Object.keys(classes).length > 1, multiS = Object.keys(sexes).length > 1;
+  c.items.forEach(function(it){
+    var tag = [multiC ? it.cls : '', multiS ? (it.sex || '').toUpperCase() : ''].filter(Boolean).join(' ');
+    if (tag) box.appendChild(el('i', '', tag));
     box.appendChild(el('b', '', it.time));
   });
 }
-// A finish time that beats the cut (single-sex events only: in a mixed
-// event we can't tell which cut a lane is racing against)
-function beatsCut(t){
-  var c = stateCut(); if (!c || c.items.length !== 1) return false;
-  var v = secs(t); return v > 0 && v <= c.items[0].seconds + 1e-6;
+// The cut a lane is racing against: its team's class (or the only class
+// shown). Mixed events have one cut per sex and we can't tell which applies.
+function laneCut(team){
+  var c = stateCut(); if (!c) return null;
+  var cls = (c.team_class || {})[team];
+  var mine = c.items.filter(function(it){ return !cls || it.cls === cls; });
+  if (!cls){
+    var all = {}; c.items.forEach(function(it){ all[it.cls] = 1; });
+    if (Object.keys(all).length !== 1) return null;
+  }
+  return mine.length === 1 ? mine[0] : null;
+}
+function beatsCut(t, team){
+  var cut = laneCut(team); if (!cut) return false;
+  var v = secs(t); return v > 0 && v <= cut.seconds + 1e-6;
+}
+function cutColumn(){
+  // any lane that could be tagged gets the column, so the columns line up
+  var n = numLanes();
+  for (var i = 1; i <= n; i++) if (laneCut(trim(s['lane_team'+i]))) return true;
+  return false;
 }
 
 function renderCurrent(){
   renderCut();
-  var hasCut = !!stateCut() && stateCut().items.length === 1, anyQ = false;
+  var hasCut = cutColumn();
   var box = document.getElementById('rowsL'); box.textContent = '';
   var sub = document.getElementById('subL');
   sub.textContent = connected ? stateLabel() : 'RECONNECTING';
@@ -401,7 +422,7 @@ function renderCurrent(){
     if (t) anyTime = true;
     if (hasCut){
       var q = el('div','q mono');
-      if (t && beatsCut(t)){ q.appendChild(el('span', '', 'STATE')); anyQ = true; }
+      if (t && beatsCut(t, team)) q.appendChild(el('span', '', 'STATE'));
       r.appendChild(q);
     }
     r.appendChild(el('div','drop mono', dr));

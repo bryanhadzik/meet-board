@@ -57,7 +57,7 @@ settings = {
     'warmup_title': '',           # blank = meet title, else the meet name in the .hy3
     'warmup_subtitle': '',        # blank = the pool name in the .hy3
     'warmup_start': '',           # meet start time, HH:MM (24 h)
-    'state_cuts': {'on': False, 'label': '', 'times': {}},   # last season's state qualifying times (meet board)
+    'state_cuts': meet_board.default_state_cuts(),   # last season's state cuts per class (meet board)
     'warmup_speed': 30,           # TV scroll speed, px per second at 1080p
     'warmup_hold': 7,             # stream band: seconds per heat
     'username': 'admin',
@@ -207,6 +207,8 @@ def load_settings():
             if float(settings.get('blackout_after_hours', 4.0) or 0) == 2.0:
                 settings['blackout_after_hours'] = 4.0
             settings['blackout_hours_v4'] = True
+        # State cuts became per-class tables filled from the 2026 state meet
+        settings['state_cuts'] = meet_board.migrate_state_cuts(settings.get('state_cuts'))
         if 'event_info' in settings:
             event_info.from_object(settings['event_info'])
         if 'time_standards' in settings:
@@ -987,11 +989,47 @@ def send_event_info():
     _warmup_broadcast()
 
 
-def _state_cut_payload(event_number):
-    cuts = settings.get('state_cuts') or {}
+def _state_cuts():
+    cuts = meet_board.migrate_state_cuts(settings.get('state_cuts'))
+    settings['state_cuts'] = cuts
+    return cuts
+
+
+def _state_cut_classes(cuts, meet_teams, heat_teams):
+    """Which classifications' cuts to show: those of the teams in the water,
+    else of every team in the meet, else the home team's. Home class first."""
+    codes = list(dict.fromkeys([c for c in heat_teams if c] + list(meet_teams)))
+    canon = meet_board.canonical_codes(settings, codes + [_home_code()], _team_names())
+    tc = meet_board.team_class_map(cuts, codes + [_home_code()], canon)
+    home_cls = tc.get(_home_code(), '')
+    picked = [tc[c] for c in heat_teams if c in tc] or [tc[c] for c in meet_teams if c in tc] or ([home_cls] if home_cls else [])
+    order = {c: i for i, c in enumerate(meet_board.CLASSES)}
+    classes = sorted(set(picked), key=lambda c: (c != home_cls, order.get(c, 99)))
+    return classes, {c: tc[c] for c in codes if c in tc}
+
+
+def _home_code():
+    return settings.get('board_home_team') or settings.get('team_home_tag', '') or ''
+
+
+def _state_cut_payload(event_number, heat=None):
+    cuts = _state_cuts()
+    if not cuts.get('on'):
+        return None
     meta = (getattr(event_info, 'event_meta', {}) or {}).get(event_number)
-    items = meet_board.state_cut_for(meta, cuts)
-    return {'label': (cuts.get('label') or '').strip(), 'items': items} if items else None
+    heat = last_event_sent[1] if heat is None else heat
+    heat_teams = []
+    for i in range(1, 11):
+        try:
+            heat_teams.append(event_info.get_team_code(event_number, heat, i) or '')
+        except Exception:
+            pass
+    classes, team_class = _state_cut_classes(cuts, meet_board.schedule_teams(event_info), heat_teams)
+    items = meet_board.state_cut_for(meta, cuts, classes)
+    if not items:
+        return None
+    return {'label': (cuts.get('label') or '').strip() or meet_board.STATE_CUTS_YEAR + ' State',
+            'items': items, 'team_class': team_class}
 
 
 def _state_cuts_from_st2(tag):
@@ -1024,16 +1062,35 @@ def _state_cuts_from_st2(tag):
 
 
 def _state_cuts_view():
-    cuts = settings.get('state_cuts') or {}
-    times = cuts.get('times') or {}
+    cuts = _state_cuts()
+    tables = cuts.get('classes') or {}
+    builtin = meet_board.builtin_state_cuts()
+    classes = [c for c in meet_board.CLASSES if c in tables or c in builtin]
     rows = []
     for stroke, dist, relay, name in meet_board.HS_EVENTS:
-        row = {'name': name}
-        for sex, col in ((2, 'girls'), (1, 'boys')):
-            k = meet_board.cut_key(sex, stroke, dist, relay)
-            row[col] = {'key': k, 'time': meet_board.format_swim_time(times.get(k))}
+        row = {'name': name, 'cells': {}}
+        for cls in classes:
+            for sex, col in ((2, 'girls'), (1, 'boys')):
+                k = meet_board.cut_key(sex, stroke, dist, relay)
+                v = (tables.get(cls) or {}).get(k)
+                row['cells'].setdefault(cls, {})[col] = {'key': k, 'time': meet_board.format_swim_time(v),
+                                                          'builtin': v is not None and v == builtin.get(cls, {}).get(k)}
         rows.append(row)
-    return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''), 'rows': rows,
+    # every team we know of: the four county schools first, then the meet's
+    county = ['TOOEL', 'STAN', 'GHS', 'DPEAK']
+    meet = meet_board.schedule_teams(event_info)
+    canon = meet_board.canonical_codes(settings, meet, _team_names())
+    homes = list(dict.fromkeys(county + [canon.get(c, c) for c in meet]))
+    table = meet_board.team_colors(settings, homes, _team_names())
+    over = cuts.get('team_class') or {}
+    teams = [{'code': c, 'name': (table.get(c) or {}).get('name') or c,
+              'cls': over.get(c, meet_board.DEFAULT_TEAM_CLASS.get(c, '')),
+              'default': meet_board.DEFAULT_TEAM_CLASS.get(c, ''), 'in_meet': c in canon.values()}
+             for c in homes]
+    return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''),
+            'default_label': meet_board.STATE_CUTS_YEAR + ' State', 'year': meet_board.STATE_CUTS_YEAR,
+            'classes': classes, 'builtin_classes': sorted(builtin, key=meet_board.CLASSES.index),
+            'rows': rows, 'teams': teams, 'all_classes': meet_board.CLASSES,
             'st2_tags': [{'tag': st.tag, 'desc': settings.get('std_desc_overrides', {}).get(st.tag, st.description)}
                          for st in time_standards.header.standards] if time_standards else []}
 
@@ -1770,17 +1827,21 @@ def route_api_warmup_slide():
 
 @app.route('/api/state_cuts', methods=['GET', 'POST'])
 def route_api_state_cuts():
-    """GET: last season's state qualifying times. POST any of {on, label,
-    times: {key: '1:52.34'}} or {from_tag} to fill them from the loaded .st2."""
+    """GET: last season's state cuts per classification and each team's class.
+    POST any of {on, label, cls + times: {key: '1:52.34'}, cls + from_tag,
+    cls + reset (back to the built-in state meet times), team_class: {code: cls}}."""
     if flask.request.method == 'POST':
         if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
             return flask.jsonify({'error': 'login required'}), 401
         d = flask.request.get_json(silent=True) or {}
-        cuts = dict(settings.get('state_cuts') or {})
-        times = dict(cuts.get('times') or {})
+        cuts = json.loads(json.dumps(_state_cuts()))   # deep copy
+        tables = cuts.setdefault('classes', {})
+        cls = str(d.get('cls') or '')
+        if ('times' in d or 'from_tag' in d or 'reset' in d) and cls not in meet_board.CLASSES:
+            return flask.jsonify({'error': 'Pick a classification'}), 400
         if 'times' in d:
             valid = {meet_board.cut_key(sex, *e[:3]) for e in meet_board.HS_EVENTS for sex in (1, 2)}
-            bad = []
+            times, bad = dict(tables.get(cls) or {}), []
             for k, v in (d.get('times') or {}).items():
                 if k not in valid:
                     continue
@@ -1795,18 +1856,33 @@ def route_api_state_cuts():
                     times[k] = secs
             if bad:
                 return flask.jsonify({'error': 'Not a time: ' + ', '.join(bad[:3]) + ' (use 1:52.34 or 23.45)'}), 400
+            tables[cls] = times
         if d.get('from_tag'):
             got = _state_cuts_from_st2(str(d['from_tag']))
             if not got:
                 return flask.jsonify({'error': 'No high school event times for that standard in the loaded .st2'}), 400
-            times.update(got)
-        if 'clear' in d and d['clear']:
-            times = {}
+            tables[cls] = dict(tables.get(cls) or {}, **got)
+        if d.get('reset'):
+            builtin = meet_board.builtin_state_cuts()
+            if cls in builtin:
+                tables[cls] = builtin[cls]
+            else:
+                tables.pop(cls, None)
+        if isinstance(d.get('team_class'), dict):
+            over = cuts.setdefault('team_class', {})
+            for code, c in d['team_class'].items():
+                code = str(code).strip().upper()[:12]
+                c = str(c or '')
+                if not code or (c and c not in meet_board.CLASSES and c != 'none'):
+                    continue
+                if c == meet_board.DEFAULT_TEAM_CLASS.get(code, '') or (not c and code not in meet_board.DEFAULT_TEAM_CLASS):
+                    over.pop(code, None)
+                else:
+                    over[code] = c if c != 'none' else ''
         if 'label' in d:
             cuts['label'] = str(d.get('label') or '').strip()[:30]
         if 'on' in d:
             cuts['on'] = bool(d['on'])
-        cuts['times'] = times
         settings['state_cuts'] = cuts
         save_settings()
         send_event_info()
