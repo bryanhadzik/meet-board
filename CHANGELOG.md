@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+- **State cut missing for intra-squad meets.** In the Black and Blue meet the
+  teams (BLACK, BLUE) have no classification, so the board had no cut to show.
+  Teams with no classification now use a fallback class (4A by default; Meet
+  Files -> State qualifying times, or "no cut" to turn that off).
+
 ### Added
 - **"Meet board right now" line on Meet Files -> State qualifying times**:
   says which cut the board is showing for the event in the water, or exactly

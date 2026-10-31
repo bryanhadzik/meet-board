@@ -1002,10 +1002,20 @@ def _state_cut_classes(cuts, meet_teams, heat_teams):
     canon = meet_board.canonical_codes(settings, codes + [_home_code()], _team_names())
     tc = meet_board.team_class_map(cuts, codes + [_home_code()], canon)
     home_cls = tc.get(_home_code(), '')
-    picked = [tc[c] for c in heat_teams if c in tc] or [tc[c] for c in meet_teams if c in tc] or ([home_cls] if home_cls else [])
+    fallback = cuts.get('fallback_class', '4A') or ''
+    picked = [tc[c] for c in heat_teams if c in tc]
+    # a team with no classification in the water races the fallback class
+    if fallback and any(c and c not in tc for c in heat_teams):
+        picked.append(fallback)
+    picked = picked or [tc[c] for c in meet_teams if c in tc] or ([home_cls] if home_cls else []) \
+        or ([fallback] if fallback else [])
     order = {c: i for i, c in enumerate(meet_board.CLASSES)}
     classes = sorted(set(picked), key=lambda c: (c != home_cls, order.get(c, 99)))
-    return classes, {c: tc[c] for c in codes if c in tc}
+    team_class = {c: tc[c] for c in codes if c in tc}
+    if fallback:
+        for c in codes:
+            team_class.setdefault(c, fallback)
+    return classes, team_class
 
 
 def _home_code():
@@ -1087,7 +1097,8 @@ def _state_cut_now(cuts):
                                       [event_info.get_team_code(ev, heat, i) or '' for i in range(1, 11)])
     if not classes:
         return {'ok': False, 'text': head + ': none of the teams (' + ', '.join(teams[:8]) +
-                ') has a classification - set them under Team classifications.'}
+                ') has a classification - set them under Team classifications, or pick a class for '
+                'teams with no classification.'}
     return {'ok': False, 'text': head + ': no ' + '/'.join(classes) + ' time entered for this event.'}
 
 
@@ -1118,6 +1129,7 @@ def _state_cuts_view():
               'default': meet_board.DEFAULT_TEAM_CLASS.get(c, ''), 'in_meet': c in canon.values()}
              for c in homes]
     return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''), 'now': _state_cut_now(cuts),
+            'fallback_class': cuts.get('fallback_class', '4A'),
             'default_label': meet_board.STATE_CUTS_YEAR + ' State', 'year': meet_board.STATE_CUTS_YEAR,
             'classes': classes, 'builtin_classes': sorted(builtin, key=meet_board.CLASSES.index),
             'rows': rows, 'teams': teams, 'all_classes': meet_board.CLASSES,
@@ -1909,6 +1921,11 @@ def route_api_state_cuts():
                     over.pop(code, None)
                 else:
                     over[code] = c if c != 'none' else ''
+        if 'fallback_class' in d:
+            fb = str(d.get('fallback_class') or '')
+            if fb and fb not in meet_board.CLASSES:
+                return flask.jsonify({'error': 'Unknown classification'}), 400
+            cuts['fallback_class'] = fb
         if 'label' in d:
             cuts['label'] = str(d.get('label') or '').strip()[:30]
         if 'on' in d:

@@ -421,13 +421,16 @@ def builtin_state_cuts():
 
 
 def default_state_cuts():
-    return {'on': True, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {}, 'v': 2}
+    # fallback_class: for teams with no classification (intra-squad "Black vs
+    # Blue" meets, clubs, unknown visitors) - the county's 4A by default
+    return {'on': True, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {}, 'fallback_class': '4A', 'v': 2}
 
 
 def migrate_state_cuts(cuts):
     """v0.2.40 kept one table ({on, label, times}); now it's one per class.
     Anything typed into the old table becomes the 4A table's overrides."""
     if isinstance(cuts, dict) and cuts.get('v') == 2:
+        cuts.setdefault('fallback_class', '4A')
         return cuts
     old = cuts if isinstance(cuts, dict) else {}
     new = default_state_cuts()

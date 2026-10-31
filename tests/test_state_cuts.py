@@ -157,9 +157,38 @@ def test_now_line_explains_why(monkeypatch, quiet):
     assert C._state_cut_now(C.settings['state_cuts'])['ok'] is True
     assert '4A 1:10.96' in C._state_cut_now(C.settings['state_cuts'])['text']
     lanes[1] = 'XYZ'
+    assert '4A' in C._state_cut_now(C.settings['state_cuts'])['text']        # fallback class
+    C.settings['state_cuts']['fallback_class'] = ''
     assert 'classification' in C._state_cut_now(C.settings['state_cuts'])['text']
     monkeypatch.setattr(C, 'last_event_sent', (9, 1))
     assert 'high school events' in C._state_cut_now(C.settings['state_cuts'])['text']
     monkeypatch.setattr(C, 'last_event_sent', (42, 1))
     assert 'not in the loaded' in C._state_cut_now(C.settings['state_cuts'])['text']
     assert 'Off' in C._state_cut_now(dict(C.settings['state_cuts'], on=False))['text']
+
+
+def test_intra_squad_meet_uses_the_fallback_class(monkeypatch, quiet):
+    """The Black and Blue meet: teams BLACK / BLUE have no classification."""
+    C.settings['state_cuts'] = M.default_state_cuts()
+    meta = {3: {'stroke_code': 1, 'distance': 200, 'relay': False, 'sex_codes': [2]}}
+    monkeypatch.setattr(C.event_info, 'event_meta', meta, raising=False)
+    lanes = {1: 'BLACK', 2: 'BLUE'}
+    monkeypatch.setattr(C.event_info, 'get_team_code', lambda e, h, l: lanes.get(l, ''), raising=False)
+    monkeypatch.setattr(C.meet_board, 'schedule_teams', lambda ei: ['BLUE', 'BLACK'])
+    monkeypatch.setitem(C.settings, 'board_home_team', '')
+    monkeypatch.setitem(C.settings, 'team_home_tag', '')
+    p = C._state_cut_payload(3, 1)
+    assert [(x['cls'], x['time']) for x in p['items']] == [('4A', '2:20.16')]
+    assert p['team_class'] == {'BLACK': '4A', 'BLUE': '4A'}
+    # a 3A school against unknown teams: both cuts
+    lanes[2] = 'GHS'
+    assert [x['cls'] for x in C._state_cut_payload(3, 1)['items']] == ['4A', '3A']
+    # fallback switched off: nothing for the unknown teams
+    lanes[2] = 'BLUE'
+    c = C.app.test_client()
+    c.post('/api/state_cuts', json={'fallback_class': ''})
+    assert C._state_cut_payload(3, 1) is None
+    assert c.post('/api/state_cuts', json={'fallback_class': '9Z'}).status_code == 400
+    # old saved v2 settings without the key get 4A
+    old = M.default_state_cuts(); old.pop('fallback_class')
+    assert M.migrate_state_cuts(old)['fallback_class'] == '4A'

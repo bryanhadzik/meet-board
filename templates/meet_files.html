@@ -259,6 +259,10 @@
           <div class="alert" id="sc_now" style="margin:0 0 6px"></div>
           <div class="sc-sub">Team classifications <span class="help-inline">(UHSAA 2025-27; change one if it's wrong)</span></div>
           <div class="sc-teams" id="sc_teams"></div>
+          <div style="margin-top:10px"><label style="font-weight:500;margin:0">Teams with no classification
+            (intra-squad meets like Black vs Blue, clubs, unknown visitors) use
+            <select class="form-control" id="sc_fb" style="width:auto;display:inline-block;margin-left:6px"
+                    onchange="scSave({fallback_class: this.value}, 'Saved', false)"></select></label></div>
 
           <div class="sc-sub">Cut times</div>
           <div class="sc-tabs" id="sc_tabs"></div>
@@ -345,6 +349,11 @@
               tags.forEach(function(t){ var o = document.createElement('option'); o.value = t.tag; o.textContent = t.tag + ' - ' + t.desc; $('sc_tag').appendChild(o); });
             }
             drawTeams();
+            var fb = $('sc_fb');
+            if (!fb.options.length){
+              [''].concat(d.all_classes).forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = c || 'no cut'; fb.appendChild(o); });
+            }
+            fb.value = d.fallback_class || '';
             if (table !== false || !$('sc_body').children.length) drawTimes();
             else drawTimesTabsOnly();   // keep typed boxes; a team may have moved class
           }
