@@ -87,19 +87,24 @@ def remove_logo(folder, code):
 
 
 def save_uploads(folder, uploads):
-    """uploads: [(filename, bytes)], images and/or .zip files of images.
-    Returns (saved_codes, skipped_names)."""
+    """uploads: [(filename, bytes)] or [(filename, bytes, code)], images
+    and/or .zip files of images. A code given with an image is the team it's
+    saved as (so the file can be named anything); otherwise the file name is
+    the code. Returns (saved_codes, skipped_names)."""
     saved, skipped = [], []
 
-    def one(name, data):
-        code = code_from_filename(name)
-        if not code:
+    def one(name, data, code=None):
+        ext = os.path.splitext(name)[1].lower()
+        code = (code or '').strip().upper() or code_from_filename(name)
+        if not code or not valid_code(code) or ext not in LOGO_EXT:
             skipped.append(os.path.basename(name))
             return
-        save_logo(folder, code, os.path.splitext(name)[1], data)
+        save_logo(folder, code, ext, data)
         saved.append(code)
 
-    for name, data in uploads:
+    for item in uploads:
+        name, data = item[0], item[1]
+        code = item[2] if len(item) > 2 else None
         if name.lower().endswith('.zip'):
             with zipfile.ZipFile(io.BytesIO(data)) as z:
                 for info in z.infolist():
@@ -107,5 +112,5 @@ def save_uploads(folder, uploads):
                         continue
                     one(info.filename, z.read(info))
         else:
-            one(name, data)
+            one(name, data, code)
     return saved, skipped

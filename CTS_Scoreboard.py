@@ -2603,12 +2603,16 @@ def route_team_logo(code):
 @app.route('/team_logos/upload', methods=['POST'])
 @flask_login.login_required
 def route_team_logos_upload():
-    uploads = [(f.filename, f.read()) for f in flask.request.files.getlist('logos') if f and f.filename]
+    files = flask.request.files.getlist('logos')
+    # one "logo_code" box per picked file, in the same order (blank = use the file name)
+    codes = flask.request.form.getlist('logo_code')
+    uploads = [(f.filename, f.read(), codes[i] if i < len(codes) else '')
+               for i, f in enumerate(files) if f and f.filename]
     try:
         saved, skipped = team_logos.save_uploads(_logo_folder(), uploads)
         msg = 'Saved %d logo(s)%s' % (len(saved), (': ' + ', '.join(sorted(saved))) if saved else '')
         if skipped:
-            msg += '. Skipped (name files CODE.png): ' + ', '.join(skipped[:8])
+            msg += '. Skipped (give each a team code, letters/numbers, up to 8): ' + ', '.join(skipped[:8])
     except Exception as e:
         msg = 'Logos NOT saved: %s' % e
     send_event_info()

@@ -13,14 +13,52 @@ shown beside the color, so two similar colors are never ambiguous.</p>
 <div class="card">
   <strong>School logos</strong>
   <p style="margin:4px 0 8px;color:var(--dim);font-size:13px">Shown on a white tile beside each swimmer on the meet board and
-  stream overlay. Name each file by team code, e.g. <span class="mono">TOOEL.png</span>, <span class="mono">SHS.png</span>
-  (PNG, JPG, WebP, GIF or SVG; square works best). Several files or one .zip at once. Stored in the
-  <span class="mono">logos</span> folder next to meet-board.exe.</p>
-  <form method="POST" action="/team_logos/upload" enctype="multipart/form-data" style="margin:0">
-    <input type="file" name="logos" multiple accept=".png,.jpg,.jpeg,.webp,.gif,.svg,.zip">
-    <button class="btn" type="submit">Upload logos</button>
+  stream overlay. Pick one or more images (PNG, JPG, WebP, GIF or SVG; square works best), then type the team code each one
+  is for &mdash; the file can be named anything. Files already named by code (<span class="mono">TOOEL.png</span>) fill in
+  by themselves; a .zip of files named that way works too. Stored in the <span class="mono">logos</span> folder next to meet-board.exe.</p>
+  <form method="POST" action="/team_logos/upload" enctype="multipart/form-data" style="margin:0" id="logoForm">
+    <input type="file" name="logos" id="logoFiles" multiple accept=".png,.jpg,.jpeg,.webp,.gif,.svg,.zip">
     <span style="color:var(--dim);font-size:13px">{{ logos|length }} logo(s) loaded</span>
+    <table id="logoRename" style="display:none;margin:10px 0 6px">
+      <thead><tr><th></th><th>File</th><th>Save as team code</th></tr></thead><tbody></tbody>
+    </table>
+    <datalist id="logoCodes">{% for code in order %}<option value="{{ code }}">{{ colors[code].name }}</option>{% endfor %}</datalist>
+    <button class="btn" type="submit" id="logoGo" style="display:none">Upload logos</button>
+    <span id="logoMsg" style="color:#a3282d;font-size:13px;font-weight:600"></span>
   </form>
+  <script>
+  (function(){
+    var files = document.getElementById('logoFiles'), tbl = document.getElementById('logoRename');
+    var body = tbl.querySelector('tbody'), go = document.getElementById('logoGo'), msg = document.getElementById('logoMsg');
+    var CODE = /^[A-Z0-9]{1,8}$/;
+    function guess(name){ var b = name.replace(/\.[^.]+$/, '').trim().toUpperCase(); return CODE.test(b) ? b : ''; }
+    files.addEventListener('change', function(){
+      body.textContent = ''; msg.textContent = '';
+      [].forEach.call(files.files, function(f){
+        var tr = document.createElement('tr'), zip = /\.zip$/i.test(f.name);
+        var td = document.createElement('td');
+        if (!zip){ var im = document.createElement('img'); im.src = URL.createObjectURL(f);
+          im.style.cssText = 'width:40px;height:40px;object-fit:contain;background:#fff;border-radius:6px;padding:2px;display:block;border:1px solid #d3dcde';
+          td.appendChild(im); }
+        tr.appendChild(td);
+        var tn = document.createElement('td'); tn.textContent = f.name; tn.style.fontSize = '13px'; tr.appendChild(tn);
+        var tc = document.createElement('td'), inp = document.createElement('input');
+        inp.name = 'logo_code'; inp.className = 'mono'; inp.style.width = '110px'; inp.maxLength = 8;
+        if (zip){ inp.type = 'hidden'; tc.appendChild(document.createTextNode('codes from the file names inside')); }
+        else { inp.setAttribute('list', 'logoCodes'); inp.placeholder = 'e.g. TIMP'; inp.value = guess(f.name);
+               inp.oninput = function(){ inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }; }
+        tc.appendChild(inp); tr.appendChild(tc); body.appendChild(tr);
+      });
+      var any = files.files.length > 0;
+      tbl.style.display = any ? '' : 'none'; go.style.display = any ? '' : 'none';
+      var first = body.querySelector('input:not([type=hidden])'); if (first && !first.value) first.focus();
+    });
+    document.getElementById('logoForm').addEventListener('submit', function(e){
+      var bad = [].filter.call(body.querySelectorAll('input:not([type=hidden])'), function(i){ return !CODE.test(i.value); });
+      if (bad.length){ e.preventDefault(); msg.textContent = 'Type a team code for every logo (letters/numbers, up to 8).'; bad[0].focus(); }
+    });
+  })();
+  </script>
 </div>
 
 <form method="POST">

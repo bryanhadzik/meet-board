@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+- **Rename logos as you upload them** (Team Colors -> School logos): picked
+  files are listed with a preview and a "Save as team code" box (suggests the
+  known codes), so a file can be named anything. Files already named by code
+  fill in by themselves.
+
 ### Fixed
 - **Meet board showed the last race's times against the next heat's names.**
   After an event/heat change the console keeps the old times up until the
