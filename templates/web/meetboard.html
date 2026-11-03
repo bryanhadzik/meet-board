@@ -403,6 +403,7 @@ function isFinal(t, place){
   return !(d > 0) || v >= d * 0.33;
 }
 
+var staleLane = {};   // lane -> true while its held time is the previous race's
 function renderCurrent(){
   renderCut();
   var box = document.getElementById('rowsL'); box.textContent = '';
@@ -413,10 +414,20 @@ function renderCurrent(){
   // first pass: what each lane shows, so the STATE / DROP columns only take
   // room (from the names) when something is in them
   var lanes = [], drops = false, states = false;
+  // On the blocks the console still holds the LAST race's times until the
+  // start (the event/heat changed, the times didn't): never show those
+  // against the new heat's names.
+  var onBlocks = /PreRace$/.test(s.race_state || '');
+  for (var i = 1; i <= n; i++){
+    // once a new heat is up, a lane's held time is stale until that lane
+    // has started in this race (an empty lane may never start at the gun)
+    if (onBlocks) staleLane[i] = true;
+    else if (s['lane_running'+i]) staleLane[i] = false;
+  }
   for (var i = 1; i <= n; i++){
     var L = {i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: !!s['lane_running'+i],
              place: trim(s['lane_place'+i])};
-    L.t = L.running ? '' : trim(s['lane_time'+i]);
+    L.t = L.running || onBlocks || staleLane[i] ? '' : trim(s['lane_time'+i]);
     L.fin = !!L.t && isFinal(L.t, L.place);
     L.dr = L.fin ? dropOf(L.t, s['lane_seed_time'+i]) : '';
     L.st = L.fin && beatsCut(L.t, L.team);

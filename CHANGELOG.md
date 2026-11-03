@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+- **Meet board showed the last race's times against the next heat's names.**
+  After an event/heat change the console keeps the old times up until the
+  start. The board now hides lane times while the heat is on the blocks (seed
+  times show instead) and keeps a lane's old time hidden until that lane has
+  started in the new race, so empty lanes that never start stay blank.
+
 ### Changed
 - **Meet board: no STATE tag or DROP on splits.** The console doesn't flag a
   held time as a split, so a time now counts as final only once the heat is
