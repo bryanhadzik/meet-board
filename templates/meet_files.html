@@ -246,12 +246,12 @@
             .sc-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
             #sc_msg.ok { color:var(--ok); font-weight:600; } #sc_msg.err { color:var(--bad); font-weight:600; }
           </style>
-          <p class="help-block" style="margin-top:0">The top of the meet board shows "Last season qualifying time" for the event
+          <p class="help-block" style="margin-top:0">The top of the meet board shows "Last season state qualifying time" for the event
             in the water, one for each classification of the teams in the heat (swimmers aren't tagged). UHSAA has no fixed cuts &mdash; each class takes its 32 fastest per event (20 relays) &mdash; so the
             built-in times are the slowest seed that made the <span id="sc_year">2026</span> state psych sheet.</p>
           <div class="sc-top">
             <label style="font-weight:500;cursor:pointer;margin:0"><input type="checkbox" id="sc_on" onchange="scSave({on: this.checked})"> Show on the meet board
-              <span class="help-inline">(shown at the top as "Last season qualifying time", one per class in the water)</span></label>
+              <span class="help-inline">(shown at the top as "Last season state qualifying time", one per class in the water)</span></label>
           </div>
 
           <div class="alert" id="sc_now" style="margin:0 0 6px"></div>

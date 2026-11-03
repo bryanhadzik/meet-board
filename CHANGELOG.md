@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- Meet board header now reads "LAST SEASON STATE QUALIFYING TIME".
 - **State cut is back, at the top of the meet board only**, as "LAST SEASON
   QUALIFYING TIME 4A 24.55 3A 29.17" (one per class in the water). No STATE
   tags on the lanes. Switched on once on every install; the label box on Meet

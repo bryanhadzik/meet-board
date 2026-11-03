@@ -365,7 +365,7 @@ function stateCut(){ var c = s.state_cut; return c && c.items && c.items.length 
 function renderCut(){
   var c = stateCut(), box = document.getElementById('cutL'); box.textContent = '';
   if (!c) return;
-  box.appendChild(document.createTextNode('LAST SEASON QUALIFYING TIME'));
+  box.appendChild(document.createTextNode('LAST SEASON STATE QUALIFYING TIME'));
   var classes = {}, sexes = {};
   c.items.forEach(function(it){ classes[it.cls] = 1; sexes[it.sex] = 1; });
   var multiC = Object.keys(classes).length > 1, multiS = Object.keys(sexes).length > 1;
