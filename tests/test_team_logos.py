@@ -12,3 +12,18 @@ def test_upload_with_a_typed_code_renames_the_file(tmp_path):
     assert sorted(saved) == ['SHS', 'TIMP']
     assert skipped == ['random name.png', 'x.png']
     assert T.find_logo(str(tmp_path), 'TIMP').endswith('TIMP.jpg')
+
+
+def test_unnamed_saved_row_does_not_shadow_an_alias():
+    """Pool PC: SHS/DPHS got saved as nameless pink/orange rows, hiding
+    Stansbury's and Deseret Peak's colors."""
+    import meet_board as M
+    settings = {'team_colors': {'SHS': {'name': '', 'color': '#e57ab8'}, 'DPHS': {'name': '', 'color': '#f2a33a'},
+                                'THS': {'name': 'Timp', 'color': '#ffe066'}}}
+    canon = M.canonical_codes(settings, ['SHS', 'DPHS', 'THS'])
+    assert canon == {'SHS': 'STAN', 'DPHS': 'DPEAK', 'THS': 'THS'}
+    tc = M.team_colors(settings, ['SHS', 'DPHS', 'THS'])
+    assert tc['SHS']['alias_of'] == 'STAN' and tc['SHS']['color'] == M.DEFAULT_TEAM_COLORS['STAN']['color']
+    # a row the user named stays its own school
+    settings['team_colors']['SHS']['name'] = 'Sky High'
+    assert M.canonical_codes(settings, ['SHS'])['SHS'] == 'SHS'

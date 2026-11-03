@@ -28,6 +28,7 @@ DEFAULT_TEAM_COLORS = {
     'MCHS':  {'name': 'Mountain Crest', 'color': '#FF8C42', 'alt': '#5B8FE8'},
     'RIDGE': {'name': 'Ridgeline',      'color': '#7ACC3E', 'alt': '#A5ACAF'},
     'GCHS':  {'name': 'Green Canyon',   'color': '#3FB58A', 'alt': '#BFC7CA'},
+    'TIMP':  {'name': 'Timpanogos',     'color': '#3F7FD9', 'alt': '#3FAE6A', 'aliases': ['TIMPA']},  # navy (lifted), green, grey
     # Meet Manager codes for the Mel Roberts Invitational teams. Colors from
     # the UHSAA school directory (and the Tooele County SD school sheet),
     # tuned so they read on the dark board; alt = the school's second color.
@@ -98,7 +99,9 @@ def canonical_codes(settings, codes, team_names=None):
     for code in codes:
         if not code:
             continue
-        if code in table:
+        # a saved row with no school name (an auto color that got saved with
+        # the form) doesn't outrank the school that lists this code as an alias
+        if code in table and not (code in owner and not (table[code].get('name') or '').strip()):
             out[code] = code
         elif code in owner:
             out[code] = owner[code]

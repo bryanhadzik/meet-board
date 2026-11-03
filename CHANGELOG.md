@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+- **Wrong team colors on the board (Stansbury pink, Deseret Peak orange).**
+  Saving Team Colors also saved the placeholder color of meet codes like SHS
+  and DPHS, and those nameless rows then outranked the schools that list them
+  as aliases (STAN, DPEAK). A saved row with no school name no longer shadows
+  an alias, so SHS/DPHS use Stansbury's and Deseret Peak's colors and logos.
+- Timpanogos (TIMP) added to the built-in schools: navy (lifted for the dark
+  board), green, grey.
+
 ### Added
 - **"logo…" / "change" button on every team row** (Team Colors), beside
   remove: pick an image and it becomes that team's logo, whatever the file is
