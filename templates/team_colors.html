@@ -61,6 +61,23 @@ shown beside the color, so two similar colors are never ambiguous.</p>
   </script>
 </div>
 
+<input type="file" id="rowLogo" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" style="display:none">
+<script>
+// "logo…" on a team row: pick an image and it is saved as that team's logo,
+// whatever the file is called
+(function(){
+  var inp = document.getElementById('rowLogo'), code = '';
+  window.pickLogo = function(c){ code = c; inp.value = ''; inp.click(); };
+  inp.addEventListener('change', function(){
+    if (!inp.files.length || !code) return;
+    var fd = new FormData(); fd.append('logos', inp.files[0]); fd.append('logo_code', code);
+    fetch('/team_logos/upload', {method:'POST', body: fd, redirect:'follow'})
+      .then(function(r){ location.href = r.url && r.url.indexOf('/team_colors') >= 0 ? r.url : '/team_colors'; })
+      .catch(function(){ alert('Could not upload the logo'); });
+  });
+})();
+</script>
+
 <form method="POST">
 <div class="card">
   <strong>Board style</strong>
@@ -91,8 +108,12 @@ shown beside the color, so two similar colors are never ambiguous.</p>
   {% else %}
   <tr>
     <td>{% if code in logos %}<img src="/team_logo/{{ code }}?v={{ logos[code] }}" alt="" style="width:40px;height:40px;object-fit:contain;background:#fff;border-radius:6px;padding:2px;display:block">
-        <button class="btn" type="submit" formaction="/team_logos/delete" name="logo_code" value="{{ code }}" style="font-size:11px;padding:1px 6px;margin-top:3px" onclick="return confirm('Remove the {{ code }} logo?')">remove</button>
-        {% else %}<span style="color:var(--dim);font-size:12px">none</span>{% endif %}</td>
+        {% else %}<span style="color:var(--dim);font-size:12px">none</span>{% endif %}
+        <div style="display:flex;gap:3px;margin-top:3px">
+        <button class="btn" type="button" style="font-size:11px;padding:1px 6px" onclick="pickLogo('{{ code }}')"
+                title="Choose an image file for {{ code }}">{{ 'change' if code in logos else 'logo…' }}</button>
+        {% if code in logos %}<button class="btn" type="submit" formaction="/team_logos/delete" name="logo_code" value="{{ code }}" style="font-size:11px;padding:1px 6px" onclick="return confirm('Remove the {{ code }} logo?')">remove</button>{% endif %}
+        </div></td>
     <td class="mono"><input type="hidden" name="code" value="{{ code }}"><strong>{{ code }}</strong>
       {% if code in in_meet %}<span class="tag">in meet</span>{% endif %}
       {% if c.auto %}<span class="tag">auto</span>{% endif %}</td>

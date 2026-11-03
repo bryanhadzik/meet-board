@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- **"logo…" / "change" button on every team row** (Team Colors), beside
+  remove: pick an image and it becomes that team's logo, whatever the file is
+  called - no need to know or type the code.
 - **Rename logos as you upload them** (Team Colors -> School logos): picked
   files are listed with a preview and a "Save as team code" box (suggests the
   known codes), so a file can be named anything. Files already named by code
