@@ -426,8 +426,8 @@ def builtin_state_cuts():
 def default_state_cuts():
     # fallback_class: for teams with no classification (intra-squad "Black vs
     # Blue" meets, clubs, unknown visitors) - the county's 4A by default
-    # off: dropped from the board for now (Nov 2026); the tables stay for later
-    return {'on': False, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {}, 'fallback_class': '4A', 'v': 2}
+    # header only on the meet board ("last season qualifying time"), no lane tags
+    return {'on': True, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {}, 'fallback_class': '4A', 'v': 2}
 
 
 def migrate_state_cuts(cuts):

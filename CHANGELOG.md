@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Changed
+- **State cut is back, at the top of the meet board only**, as "LAST SEASON
+  QUALIFYING TIME 4A 24.55 3A 29.17" (one per class in the water). No STATE
+  tags on the lanes. Switched on once on every install; the label box on Meet
+  Files is gone since the wording is fixed.
 - **State cuts dropped from the meet board for now.** The per-class tagging
   wasn't right (e.g. a 3A swimmer tagged well off the 4A pace). Switched off on
   every install once; the times and classifications stay saved on Meet Files

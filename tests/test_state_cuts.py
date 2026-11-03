@@ -55,7 +55,7 @@ def test_county_teams_classes():
 
 def test_migrates_the_old_single_table():
     m = M.migrate_state_cuts({'on': False, 'label': '', 'times': {}})
-    assert m['v'] == 2 and m['on'] is False and set(m['classes']) == {'4A', '3A'}   # dropped for now
+    assert m['v'] == 2 and m['on'] is False and set(m['classes']) == {'4A', '3A'}   # migration keeps it off; startup switches it on once
     k = M.cut_key(2, 1, 50, False)
     m = M.migrate_state_cuts({'on': False, 'label': 'Mine', 'times': {k: 26.0}})
     assert m['on'] is False and m['label'] == 'Mine' and m['classes']['4A'][k] == 26.0
@@ -194,9 +194,9 @@ def test_intra_squad_meet_uses_the_fallback_class(monkeypatch, quiet):
     assert M.migrate_state_cuts(old)['fallback_class'] == '4A'
 
 
-def test_state_cuts_are_off_by_default_and_send_nothing(monkeypatch, quiet):
-    assert M.default_state_cuts()['on'] is False
-    C.settings['state_cuts'] = M.default_state_cuts()
+def test_state_cuts_off_send_nothing(monkeypatch, quiet):
+    assert M.default_state_cuts()['on'] is True     # header-only, on by default
+    C.settings['state_cuts'] = dict(M.default_state_cuts(), on=False)
     meta = {7: {'stroke_code': 1, 'distance': 50, 'relay': False, 'sex_codes': [1]}}
     monkeypatch.setattr(C.event_info, 'event_meta', meta, raising=False)
     assert C._state_cut_payload(7, 1) is None

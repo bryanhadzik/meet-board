@@ -246,15 +246,12 @@
             .sc-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
             #sc_msg.ok { color:var(--ok); font-weight:600; } #sc_msg.err { color:var(--bad); font-weight:600; }
           </style>
-          <p class="help-block" style="margin-top:0">The meet board shows last season's state cut for the event in the water,
-            for the classification of each team in the heat, and tags every swimmer whose finish time beats their
-            school's cut. UHSAA has no fixed cuts &mdash; each class takes its 32 fastest per event (20 relays) &mdash; so the
+          <p class="help-block" style="margin-top:0">The top of the meet board shows "Last season qualifying time" for the event
+            in the water, one for each classification of the teams in the heat (swimmers aren't tagged). UHSAA has no fixed cuts &mdash; each class takes its 32 fastest per event (20 relays) &mdash; so the
             built-in times are the slowest seed that made the <span id="sc_year">2026</span> state psych sheet.</p>
           <div class="sc-top">
             <label style="font-weight:500;cursor:pointer;margin:0"><input type="checkbox" id="sc_on" onchange="scSave({on: this.checked})"> Show on the meet board
-              <span class="help-inline">(off for now &mdash; the per-class tagging needs rework)</span></label>
-            <div><label for="sc_label">Label</label><br>
-              <input class="form-control" id="sc_label" maxlength="30" style="width:22ch"></div>
+              <span class="help-inline">(shown at the top as "Last season qualifying time", one per class in the water)</span></label>
           </div>
 
           <div class="alert" id="sc_now" style="margin:0 0 6px"></div>
@@ -341,8 +338,6 @@
             view = d;
             $('sc_on').checked = !!d.on; $('sc_year').textContent = d.year;
             if (d.now){ $('sc_now').textContent = 'Meet board right now \u2014 ' + d.now.text; $('sc_now').className = 'alert ' + (d.now.ok ? 'alert-success' : 'alert-warning'); }
-            $('sc_label').placeholder = d.default_label;
-            if (document.activeElement !== $('sc_label')) $('sc_label').value = d.label || '';
             var tags = d.st2_tags || [];
             $('sc_fill').style.display = tags.length ? '' : 'none';
             if ($('sc_tag').options.length !== tags.length){
@@ -380,13 +375,12 @@
               var v = i.value.trim(); if (v && !RE.test(v)) bad = true; times[i.dataset.key] = v;
             });
             if (bad){ msg('Fix the boxes marked in red (use 1:52.34 or 23.45)', 'err'); return; }
-            scSave({cls: cls, times: times, label: $('sc_label').value}, cls + ' times saved');
+            scSave({cls: cls, times: times}, cls + ' times saved');
           };
           window.scReset = function(){
             if (confirm('Put the ' + view.year + ' state meet times back for ' + cls + '?')) scSave({cls: cls, reset: true}, cls + ' reset');
           };
           window.scFill = function(){ scSave({cls: cls, from_tag: $('sc_tag').value}, 'Filled ' + cls + ' from the .st2'); };
-          $('sc_label').addEventListener('change', function(){ scSave({label: $('sc_label').value}, 'Saved', false); });
           fetch('/api/state_cuts', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){ show(d, true); }).catch(function(){});
         })();
         </script>

@@ -209,10 +209,10 @@ def load_settings():
             settings['blackout_hours_v4'] = True
         # State cuts became per-class tables filled from the 2026 state meet
         settings['state_cuts'] = meet_board.migrate_state_cuts(settings.get('state_cuts'))
-        # State cuts dropped from the meet board (Nov 2026): switch them off once
-        if not settings.get('state_cuts_dropped'):
-            settings['state_cuts']['on'] = False
-            settings['state_cuts_dropped'] = True
+        # State cuts back on the meet board, header only (Nov 2026): switch on once
+        if not settings.get('state_cuts_header_only'):
+            settings['state_cuts']['on'] = True
+            settings['state_cuts_header_only'] = True
         if 'event_info' in settings:
             event_info.from_object(settings['event_info'])
         if 'time_standards' in settings:

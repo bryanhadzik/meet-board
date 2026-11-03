@@ -365,7 +365,7 @@ function stateCut(){ var c = s.state_cut; return c && c.items && c.items.length 
 function renderCut(){
   var c = stateCut(), box = document.getElementById('cutL'); box.textContent = '';
   if (!c) return;
-  box.appendChild(document.createTextNode((trim(c.label) || 'STATE').toUpperCase() + ' CUT'));
+  box.appendChild(document.createTextNode('LAST SEASON QUALIFYING TIME'));
   var classes = {}, sexes = {};
   c.items.forEach(function(it){ classes[it.cls] = 1; sexes[it.sex] = 1; });
   var multiC = Object.keys(classes).length > 1, multiS = Object.keys(sexes).length > 1;
@@ -374,22 +374,6 @@ function renderCut(){
     if (tag) box.appendChild(el('i', '', tag));
     box.appendChild(el('b', '', it.time));
   });
-}
-// The cut a lane is racing against: its team's class (or the only class
-// shown). Mixed events have one cut per sex and we can't tell which applies.
-function laneCut(team){
-  var c = stateCut(); if (!c) return null;
-  var cls = (c.team_class || {})[team];
-  var mine = c.items.filter(function(it){ return !cls || it.cls === cls; });
-  if (!cls){
-    var all = {}; c.items.forEach(function(it){ all[it.cls] = 1; });
-    if (Object.keys(all).length !== 1) return null;
-  }
-  return mine.length === 1 ? mine[0] : null;
-}
-function beatsCut(t, team){
-  var cut = laneCut(team); if (!cut) return false;
-  var v = secs(t); return v > 0 && v <= cut.seconds + 1e-6;
 }
 // A held lane time is a split until proven final. The console sends no place
 // with a split, and nothing at all says "this was the last touch", so a time
@@ -430,7 +414,7 @@ function renderCurrent(){
     L.t = L.running || onBlocks || staleLane[i] ? '' : trim(s['lane_time'+i]);
     L.fin = !!L.t && isFinal(L.t, L.place);
     L.dr = L.fin ? dropOf(L.t, s['lane_seed_time'+i]) : '';
-    L.st = L.fin && beatsCut(L.t, L.team);
+    L.st = false;   // the cut is shown in the header only, never tagged on a lane
     if (L.dr) drops = true;
     if (L.st) states = true;
     if (L.t) anyTime = true;
