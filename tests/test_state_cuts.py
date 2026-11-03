@@ -55,7 +55,7 @@ def test_county_teams_classes():
 
 def test_migrates_the_old_single_table():
     m = M.migrate_state_cuts({'on': False, 'label': '', 'times': {}})
-    assert m['v'] == 2 and m['on'] is True and set(m['classes']) == {'4A', '3A'}
+    assert m['v'] == 2 and m['on'] is False and set(m['classes']) == {'4A', '3A'}   # dropped for now
     k = M.cut_key(2, 1, 50, False)
     m = M.migrate_state_cuts({'on': False, 'label': 'Mine', 'times': {k: 26.0}})
     assert m['on'] is False and m['label'] == 'Mine' and m['classes']['4A'][k] == 26.0
@@ -63,7 +63,7 @@ def test_migrates_the_old_single_table():
 
 
 def test_cut_per_class_and_sex():
-    cuts = M.default_state_cuts()
+    cuts = dict(M.default_state_cuts(), on=True)
     girls100 = {'stroke_code': 1, 'distance': 100, 'relay': False, 'sex_codes': [2]}
     got = M.state_cut_for(girls100, cuts, ['4A', '3A'])
     assert [(x['cls'], x['time']) for x in got] == [('4A', '1:02.24'), ('3A', '1:35.41')]
@@ -81,7 +81,7 @@ def test_payload_uses_the_classes_in_the_water(monkeypatch, quiet):
     monkeypatch.setattr(C.event_info, 'get_team_code', lambda e, h, l: lanes.get(l, ''), raising=False)
     monkeypatch.setattr(C.meet_board, 'schedule_teams', lambda ei: ['TOOEL', 'GHS', 'STAN'])
     monkeypatch.setitem(C.settings, 'board_home_team', 'TOOEL')
-    C.settings['state_cuts'] = M.default_state_cuts()
+    C.settings['state_cuts'] = dict(M.default_state_cuts(), on=True)
     p = C._state_cut_payload(7, 1)
     assert p['label'] == '2026 State'
     assert [(x['cls'], x['time']) for x in p['items']] == [('4A', '1:10.96'), ('3A', '1:24.78')]
@@ -94,7 +94,7 @@ def test_payload_uses_the_classes_in_the_water(monkeypatch, quiet):
 
 
 def test_api_edit_reset_and_team_class(quiet):
-    C.settings['state_cuts'] = M.default_state_cuts()
+    C.settings['state_cuts'] = dict(M.default_state_cuts(), on=True)
     c = C.app.test_client()
     k = M.cut_key(2, 1, 50, False)
     v = c.get('/api/state_cuts').get_json()
@@ -135,7 +135,7 @@ def test_fill_from_loaded_st2(monkeypatch, quiet):
     ])
     monkeypatch.setattr(C, 'time_standards', std)
     monkeypatch.setitem(C.settings, 'pool_course', 'SCY')
-    C.settings['state_cuts'] = M.default_state_cuts()
+    C.settings['state_cuts'] = dict(M.default_state_cuts(), on=True)
     assert C._state_cuts_from_st2('ST') == {M.cut_key(2, 1, 50, False): 25.5, M.cut_key(1, 1, 400, True): 200.1}
     c = C.app.test_client()
     d = c.post('/api/state_cuts', json={'cls': '3A', 'from_tag': 'ST'}).get_json()
@@ -145,7 +145,7 @@ def test_fill_from_loaded_st2(monkeypatch, quiet):
 
 
 def test_now_line_explains_why(monkeypatch, quiet):
-    C.settings['state_cuts'] = M.default_state_cuts()
+    C.settings['state_cuts'] = dict(M.default_state_cuts(), on=True)
     meta = {7: {'stroke_code': 3, 'distance': 100, 'relay': False, 'sex_codes': [1]},
             9: {'stroke_code': 1, 'distance': 25, 'relay': False, 'sex_codes': [1]}}
     monkeypatch.setattr(C.event_info, 'event_meta', meta, raising=False)
@@ -169,7 +169,7 @@ def test_now_line_explains_why(monkeypatch, quiet):
 
 def test_intra_squad_meet_uses_the_fallback_class(monkeypatch, quiet):
     """The Black and Blue meet: teams BLACK / BLUE have no classification."""
-    C.settings['state_cuts'] = M.default_state_cuts()
+    C.settings['state_cuts'] = dict(M.default_state_cuts(), on=True)
     meta = {3: {'stroke_code': 1, 'distance': 200, 'relay': False, 'sex_codes': [2]}}
     monkeypatch.setattr(C.event_info, 'event_meta', meta, raising=False)
     lanes = {1: 'BLACK', 2: 'BLUE'}
@@ -192,3 +192,11 @@ def test_intra_squad_meet_uses_the_fallback_class(monkeypatch, quiet):
     # old saved v2 settings without the key get 4A
     old = M.default_state_cuts(); old.pop('fallback_class')
     assert M.migrate_state_cuts(old)['fallback_class'] == '4A'
+
+
+def test_state_cuts_are_off_by_default_and_send_nothing(monkeypatch, quiet):
+    assert M.default_state_cuts()['on'] is False
+    C.settings['state_cuts'] = M.default_state_cuts()
+    meta = {7: {'stroke_code': 1, 'distance': 50, 'relay': False, 'sex_codes': [1]}}
+    monkeypatch.setattr(C.event_info, 'event_meta', meta, raising=False)
+    assert C._state_cut_payload(7, 1) is None

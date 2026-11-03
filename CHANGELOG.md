@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+- **State cuts dropped from the meet board for now.** The per-class tagging
+  wasn't right (e.g. a 3A swimmer tagged well off the 4A pace). Switched off on
+  every install once; the times and classifications stay saved on Meet Files
+  for a later rework.
+
 ### Fixed
 - **Wrong team colors on the board (Stansbury pink, Deseret Peak orange).**
   Saving Team Colors also saved the placeholder color of meet codes like SHS
