@@ -984,6 +984,8 @@ def send_event_info():
     update["meet_title"] = settings.get('meet_title', '')
     update["board_style"] = settings.get('board_style', 'classic')
     update["state_cut"] = _state_cut_payload(last_event_sent[0])
+    # lets the board tell a split from a finish time
+    update["event_distance"] = ((getattr(event_info, 'event_meta', {}) or {}).get(last_event_sent[0]) or {}).get('distance') or 0
 
     socketio.emit('update_scoreboard', update, namespace='/scoreboard')
     _warmup_broadcast()

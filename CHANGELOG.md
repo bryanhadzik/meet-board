@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+- **Meet board: no STATE tag or DROP on splits.** The console doesn't flag a
+  held time as a split, so a time now counts as final only once the heat is
+  finished, or when it has a place and is a realistic full-distance time.
+- **Meet board: more room for names.** The team column is narrower (long codes
+  shrink to fit), and the STATE / DROP columns only take space when a lane
+  actually has one.
+
 ### Fixed
 - **State cut missing for intra-squad meets.** In the Black and Blue meet the
   teams (BLACK, BLUE) have no classification, so the board had no cut to show.

@@ -55,7 +55,8 @@
   .nm.relay { display:flex; flex-direction:column; justify-content:center; line-height:1.08; align-self:stretch; }
   .nm.relay .nm1 { font-size:2.45cqw; overflow:hidden; text-overflow:ellipsis; }
   .nm .legs { font-size:1.5cqw; font-weight:500; opacity:.78; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; }
-  .tm { font-size:1.5cqw; font-weight:700; letter-spacing:.06em; flex:0 0 auto; width:8cqw; color:var(--tc, #7d9aa1); }
+  .tm { font-size:1.5cqw; font-weight:700; letter-spacing:.06em; flex:0 0 auto; width:8cqw; color:var(--tc, #7d9aa1);
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tmr { font-size:2.95cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
   .pl { font-size:2.3cqw; font-weight:700; text-align:center; width:3cqw; flex:0 0 auto; color:#7d9aa1; }
   .row.lead .tmr, .row.lead .pl { color:#7fe0ab; }
@@ -74,7 +75,7 @@
   .logo img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
   .logo.none { visibility:hidden; }
   .tm.school { font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size:1.3cqw; font-weight:800;
-               letter-spacing:.02em; width:13.5cqw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+               letter-spacing:.02em; width:10cqw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .colR .logo { height:76%; border-radius:.4cqw; padding:.15cqw; box-shadow:0 0 0 .1cqw var(--tc, rgba(255,255,255,.2)); }
 
   /* column headings above the in-the-water lanes */
@@ -83,7 +84,7 @@
   .colhead > div { flex:0 0 auto; }
   .colhead .h-ln { width:.9cqw; } .colhead .h-sp { width:3cqw; }
   .colhead .h-nm { flex:1; }
-  .colhead .h-tm { width:13.5cqw; } .colhead .h-tm.code { width:8cqw; }
+  .colhead .h-tm { width:10cqw; } .colhead .h-tm.code { width:8cqw; }
   .colhead .h-drop { width:7cqw; text-align:right; color:#7fe0ab; }
   .colhead .h-tmr { width:13cqw; text-align:right; padding-right:.5cqw; }
   .colhead .h-pl { width:3cqw; text-align:center; }
@@ -111,10 +112,10 @@
   .ctitle .cut b { font-weight:800; color:#fff; margin-left:.35cqw; }
   .ctitle .cut i { font-style:normal; color:#c9a85a; margin-left:.9cqw; }
   .style-light .ctitle .cut { color:#8a5d00; } .style-light .ctitle .cut b { color:#10202a; } .style-light .ctitle .cut i { color:#8a5d00; }
-  .q { flex:0 0 auto; width:7cqw; display:flex; justify-content:flex-end; }
+  .q { flex:0 0 auto; width:6.2cqw; display:flex; justify-content:flex-end; }
   .q span { font-size:1.15cqw; font-weight:800; letter-spacing:.08em; background:#f0c96a; color:#1c1404;
             border-radius:.4cqw; padding:.2cqw .55cqw; white-space:nowrap; }
-  .colhead .h-q { width:7cqw; text-align:right; color:#f0c96a; }
+  .colhead .h-q { width:6.2cqw; text-align:right; color:#f0c96a; }
   .style-light .colhead .h-q { color:#8a5d00; }
 
   .empty-panel { flex:1; display:flex; align-items:center; justify-content:center; color:#5d7d84; font-size:1.3cqw; text-align:center; padding:1.5cqw; }
@@ -390,49 +391,61 @@ function beatsCut(t, team){
   var cut = laneCut(team); if (!cut) return false;
   var v = secs(t); return v > 0 && v <= cut.seconds + 1e-6;
 }
-function cutColumn(){
-  // any lane that could be tagged gets the column, so the columns line up
-  var n = numLanes();
-  for (var i = 1; i <= n; i++) if (laneCut(trim(s['lane_team'+i]))) return true;
-  return false;
+// A held lane time is a split until proven final. The console sends no place
+// with a split, and nothing at all says "this was the last touch", so a time
+// counts as final once the heat is over, or when it has a place and is a
+// realistic time for the whole distance (>= 0.33 s per yard: faster than any
+// high school swim).
+function isFinal(t, place){
+  if (s.race_state !== 'Running') return true;
+  if (!place) return false;
+  var d = parseInt(s.event_distance, 10) || 0, v = secs(t);
+  return !(d > 0) || v >= d * 0.33;
 }
 
 function renderCurrent(){
   renderCut();
-  var hasCut = cutColumn();
   var box = document.getElementById('rowsL'); box.textContent = '';
   var sub = document.getElementById('subL');
   sub.textContent = connected ? stateLabel() : 'RECONNECTING';
   sub.className = 'sub mono' + (connected ? '' : ' warn');
-  var n = numLanes(), logos = anyLogos(), drops = false, anyTime = false;
+  var n = numLanes(), logos = anyLogos(), anyTime = false;
+  // first pass: what each lane shows, so the STATE / DROP columns only take
+  // room (from the names) when something is in them
+  var lanes = [], drops = false, states = false;
   for (var i = 1; i <= n; i++){
-    var name = trim(s['lane_name'+i]), team = trim(s['lane_team'+i]);
-    var running = !!s['lane_running'+i];
-    var t = running ? '' : trim(s['lane_time'+i]);
-    var place = trim(s['lane_place'+i]);
-    var r = el('div', 'row' + (place === '1' && t ? ' lead' : ''));
-    paint(r, team);
+    var L = {i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: !!s['lane_running'+i],
+             place: trim(s['lane_place'+i])};
+    L.t = L.running ? '' : trim(s['lane_time'+i]);
+    L.fin = !!L.t && isFinal(L.t, L.place);
+    L.dr = L.fin ? dropOf(L.t, s['lane_seed_time'+i]) : '';
+    L.st = L.fin && beatsCut(L.t, L.team);
+    if (L.dr) drops = true;
+    if (L.st) states = true;
+    if (L.t) anyTime = true;
+    lanes.push(L);
+  }
+  lanes.forEach(function(L){
+    var r = el('div', 'row' + (L.place === '1' && L.fin ? ' lead' : ''));
+    paint(r, L.team);
     r.appendChild(el('div','stripe'));
-    r.appendChild(el('div','ln mono', String(i)));
-    if (logos) r.appendChild(logoCell(team));
-    r.appendChild(nameCell(name, team, s['lane_legs'+i]));
-    r.appendChild(logos ? el('div','tm school', team ? schoolName(team) : '') : el('div','tm mono', team));
-    var dr = t ? dropOf(t, s['lane_seed_time'+i]) : '';
-    if (dr) drops = true;
-    if (t) anyTime = true;
-    if (hasCut){
+    r.appendChild(el('div','ln mono', String(L.i)));
+    if (logos) r.appendChild(logoCell(L.team));
+    r.appendChild(nameCell(L.name, L.team, s['lane_legs'+L.i]));
+    r.appendChild(logos ? el('div','tm school', L.team ? schoolName(L.team) : '') : el('div','tm mono', L.team));
+    if (states){
       var q = el('div','q mono');
-      if (t && beatsCut(t, team)) q.appendChild(el('span', '', 'STATE'));
+      if (L.st) q.appendChild(el('span', '', 'STATE'));
       r.appendChild(q);
     }
-    r.appendChild(el('div','drop mono', dr));
+    if (drops) r.appendChild(el('div','drop mono', L.dr));
     // On the blocks: show the entry seed where the finish time will go
-    var pre = !t && !running && /PreRace$/.test(s.race_state || '');
-    var sd = pre ? fmtSeed(s['lane_seed_time'+i]) : '';
-    r.appendChild(el('div','tmr mono' + (sd ? ' seedpre' : ''), t || sd));
-    r.appendChild(el('div','pl mono', t ? place : ''));
+    var pre = !L.t && !L.running && /PreRace$/.test(s.race_state || '');
+    var sd = pre ? fmtSeed(s['lane_seed_time'+L.i]) : '';
+    r.appendChild(el('div','tmr mono' + (sd ? ' seedpre' : ''), L.t || sd));
+    r.appendChild(el('div','pl mono', L.fin ? L.place : ''));
     box.appendChild(r);
-  }
+  });
   // Column headings: DROP = seconds under the seed time
   var h = document.getElementById('headL'); h.textContent = '';
   var pre = /PreRace$/.test(s.race_state || '');
@@ -440,8 +453,8 @@ function renderCurrent(){
   if (logos) { var lg = el('div','h-sp'); lg.style.width = '3.4cqw'; h.appendChild(lg); }
   h.appendChild(el('div','h-nm', ''));
   h.appendChild(el('div','h-tm' + (logos ? '' : ' code'), 'TEAM'));
-  if (hasCut) h.appendChild(el('div','h-q', ''));
-  h.appendChild(el('div','h-drop', drops ? 'DROP' : ''));
+  if (states) h.appendChild(el('div','h-q', ''));
+  if (drops) h.appendChild(el('div','h-drop', 'DROP'));
   h.appendChild(el('div','h-tmr' + (!anyTime && pre ? ' seed' : ''), anyTime ? 'TIME' : (pre ? 'SEED' : '')));
   h.appendChild(el('div','h-pl', anyTime ? 'PL' : ''));
 }
@@ -506,7 +519,7 @@ function renderScores(){
 }
 
 function fitNames(){
-  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .nm .legs, .tm.school');
+  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .nm .legs, .colL .tm');
   for (var i = 0; i < cells.length; i++){
     var c = cells[i]; c.style.fontSize = '';
     if (c.scrollWidth <= c.clientWidth) continue;
