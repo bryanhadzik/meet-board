@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Changed
+- **Relays on the meet board:** the four swimmers' last names now sit in the
+  space between the relay name and the team column, two over two in a smaller
+  font, instead of one long line under the relay name. (Leg names come from
+  the .hy3; a meet loaded from .scb start lists only has relay names.)
 - Meet board header now reads "LAST SEASON STATE QUALIFYING TIME".
 - **State cut is back, at the top of the meet board only**, as "LAST SEASON
   QUALIFYING TIME 4A 24.55 3A 29.17" (one per class in the water). No STATE

@@ -55,6 +55,13 @@
   .nm.relay { display:flex; flex-direction:column; justify-content:center; line-height:1.08; align-self:stretch; }
   .nm.relay .nm1 { font-size:2.45cqw; overflow:hidden; text-overflow:ellipsis; }
   .nm .legs { font-size:1.5cqw; font-weight:500; opacity:.78; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; }
+  /* In the water: relay name on the left, the four legs' last names in the
+     space before the team column, two over two in a small font */
+  .colL .nm.relay { flex-direction:row; align-items:center; justify-content:flex-start; gap:1.4cqw; }
+  .colL .nm.relay .nm1 { flex:0 0 auto; font-size:2.95cqw; max-width:45%; }
+  .colL .nm .legs { flex:1; min-width:0; display:grid; grid-template-columns:repeat(2, minmax(0, max-content));
+                    gap:.15cqw 2cqw; font-size:1.35cqw; line-height:1.15; opacity:.85; }
+  .colL .nm .legs span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tm { font-size:1.5cqw; font-weight:700; letter-spacing:.06em; flex:0 0 auto; width:8cqw; color:var(--tc, #7d9aa1);
         white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tmr { font-size:2.95cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
@@ -98,6 +105,7 @@
   .colR .nm.relay .nm1 { font-size:1.25cqw; }
   /* narrow sidebar: legs may wrap to a second line */
   .colR .nm .legs { font-size:.85cqw; white-space:normal; line-height:1.12; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .colR .nm .legs span + span::before { content:'\00a0\00b7\00a0'; }
   .colR .ln { font-size:1.2cqw; width:1.9cqw; }
   .colR .tm { font-size:.95cqw; width:4.2cqw; text-align:right; }
   .colR .seed { font-size:1cqw; color:#6f9099; width:4.4cqw; text-align:right; flex:0 0 auto; }
@@ -310,7 +318,9 @@ function nameCell(name, team, legs){
   if (!legs.length) return el('div', 'nm' + (name ? '' : ' empty'), name || (team ? '' : '\u2014'));
   var d = el('div', 'nm relay');
   d.appendChild(el('div', 'nm1', name));
-  d.appendChild(el('div', 'legs', legs.join(' \u00b7 ')));
+  var lg = el('div', 'legs');
+  legs.forEach(function(x){ lg.appendChild(el('span', '', x)); });
+  d.appendChild(lg);
   return d;
 }
 // "Beat the seed": finished time under the entry seed time -> seconds dropped
@@ -514,7 +524,7 @@ function renderScores(){
 }
 
 function fitNames(){
-  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .nm .legs, .colL .tm');
+  var cells = document.querySelectorAll('.nm:not(.relay), .nm.relay .nm1, .colL .tm');
   for (var i = 0; i < cells.length; i++){
     var c = cells[i]; c.style.fontSize = '';
     if (c.scrollWidth <= c.clientWidth) continue;
