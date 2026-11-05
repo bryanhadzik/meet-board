@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- **Music fades:** 2-second fade-in whenever a song starts or resumes, and a
+  2-second fade-out on stop, pause and when switching songs (out, then the
+  new song fades in). A song that plays to its end fades over its last 2 s.
+
 ### Fixed
 - **Results now really stay up until the next race** (v0.2.53 didn't work at
   the pool). Watching the live console showed why: it sends no places, all

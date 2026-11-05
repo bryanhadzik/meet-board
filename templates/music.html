@@ -422,24 +422,61 @@ if (SPEAKER) {
     socket.emit('speaker_hello', {ready: true});
     follow();
   });
+  // ---- 2-second fades: in on every start/resume, out on stop, pause and
+  // song changes, and over the last 2 s of a song that plays to its end ----
+  var FADE_MS = 2000, gain = 1, fadeTimer = null, fadeKind = '';
+  function applyVol() {
+    var endFade = 1, d = player.duration;
+    if (isFinite(d) && d > 6) { var left = d - player.currentTime; if (left < 2) endFade = Math.max(0, left / 2); }
+    player.volume = Math.max(0, Math.min(1, (st.volume || 0) * gain * endFade));
+  }
+  function fade(kind, target, done) {
+    if (fadeKind === kind) return;                       // already doing this one
+    clearInterval(fadeTimer); fadeKind = kind;
+    var from = gain, t0 = Date.now(), dur = FADE_MS * Math.abs(target - from);
+    function finish() { clearInterval(fadeTimer); fadeTimer = null; fadeKind = ''; gain = target; applyVol(); if (done) done(); }
+    if (dur < 20) { finish(); return; }
+    fadeTimer = setInterval(function () {
+      var k = Math.min(1, (Date.now() - t0) / dur);
+      gain = from + (target - from) * k; applyVol();
+      if (k >= 1) finish();
+    }, 40);
+  }
+  function unload() {
+    if (!player.paused) player.pause();
+    if (player.getAttribute('src')) { player.removeAttribute('src'); player.removeAttribute('data-track'); player.load(); }
+  }
+  function playFromZeroGain() {
+    gain = 0; applyVol();
+    var p = player.play(); if (p && p.catch) p.catch(function (e) { console.log('play failed', e); });
+    fade('in', 1);
+  }
+  function startTrack() {                             // a new "play" tap: that song from the top
+    loadedPlay = st.play_id;
+    player.setAttribute('data-track', st.track);
+    player.src = trackUrl(st.track, st.mode);
+    player.currentTime = 0;
+    if (st.status === 'playing') playFromZeroGain();
+  }
+  var audible = function () { return !player.paused && !!player.getAttribute('src') && gain > 0; };
   follow = function () {
     if (!ready) return;
-    player.volume = st.volume;
+    applyVol();                                        // the volume slider
     if (st.status === 'stopped') {
-      if (!player.paused) player.pause();
-      if (player.getAttribute('src')) { player.removeAttribute('src'); player.removeAttribute('data-track'); player.load(); }
+      if (audible()) fade('stop', 0, unload);
+      else if (fadeKind !== 'stop') unload();
       return;
     }
-    if (st.play_id !== loadedPlay) {                 // a new "play" tap: start that song from the top
-      loadedPlay = st.play_id;
-      player.setAttribute('data-track', st.track);
-      player.src = trackUrl(st.track, st.mode);
-      player.currentTime = 0;
+    if (st.play_id !== loadedPlay) {
+      if (fadeKind === 'switch') return;               // already fading out to change songs
+      if (audible()) { fade('switch', 0, startTrack); return; }
+      startTrack(); return;
     }
-    if (st.status === 'playing' && player.paused) {
-      var p = player.play(); if (p && p.catch) p.catch(function (e) { console.log('play failed', e); });
-    } else if (st.status === 'paused' && !player.paused) {
-      player.pause();
+    if (st.status === 'playing') {
+      if (player.paused) playFromZeroGain();
+      else if (fadeKind === 'pause' || fadeKind === 'stop') fade('in', 1);   // resumed during a fade-out
+    } else if (st.status === 'paused' && !player.paused && fadeKind !== 'pause') {
+      fade('pause', 0, function () { player.pause(); });
     }
   };
   function report(ended) {
@@ -447,6 +484,7 @@ if (SPEAKER) {
                                    duration: isFinite(player.duration) ? player.duration : 0, ended: !!ended});
   }
   player.addEventListener('timeupdate', function () {
+    if (!fadeKind) applyVol();                         // the end-of-song fade
     var now = Date.now(); if (now - lastReport > 900) { lastReport = now; report(false); }
   });
   player.addEventListener('ended', function () { report(true); });
