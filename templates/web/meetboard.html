@@ -364,7 +364,7 @@ function renderHeader(){
 function stateLabel(){
   var st = s.race_state || '';
   if (holding) return 'RESULTS';
-  if (R.started) return raceDone() ? 'RESULTS' : 'RACING';
+  if (B.racing) return 'RACING';
   if (st === 'Running') return 'RACING';
   if (st === 'Finished') return 'RESULTS';
   if (/PreRace$/.test(st)) return 'ON THE BLOCKS';
@@ -419,7 +419,7 @@ function renderCurrent(){
     }
     if (drops) r.appendChild(el('div','drop mono', L.dr));
     // On the blocks: show the entry seed where the finish time will go
-    var pre = !L.t && !L.running && !R.started && !holding && /PreRace$/.test(s.race_state || '');
+    var pre = !L.t && !L.running && !B.racing && !holding && /PreRace$/.test(s.race_state || '');
     var sd = pre ? fmtSeed(s['lane_seed_time'+L.i]) : '';
     r.appendChild(el('div','tmr mono' + (sd ? ' seedpre' : ''), L.t || sd));
     r.appendChild(el('div','pl mono', L.fin ? L.place : ''));
@@ -427,7 +427,7 @@ function renderCurrent(){
   });
   // Column headings: DROP = seconds under the seed time
   var h = document.getElementById('headL'); h.textContent = '';
-  var pre = !R.started && !holding && /PreRace$/.test(s.race_state || '');
+  var pre = !B.racing && !holding && /PreRace$/.test(s.race_state || '');
   h.appendChild(el('div','h-ln')); h.appendChild(el('div','h-sp'));
   if (logos) { var lg = el('div','h-sp'); lg.style.width = '3.4cqw'; h.appendChild(lg); }
   h.appendChild(el('div','h-nm', ''));
@@ -508,123 +508,55 @@ function fitNames(){
 }
 window.addEventListener('resize', function(){ fitNames(); });
 
-// ---- race tracking ----
-// The console doesn't say when a race is over: it sends no places, every
-// lane's held time looks the same whether it's a split or a finish, all lanes
-// can be "stopped" at once on a split (its race state reads Finished), and a
-// lane flips back to a running clock ~15 s after the swimmer touches. So the
-// board keeps its own book per race:
-//   - a race starts when the race clock restarts from zero (not when lanes
-//     "run" - they run again after every touch)
-//   - each lane's touches are counted (running -> stopped); the pads are at
-//     the start end, so a race has distance/50 touches; the last one is the
-//     finish and its time (the largest cumulative time) stays up
-//   - places are worked out from the finish times when the console sends none
-//   - when the computer moves to the next heat, the finished heat's results
-//     stay up (the new heat shows under UP NEXT) until the next start
-var HOLD_MS = 20 * 60 * 1000;
-var R = newRace(''), hold = null, holdAt = 0, holding = false;
-var lastClock = NaN, clockReset = false;
-function newRace(key){ return {key: key, started: false, lanes: {}}; }
+// ---- race on / over / results held ----
+// The server keeps the race book (race_book.py) so every screen agrees and a
+// refresh keeps the results up: B = {racing, last: {lane: time}, hold}.
+// hold = the finished heat's results ({current_event, ..., heat_key, lanes:
+// {lane: {lane_name, lane_team, lane_legs, time, place}}}), kept until the
+// next race actually starts.
+var B = {racing: false, last: {}, hold: null}, holdUntil = 0, holding = false;
 function heatKey(o){ return trim(o.current_event) + '/' + trim(o.current_heat); }
-function touchesNeeded(o){ var d = parseInt((o || s).event_distance, 10) || 0; return d >= 50 ? Math.round(d / 50) : 0; }
-function laneRec(i){ return R.lanes[i] || (R.lanes[i] = {touches: 0, max: 0, ran: false, wasRunning: false}); }
-function finalOf(rec, need){ return rec && rec.touches > 0 && (!need || rec.touches >= need) ? rec.max : 0; }
-function named(o, i){ return trim(o['lane_name'+i]) || trim(o['lane_team'+i]); }
-function raceDone(){
-  var need = touchesNeeded(), any = false;
-  for (var i = 1; i <= 10; i++){
-    if (!named(s, i)) continue;
-    var rec = R.lanes[i];
-    if (rec && rec.ran){ if (!finalOf(rec, need)) return false; any = true; }
-  }
-  return any;
-}
-// places from the finish times (ties share a place)
-function placesFor(finals){
-  var out = {};
-  Object.keys(finals).forEach(function(i){
-    var p = 1; Object.keys(finals).forEach(function(j){ if (finals[j] < finals[i] - 1e-6) p++; });
-    out[i] = String(p);
-  });
-  return out;
-}
-function snapshotHeat(){
-  var need = touchesNeeded(), finals = {}, snap = {};
-  ['current_event', 'current_heat', 'heat_count', 'event_name', 'event_distance', 'event_is_relay', 'state_cut']
-    .forEach(function(k){ snap[k] = s[k]; });
-  for (var i = 1; i <= 10; i++){
-    ['lane_name', 'lane_team', 'lane_legs', 'lane_seed_time', 'lane_age_code'].forEach(function(k){ snap[k+i] = s[k+i]; });
-    var f = R.started ? finalOf(R.lanes[i], need) : 0;
-    if (f) finals[i] = f;
-  }
-  if (!Object.keys(finals).length) return null;
-  snap.finals = finals;
-  return snap;
-}
-function trackUpdate(u){
-  var oldKey = heatKey(s), snap = snapshotHeat();
-  for (var k in u) s[k] = u[k];
-  if (heatKey(s) !== oldKey){
-    // the computer moved on: keep the finished heat's results up
-    if (snap){ hold = snap; holdAt = Date.now(); }
-    R = newRace(heatKey(s));
-  }
-  // race clock: a restart from (near) zero is a new race
-  var c = secs(s.running_time);
-  if (!isFinite(c) || c < 0.05 || (isFinite(lastClock) && c < lastClock - 1.5)) clockReset = true;
-  if (clockReset && isFinite(c) && c > 0.05 && c < 30 && (!isFinite(lastClock) || c > lastClock)){
-    clockReset = false;
-    R = newRace(heatKey(s)); R.started = true; hold = null;
-  }
-  lastClock = isFinite(c) ? c : NaN;
-  // board opened in the middle of a race
-  if (!R.started && !hold && s.race_state === 'Running' && isFinite(c) && c > 0) R.started = true;
-  if (!R.started) return;
-  for (var i = 1; i <= 10; i++){
-    var rec = laneRec(i), run = !!s['lane_running'+i], t = secs(s['lane_time'+i]);
-    if (run) rec.ran = true;
-    else if (rec.ran && t > 0){
-      if (rec.wasRunning) rec.touches++;           // a new touch
-      if (t > rec.max) rec.max = t;                // cumulative time (a lap split shown after it is smaller)
-    }
-    rec.wasRunning = run;
-  }
-}
+function heldLane(i){ return (B.hold && B.hold.lanes && B.hold.lanes[String(i)]) || null; }
 // What each lane shows right now: [{i, name, team, running, t, fin, place}]
 function laneView(){
   var out = [], i;
   if (holding){
-    var pl = placesFor(hold.finals);
     for (i = 1; i <= 10; i++){
-      var f = hold.finals[i];
-      out.push({i: i, name: trim(hold['lane_name'+i]), team: trim(hold['lane_team'+i]), running: false,
-                t: f ? fmtSeed(f) : '', fin: !!f, place: f ? pl[i] : ''});
+      var h = heldLane(i);
+      // names come from the held heat (s is swapped to it while holding)
+      out.push({i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: false,
+                t: h && h.time ? h.time : '', fin: !!(h && h.time), place: h && h.time ? h.place : ''});
     }
     return out;
   }
-  var need = touchesNeeded(), finals = {};
-  for (i = 1; i <= 10; i++){ var fi = R.started ? finalOf(R.lanes[i], need) : 0; if (fi) finals[i] = fi; }
-  var places = placesFor(finals);
   for (i = 1; i <= 10; i++){
-    var rec = R.lanes[i], run = !!s['lane_running'+i], L = {i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: run};
-    if (finals[i]){ L.t = fmtSeed(finals[i]); L.fin = true; L.place = trim(s['lane_place'+i]) || places[i]; }
-    else if (R.started && rec && rec.ran && !run && trim(s['lane_time'+i])){ L.t = trim(s['lane_time'+i]); L.fin = false; L.place = ''; }  // a split
-    else { L.t = ''; L.fin = false; L.place = ''; }
-    out.push(L);
+    // racing: each lane's last touch (it stays up when the lane flips back to running)
+    out.push({i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: !!s['lane_running'+i],
+              t: B.racing ? (B.last[String(i)] || '') : '', fin: false, place: ''});
   }
   return out;
 }
+
 // While holding, the header and UP NEXT describe the held heat and the heat
 // now on the blocks
 function boardView(){
-  holding = !!hold && Date.now() - holdAt <= HOLD_MS && heatKey(hold) !== heatKey(s);
+  holding = !!B.hold && !B.racing && Date.now() < holdUntil;
   if (!holding) return s;
   var v = {}, k, i;
   for (k in s) v[k] = s[k];
-  ['current_event', 'current_heat', 'heat_count', 'event_name', 'event_distance', 'event_is_relay', 'state_cut']
-    .forEach(function(k){ v[k] = hold[k]; });
-  for (i = 1; i <= 10; i++) ['lane_name', 'lane_team', 'lane_legs', 'lane_seed_time', 'lane_age_code'].forEach(function(k){ v[k+i] = hold[k+i]; });
+  ['current_event', 'current_heat', 'heat_count', 'event_name', 'event_distance', 'event_is_relay']
+    .forEach(function(k){ v[k] = B.hold[k]; });
+  for (i = 1; i <= 10; i++){
+    var h = heldLane(i) || {};
+    v['lane_name'+i] = h.lane_name || ''; v['lane_team'+i] = h.lane_team || '';
+    v['lane_legs'+i] = h.lane_legs || []; v['lane_seed_time'+i] = h.lane_seed_time || '';
+  }
+  var sameHeat = B.hold.heat_key === heatKey(s);
+  if (sameHeat){
+    // still on the finished heat (clock reset, event not moved yet): keep its names
+    for (i = 1; i <= 10; i++){ v['lane_name'+i] = s['lane_name'+i]; v['lane_team'+i] = s['lane_team'+i]; v['lane_legs'+i] = s['lane_legs'+i]; v['lane_seed_time'+i] = s['lane_seed_time'+i]; }
+    return v;
+  }
   var n = Math.max(1, Math.min(10, parseInt(s.num_lanes, 10) || 8)), lanes = [];
   for (i = 1; i <= 10; i++){
     var nm = trim(s['lane_name'+i]), tm = trim(s['lane_team'+i]);
@@ -659,7 +591,13 @@ var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard'
 socket.on('connect', function(){ connected = true; render(); });
 socket.on('disconnect', function(){ connected = false; render(); });
 socket.on('update_scoreboard', function(u){
-  trackUpdate(u);
+  for (var k in u) s[k] = u[k];
+  render();
+});
+socket.on('board_race', function(d){
+  B = d || {racing: false, last: {}, hold: null};
+  if (!B.last) B.last = {};
+  holdUntil = B.hold ? Date.now() + 1000 * (B.expires_in == null ? 1200 : B.expires_in) : 0;
   render();
 });
 render();

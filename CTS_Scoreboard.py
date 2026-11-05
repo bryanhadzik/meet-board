@@ -28,6 +28,7 @@ import threading
 import app_paths
 import scb_loader
 import meet_board
+from race_book import RaceBook
 from serial_monitor import monitor as serial_mon
 import cts_signal
 import team_logos
@@ -126,6 +127,10 @@ BOOT_ID = '%x' % int(time.time() * 1000)
 # connects mid-race or during results - a TV rebooting, OBS reloading its
 # browser source - shows them at once instead of waiting for the next change.
 _live_race = {}
+# Race on / over / results held until the next start (see race_book.py): one
+# book on the server so every screen agrees and a refresh keeps the results.
+race_book = RaceBook()
+_race_book_last = None
 _LIVE_PREFIXES = ('lane_time', 'lane_place', 'lane_running', 'running_time')
 _socketio_emit = socketio.emit
 # CTS blanks the tens-of-seconds digit: " 1: 5.23" -> " 1:05.23" (same width)
@@ -144,6 +149,7 @@ def _emit_and_remember(event, *args, **kwargs):
         except Exception:
             woke = False
         res = _socketio_emit(event, *args, **kwargs)
+        _race_book_feed(args[0])
         if woke:
             _blackout_broadcast()
         # The first race of the meet takes the warm-up slide down by itself
@@ -159,6 +165,26 @@ def _emit_and_remember(event, *args, **kwargs):
 
 
 socketio.emit = _emit_and_remember
+
+
+def _race_book_payload():
+    d = race_book.payload()
+    if d['hold']:
+        d['expires_in'] = max(0, int(race_book.HOLD_S - (time.time() - race_book.hold_at)))
+    return d
+
+
+def _race_book_feed(update):
+    global _race_book_last
+    try:
+        race_book.feed(update)
+        d = race_book.payload()
+        key = json.dumps(d, sort_keys=True, default=str)
+        if key != _race_book_last:
+            _race_book_last = key
+            _socketio_emit('board_race', _race_book_payload(), namespace='/scoreboard')
+    except Exception:
+        traceback.print_exc()
 
 # Go black (see blackout.py); created once settings are loaded.
 screens_black = None
@@ -1171,6 +1197,7 @@ def ws_scoreboard():
     send_scores_info()
     if _live_race:
         flask_socketio.emit('update_scoreboard', dict(_live_race))   # just this client
+    flask_socketio.emit('board_race', _race_book_payload())        # held results survive a refresh
     flask_socketio.emit('server_info', {'version': __version__, 'boot': BOOT_ID})
     if screens_black:
         flask_socketio.emit('blackout', screens_black.status())

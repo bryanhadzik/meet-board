@@ -30,6 +30,7 @@ only-include = [
     "hytek_rec_parser.py",
     "hytek_st2_parser.py",
     "race_state_machine.py",
+    "race_book.py",
     "app_paths.py",
     "scb_loader.py",
     "meet_board.py",

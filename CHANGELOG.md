@@ -8,16 +8,23 @@
   new song fades in). A song that plays to its end fades over its last 2 s.
 
 ### Fixed
-- **Results now really stay up until the next race** (v0.2.53 didn't work at
-  the pool). Watching the live console showed why: it sends no places, all
-  lanes can be "stopped" at once on a split (so its race state said Finished
-  at the 50), and each lane flips back to a running clock ~15 s after the
-  touch. The meet board now keeps its own book per race: a race starts when
-  the race clock restarts from zero; each lane's touches are counted (pads at
-  the start end, so distance/50 touches) and the last one is the finish,
-  which stays up; places are worked out from the finish times; and the
-  finished heat stays on screen through the move to the next heat until the
-  next start.
+- **Results stay up until the next race starts - for real this time, and a
+  refresh no longer drops them.** Watching the pool console live showed what
+  it really sends: no places, a touch may show the running total or only the
+  lap time, stray touches happen (an extra 15.54 mid-200), every lane can be
+  "stopped" at once on a split (the console's race state then says Finished
+  halfway through), and lanes flip back to a running clock ~15 s after each
+  touch. The reliable signal is the race clock: the operator resets it to 0.0
+  when a heat is over, and it counts up from zero at the next start.
+  The new race book (race_book.py) lives on the server, so every screen agrees
+  and a refresh, a TV reboot or the reload after an update keeps the results:
+  racing runs from the clock starting until it's reset (or the event moves
+  on); each lane shows its running total; at the reset each lane's final is
+  its largest time (lap times and stray touches are smaller), places come
+  from those, and the heat stays up as RESULTS - through the move to the next
+  heat, which shows under UP NEXT - until the clock counts up for the next
+  start (a single odd clock reading doesn't count). Gives up after 20 minutes
+  with no race.
 
 ### Changed
 - **Meet board keeps the results up until the next race starts.** When the
