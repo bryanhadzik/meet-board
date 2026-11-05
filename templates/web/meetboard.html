@@ -413,15 +413,9 @@ function renderCurrent(){
   // against the new heat's names.
   var onBlocks = /PreRace$/.test(s.race_state || '');
   for (var i = 1; i <= n; i++){
-    // once a new heat is up, a lane's held time is stale until that lane
-    // has started in this race (an empty lane may never start at the gun)
-    if (onBlocks) staleLane[i] = true;
-    else if (s['lane_running'+i]) staleLane[i] = false;
-  }
-  for (var i = 1; i <= n; i++){
     var L = {i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: !!s['lane_running'+i],
              place: trim(s['lane_place'+i])};
-    L.t = L.running || onBlocks || staleLane[i] ? '' : trim(s['lane_time'+i]);
+    L.t = L.running || onBlocks || (!holding && staleLane[i]) ? '' : trim(s['lane_time'+i]);
     L.fin = !!L.t && isFinal(L.t, L.place);
     L.dr = L.fin ? dropOf(L.t, s['lane_seed_time'+i]) : '';
     L.st = false;   // the cut is shown in the header only, never tagged on a lane
@@ -534,12 +528,76 @@ function fitNames(){
 }
 window.addEventListener('resize', function(){ fitNames(); });
 
+// ---- keep the last results up until the next race actually starts ----
+// Meet Manager / the console move to the next heat as soon as a race is done,
+// but the crowd still wants the results. When a heat finishes we snapshot it;
+// until the gun (or HOLD_MS) the left side and header keep showing that heat,
+// and the heat now on the blocks moves into UP NEXT.
+var HOLD_MS = 20 * 60 * 1000;
+var HELD_KEYS = ['current_event', 'current_heat', 'heat_count', 'event_name', 'event_distance', 'event_is_relay', 'state_cut'];
+var LANE_KEYS = ['lane_name', 'lane_team', 'lane_legs', 'lane_time', 'lane_place', 'lane_seed_time', 'lane_age_code'];
+var held = null, heldAt = 0, holding = false;
+function snapshotResults(){
+  var any = false, snap = {};
+  HELD_KEYS.forEach(function(k){ snap[k] = s[k]; });
+  for (var i = 1; i <= 10; i++){
+    LANE_KEYS.forEach(function(k){ snap[k+i] = s[k+i]; });
+    snap['lane_running'+i] = false;
+    if (!s['lane_running'+i] && trim(s['lane_time'+i]) && !staleLane[i]) any = true;
+  }
+  return any ? snap : null;
+}
+function heatKey(o){ return trim(o.current_event) + '/' + trim(o.current_heat); }
+function boardView(){
+  var st = s.race_state || '';
+  if (st === 'Running'){ held = null; return s; }
+  if (st === 'Finished'){
+    var snap = snapshotResults();
+    if (snap){ held = snap; heldAt = Date.now(); }
+    return s;
+  }
+  if (!held || Date.now() - heldAt > HOLD_MS) return s;
+  var v = {}, k;
+  for (k in s) v[k] = s[k];
+  for (k in held) v[k] = held[k];
+  v.race_state = 'Finished';
+  if (heatKey(held) !== heatKey(s)){
+    // the heat the computer moved to is what's up next
+    var n = Math.max(1, Math.min(10, parseInt(s.num_lanes, 10) || 8)), lanes = [];
+    for (var i = 1; i <= 10; i++){
+      var nm = trim(s['lane_name'+i]), tm = trim(s['lane_team'+i]);
+      if (i <= n || nm || tm) lanes.push({lane: i, name: nm, team: tm, legs: s['lane_legs'+i] || []});
+    }
+    v.next_lanes = lanes;
+    v.next_event = trim(s.current_event); v.next_heat = trim(s.current_heat);
+    v.next_heat_count = s.heat_count; v.next_event_name = s.event_name;
+    v.then_event = s.next_event; v.then_heat = s.next_heat; v.then_event_name = s.next_event_name;
+    v.current_in_schedule = true;
+  }
+  return v;
+}
+function trackStale(){
+  var onBlocks = /PreRace$/.test(s.race_state || '');
+  for (var i = 1; i <= 10; i++){
+    // once a new heat is up, a lane's held time is stale until that lane
+    // has started in this race (an empty lane may never start at the gun)
+    if (onBlocks) staleLane[i] = true;
+    else if (s['lane_running'+i]) staleLane[i] = false;
+  }
+}
+
 var pending = false;
 function render(){
   if (pending) return; pending = true;
   requestAnimationFrame(function(){
     pending = false;
-    applyStyle(); assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores(); fitNames();
+    var real = s;
+    var v = boardView();
+    trackStale();
+    holding = v !== real;
+    s = v;
+    try { applyStyle(); assignColors(); renderHeader(); renderCurrent(); renderNext(); renderScores(); fitNames(); }
+    finally { s = real; }
   });
 }
 
@@ -552,6 +610,8 @@ socket.on('connect', function(){ connected = true; render(); });
 socket.on('disconnect', function(){ connected = false; render(); });
 socket.on('update_scoreboard', function(u){
   for (var k in u) s[k] = u[k];
+  // grab the results the moment the heat finishes, before a quick jump to the next heat
+  if (s.race_state === 'Finished'){ var snap = snapshotResults(); if (snap){ held = snap; heldAt = Date.now(); } }
   render();
 });
 render();

@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Changed
+- **Meet board keeps the results up until the next race starts.** When the
+  computer moves to the next heat right after a finish, the board keeps the
+  finished heat (header, names, times, places) on screen and shows the heat
+  now on the blocks under UP NEXT. It switches at the gun (or after 20
+  minutes with no race).
 - **Relays on the meet board:** the four swimmers' last names now sit in the
   space between the relay name and the team column, two over two in a smaller
   font, instead of one long line under the relay name. (Leg names come from
