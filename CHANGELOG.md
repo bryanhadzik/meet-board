@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Fixed
+- **Results now really stay up until the next race** (v0.2.53 didn't work at
+  the pool). Watching the live console showed why: it sends no places, all
+  lanes can be "stopped" at once on a split (so its race state said Finished
+  at the 50), and each lane flips back to a running clock ~15 s after the
+  touch. The meet board now keeps its own book per race: a race starts when
+  the race clock restarts from zero; each lane's touches are counted (pads at
+  the start end, so distance/50 touches) and the last one is the finish,
+  which stays up; places are worked out from the finish times; and the
+  finished heat stays on screen through the move to the next heat until the
+  next start.
+
 ### Changed
 - **Meet board keeps the results up until the next race starts.** When the
   computer moves to the next heat right after a finish, the board keeps the
