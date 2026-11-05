@@ -50,6 +50,7 @@ def places_for(finals):
 
 class RaceBook:
     HOLD_S = 20 * 60
+    SPLIT_S = 15        # a touch without a place shows this long, then the lane goes blank
 
     def __init__(self, clock=time.time):
         self.clock = clock
@@ -121,15 +122,22 @@ class RaceBook:
             run = bool(self.s.get('lane_running%d' % i))
             ts = str(self.s.get('lane_time%d' % i) or '').strip()
             t = secs(ts)
-            rec = self.lanes.setdefault(i, {'ran': False, 'last': '', 'max': 0.0})
+            rec = self.lanes.setdefault(i, {'ran': False, 'last': '', 'max': 0.0, 'at': 0.0, 'place': ''})
             if run:
                 rec['ran'] = True
             elif rec['ran'] and t and t > 0 and t > rec['max']:
                 # the largest time so far: the running total (a lap time shown after it is smaller)
                 rec['last'] = ts
                 rec['max'] = t
+                rec['at'] = self.clock()
+            if not run and rec['ran']:
+                rec['place'] = str(self.s.get('lane_place%d' % i) or '').strip()
 
     def payload(self):
         hold = self.hold if self.hold and not self.racing and self.clock() - self.hold_at <= self.HOLD_S else None
-        last = {str(i): r['last'] for i, r in self.lanes.items() if self.racing and r['ran'] and r['last']}
+        now = self.clock()
+        # mid-race a touch shows for SPLIT_S, then the lane goes blank again -
+        # unless the console gave it a place (that's a finish: it stays)
+        last = {str(i): r['last'] for i, r in self.lanes.items()
+                if self.racing and r['ran'] and r['last'] and (r.get('place') or now - r.get('at', 0) <= self.SPLIT_S)}
         return {'racing': self.racing, 'last': last, 'hold': hold}

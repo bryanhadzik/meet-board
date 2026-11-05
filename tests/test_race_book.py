@@ -136,3 +136,24 @@ def test_server_sends_the_book_on_connect_and_on_change(monkeypatch):
     again = C.socketio.test_client(C.app, namespace='/scoreboard')
     first = [m['args'][0] for m in again.get_received('/scoreboard') if m['name'] == 'board_race']
     assert first[-1]['hold']['lanes']['1']['lane_name'] == 'Zed'
+
+
+def test_a_split_without_a_place_drops_off_after_15_seconds():
+    clk = Clock()
+    book = RaceBook(clock=clk)
+    book.feed(heat(21, {3: 'GHS B', 4: 'MILL A'}, dist=400))
+    start(book, [3, 4])
+    go(book, '1:12.9', {4: '1:12.88'}); go(book, '1:27.3', {3: '1:27.27'})
+    assert book.payload()['last'] == {'4': '1:12.88', '3': '1:27.27'}
+    clk.t += 16
+    go(book, '1:44')                                   # clock keeps ticking, no new touch
+    assert book.payload()['last'] == {}                # both splits gone
+    go(book, '2:28.9', {4: '2:28.89'})                 # next touch shows again
+    assert book.payload()['last'] == {'4': '2:28.89'}
+    # a touch the console gives a place stays up
+    book.feed({'lane_place4': '1'}); go(book, '2:30')
+    clk.t += 60; go(book, '3:30')
+    assert book.payload()['last'] == {'4': '2:28.89'}
+    # and the results at the reset still use every lane's largest time
+    go(book, '0.0')
+    assert {k: v['time'] for k, v in book.payload()['hold']['lanes'].items()} == {'4': '2:28.89', '3': '1:27.27'}
