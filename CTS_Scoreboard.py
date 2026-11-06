@@ -1796,7 +1796,14 @@ _music_last_status = [None]
 def _music_state_dict(songs=None, warmup=None):
     d = music_state.as_dict(songs, warmup)
     d['stream_mute'] = stream_mute.status()
+    d['mic'] = music.mic_merge(settings.get('mic'), {})
+    d['mic_devices'] = _mic_runtime['devices']
+    d['mic_status'] = _mic_runtime['status']
     return d
+
+
+# what the speaker tab reports about its mic (not saved)
+_mic_runtime = {'devices': [], 'status': ''}
 
 
 def _music_mute_status():
@@ -2026,7 +2033,8 @@ def route_music_stream_mute():
 def route_music():
     return flask.render_template('music.html', speaker='speaker' in flask.request.args,
                                  songs=_music_songs(), music_folder=_music_folder(),
-                                 warmup=_warmup_songs(), warmup_folder=_warmup_folder())
+                                 warmup=_warmup_songs(), warmup_folder=_warmup_folder(),
+                                 mic_defaults=music.mic_defaults())
 
 @app.route('/music/file/<path:name>')
 def route_music_file(name):
@@ -2156,6 +2164,31 @@ def ws_music_speaker(d=None):
         socketio.emit('speaker_standby', {}, namespace='/music', to=old)
     _music_broadcast()
 
+@socketio.on('mic_report', namespace='/music')
+def ws_mic_report(d=None):
+    """The speaker tab: its input devices and whether the mic is live."""
+    if flask.request.sid != music_state.speaker_sid:
+        return
+    d = d or {}
+    devs = [{'id': str(x.get('id') or '')[:200], 'label': str(x.get('label') or '')[:120]}
+            for x in (d.get('devices') or []) if isinstance(x, dict)][:20]
+    status = str(d.get('status') or '')[:200]
+    if devs != _mic_runtime['devices'] or status != _mic_runtime['status']:
+        _mic_runtime.update(devices=devs, status=status)
+        _music_broadcast()
+
+@socketio.on('mic_level', namespace='/music')
+def ws_mic_level(d=None):
+    """Live input level from the speaker tab, passed on to the remotes' meters."""
+    if flask.request.sid != music_state.speaker_sid:
+        return
+    try:
+        db = max(-90.0, min(0.0, float((d or {}).get('db', -90))))
+    except (TypeError, ValueError):
+        return
+    socketio.emit('mic_level', {'db': round(db, 1), 'ducking': bool((d or {}).get('ducking'))},
+                  namespace='/music', skip_sid=flask.request.sid)
+
 @socketio.on('speaker_report', namespace='/music')
 def ws_music_report(d=None):
     if flask.request.sid != music_state.speaker_sid:
@@ -2186,6 +2219,10 @@ def ws_music_cmd(d=None):
         err = music_state.skip_warmup(_warmup_files())
     elif action == 'warmup_stop':
         music_state.stop_warmup()
+        err = None
+    elif action == 'mic':
+        settings['mic'] = music.mic_merge(settings.get('mic'), d.get('mic') if isinstance(d.get('mic'), dict) else {})
+        save_settings()
         err = None
     else:
         err = music_state.command(action, d.get('track'), d.get('volume'),

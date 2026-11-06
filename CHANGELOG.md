@@ -3,6 +3,19 @@
 ## Unreleased
 
 ### Added
+- **Microphone, mixed with the music** (Music page -> Microphone). A USB mic
+  (or a wireless receiver into line-in) on the pool PC plays through the
+  speaker tab's output alongside the music, with its own channel strip:
+  on/off, mute, input picker, live level meter, mic gain, level in the mix,
+  low cut (rumble/handling noise), bass (120 Hz), mid (adjustable frequency),
+  treble (6 kHz), compressor (threshold + ratio), and an optional automatic
+  dip of the music while someone talks (how far, and how loud counts as
+  talking). Controls work from any Music page (phone, tablet) and apply live;
+  settings are saved. The speaker tab must be opened as
+  http://localhost:5000/music?speaker=1 on the pool PC (browsers only allow a
+  mic on localhost), which is what the launcher already opens.
+
+### Added
 - **Music fades:** 2-second fade-in whenever a song starts or resumes, and a
   2-second fade-out on stop, pause and when switching songs (out, then the
   new song fades in). A song that plays to its end fades over its last 2 s.

@@ -109,3 +109,26 @@ def test_separate_folders_and_warmup_not_anthem_pinned(tmp_path):
     assert [x['file'] for x in ws] == ['Alpha.mp3', 'Star Spangled Remix.mp3', 'Zebra.mp3']
     wd = music.warmup_dir(lambda *p: os.path.join(str(tmp_path), *p))
     assert os.path.isdir(wd) and os.path.basename(wd) == 'warmup'
+
+
+def test_mic_settings_merge_and_clamp():
+    d = music.mic_defaults()
+    assert d['on'] is False and d['gain_db'] == 0 and d['low_cut_hz'] == 80 and d['device'] == ''
+    m = music.mic_merge({'gain_db': 6, 'on': True}, {'treble_db': 99, 'bass_db': 'x', 'device': 'abc', 'junk': 1})
+    assert m['gain_db'] == 6 and m['on'] is True and m['treble_db'] == 15 and m['bass_db'] == 0 and m['device'] == 'abc'
+    assert 'junk' not in m
+
+
+def test_mic_command_saves_and_broadcasts(monkeypatch):
+    import CTS_Scoreboard as C
+    monkeypatch.setattr(C, 'save_settings', lambda: None)
+    old = C.settings.get('mic')
+    try:
+        client = C.socketio.test_client(C.app, namespace='/music')
+        client.get_received('/music')
+        client.emit('music_cmd', {'action': 'mic', 'mic': {'on': True, 'treble_db': -3}}, namespace='/music')
+        states = [m['args'][0] for m in client.get_received('/music') if m['name'] == 'music_state']
+        assert states[-1]['mic']['on'] is True and states[-1]['mic']['treble_db'] == -3
+        assert C.settings['mic']['treble_db'] == -3
+    finally:
+        C.settings['mic'] = old if old is not None else music.mic_defaults()

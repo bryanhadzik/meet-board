@@ -329,3 +329,48 @@ class MusicState:
             self.seq += 1
             return True
         return False
+
+
+# ---------------------------------------------------------------- microphone
+# A mic on the speaker PC (USB mic, or a wireless receiver into line-in) mixed
+# into the same output as the music, with its own channel strip. The speaker
+# tab does the audio (Web Audio); these are the settings it follows.
+MIC_RANGES = {                      # key: (low, high, default)
+    'gain_db': (-20.0, 30.0, 0.0),          # input gain
+    'low_cut_hz': (0.0, 300.0, 80.0),       # high-pass for rumble / handling noise; 0 = off
+    'bass_db': (-15.0, 15.0, 0.0),          # low shelf, 120 Hz
+    'mid_db': (-15.0, 15.0, 0.0),           # peaking, at mid_hz
+    'mid_hz': (250.0, 4000.0, 1000.0),
+    'treble_db': (-15.0, 15.0, 0.0),        # high shelf, 6 kHz
+    'comp_threshold_db': (-60.0, 0.0, -24.0),
+    'comp_ratio': (1.0, 20.0, 4.0),
+    'volume': (0.0, 1.0, 0.9),              # mic level in the mix
+    'duck_db': (0.0, 30.0, 10.0),           # how far the music dips while someone talks
+    'duck_threshold_db': (-70.0, -10.0, -40.0),  # mic level that counts as talking
+}
+MIC_FLAGS = {'on': False, 'muted': False, 'comp': True, 'duck': True}
+
+
+def mic_defaults():
+    d = {k: v[2] for k, v in MIC_RANGES.items()}
+    d.update(MIC_FLAGS)
+    d['device'] = ''
+    return d
+
+
+def mic_merge(current, update):
+    """Saved mic settings + a partial update -> complete, clamped settings."""
+    out = mic_defaults()
+    for src in (current or {}, update or {}):
+        for k, v in src.items():
+            if k in MIC_RANGES:
+                lo, hi, _ = MIC_RANGES[k]
+                try:
+                    out[k] = max(lo, min(hi, float(v)))
+                except (TypeError, ValueError):
+                    pass
+            elif k in MIC_FLAGS:
+                out[k] = bool(v)
+            elif k == 'device':
+                out[k] = str(v or '')[:200]
+    return out

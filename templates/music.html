@@ -71,6 +71,21 @@
   .wusong.cur { border-color:#1d7a46; background:#eefaf2; font-weight:600; }
   .wusong .rm { color:#b3301f; cursor:pointer; font-size:12px; }
   .wusong .len { color:#6b7a80; font-size:12px; }
+  /* microphone */
+  .mic .top { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .mic .onbtn { font-size:17px; padding:10px 22px; font-weight:700; }
+  .mic .onbtn.on { background:#1d7a46; border-color:#1d7a46; color:#fff; }
+  .mic .mute.on { background:#b3301f; border-color:#b3301f; color:#fff; }
+  .mic .meter { flex:1 1 200px; min-width:160px; height:14px; background:#26383c; border-radius:7px; overflow:hidden; position:relative; }
+  .mic .meter i { position:absolute; left:0; top:0; bottom:0; width:0; background:linear-gradient(90deg,#3ddc84 0 70%,#f0c96a 70% 88%,#ff5a6e 88%); transition:width .08s linear; }
+  .mic .duckflag { font:700 11px/1 "Segoe UI", sans-serif; letter-spacing:.08em; padding:4px 8px; border-radius:999px; background:#f0c96a; color:#2a1f00; visibility:hidden; }
+  .mic .duckflag.on { visibility:visible; }
+  .mic .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px 22px; margin-top:14px; }
+  .mic .grid label { display:block; font-size:13px; font-weight:600; }
+  .mic .grid label span { float:right; font:600 12px Consolas, monospace; color:var(--dim); }
+  .mic .grid input[type=range] { width:100%; }
+  .mic .row2 { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:12px; font-size:14px; }
+  .mic .status { font-size:13px; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -89,6 +104,38 @@
       <button class="tbtn stop" id="stopBtn" type="button" disabled>Stop</button>
       <label class="vol">Volume <input type="range" id="vol" min="0" max="100" value="80"> <span id="volT">80%</span></label>
     </div>
+  </div>
+
+  <h2>Microphone</h2>
+  <div class="card mic" id="micCard">
+    <div class="top">
+      <button class="btn onbtn" type="button" id="micOn">Mic off</button>
+      <button class="btn mute" type="button" id="micMute">Mute</button>
+      <div class="meter" title="Mic level"><i id="micMeter"></i></div>
+      <span class="duckflag" id="micDuck">MUSIC DIPPED</span>
+    </div>
+    <div class="status small" id="micStatus"></div>
+    <div class="row2">
+      <label>Input <select class="form-control" id="micDevice" style="width:auto;display:inline-block;max-width:320px"></select></label>
+      <label><input type="checkbox" id="micComp"> Compressor (evens out loud and soft)</label>
+      <label><input type="checkbox" id="micDuckOn"> Dip the music while someone talks</label>
+    </div>
+    <div class="grid">
+      <label>Mic gain <span data-for="gain_db"></span><input type="range" data-k="gain_db" min="-20" max="30" step="0.5"></label>
+      <label>Mic level in the mix <span data-for="volume"></span><input type="range" data-k="volume" min="0" max="1" step="0.01"></label>
+      <label>Low cut (rumble, handling) <span data-for="low_cut_hz"></span><input type="range" data-k="low_cut_hz" min="0" max="300" step="10"></label>
+      <label>Bass (120 Hz) <span data-for="bass_db"></span><input type="range" data-k="bass_db" min="-15" max="15" step="0.5"></label>
+      <label>Mid <span data-for="mid_db"></span><input type="range" data-k="mid_db" min="-15" max="15" step="0.5"></label>
+      <label>Mid frequency <span data-for="mid_hz"></span><input type="range" data-k="mid_hz" min="250" max="4000" step="50"></label>
+      <label>Treble (6 kHz) <span data-for="treble_db"></span><input type="range" data-k="treble_db" min="-15" max="15" step="0.5"></label>
+      <label>Compressor threshold <span data-for="comp_threshold_db"></span><input type="range" data-k="comp_threshold_db" min="-60" max="0" step="1"></label>
+      <label>Compressor ratio <span data-for="comp_ratio"></span><input type="range" data-k="comp_ratio" min="1" max="20" step="0.5"></label>
+      <label>Music dips by <span data-for="duck_db"></span><input type="range" data-k="duck_db" min="0" max="30" step="1"></label>
+      <label>Talking above <span data-for="duck_threshold_db"></span><input type="range" data-k="duck_threshold_db" min="-70" max="-10" step="1"></label>
+    </div>
+    <p class="small" style="margin-top:10px">The mic plays through the speaker tab's output, mixed with the music. Start with the mic
+      level low: a mic near the PA speakers will howl (feedback) if it's too loud &mdash; turn the gain or treble down, or move
+      the mic away from the speakers. <button class="btn" type="button" id="micReset" style="font-size:12px;padding:2px 8px">Reset sound settings</button></p>
   </div>
 
   <div class="songs" id="songs"></div>
@@ -344,9 +391,74 @@ socket.on('music_state', function (d) {
   for (var k in d) if (d[k] !== null && d[k] !== undefined) st[k] = d[k];
   if (d.songs) songs = d.songs;
   if (d.warmup) warmup = d.warmup;
-  renderSongs(); renderWarmup(); renderNow(); renderMute();
-  if (SPEAKER) follow();
+  renderSongs(); renderWarmup(); renderNow(); renderMute(); renderMic();
+  if (SPEAKER) { follow(); micFollow(); }
 });
+
+/* ---------------- microphone controls (every Music page) ---------------- */
+var MIC_DEFAULTS = {{ mic_defaults | tojson }};
+function micUnit(k, v) {
+  v = +v;
+  if (k === 'volume') return Math.round(v * 100) + '%';
+  if (k === 'low_cut_hz') return v <= 0 ? 'off' : v + ' Hz';
+  if (k === 'mid_hz') return v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 2 : 0) + ' kHz' : v + ' Hz';
+  if (k === 'comp_ratio') return v.toFixed(1) + ':1';
+  if (k === 'duck_db') return v ? '-' + v + ' dB' : 'no dip';
+  return (v > 0 ? '+' : '') + v + ' dB';
+}
+function micSend(part) { cmd('mic', {mic: part}); }
+function renderMic() {
+  var m = st.mic || MIC_DEFAULTS;
+  $('micOn').textContent = m.on ? 'Mic ON' : 'Mic off';
+  $('micOn').classList.toggle('on', !!m.on);
+  $('micMute').textContent = m.muted ? 'Muted' : 'Mute';
+  $('micMute').classList.toggle('on', !!m.muted);
+  $('micComp').checked = !!m.comp; $('micDuckOn').checked = !!m.duck;
+  [].forEach.call(document.querySelectorAll('#micCard input[data-k]'), function (inp) {
+    var k = inp.dataset.k;
+    if (document.activeElement !== inp) inp.value = m[k];
+    var lab = document.querySelector('#micCard span[data-for="' + k + '"]'); if (lab) lab.textContent = micUnit(k, inp.value);
+  });
+  var sel = $('micDevice'), devs = st.mic_devices || [], want = m.device || '';
+  if (document.activeElement !== sel) {
+    sel.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Default input'; sel.appendChild(o0);
+    devs.forEach(function (d) { var o = document.createElement('option'); o.value = d.id; o.textContent = d.label || 'Input ' + (sel.options.length); sel.appendChild(o); });
+    if (want && !devs.some(function (d) { return d.id === want; })) { var ox = document.createElement('option'); ox.value = want; ox.textContent = '(saved input, not found)'; sel.appendChild(ox); }
+    sel.value = want;
+  }
+  var stx = !st.speaker ? 'No speaker tab open - open /music?speaker=1 on the pool PC.'
+          : (!st.speaker_ready ? 'Speaker tab is open but waiting for its "Enable sound" click.' : (st.mic_status || (m.on ? 'Starting the mic…' : 'Mic is off.')));
+  $('micStatus').textContent = stx;
+  if (!m.on) setMeter(-90, false);
+}
+function setMeter(db, ducking) {
+  var pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+  $('micMeter').style.width = pct + '%';
+  $('micDuck').classList.toggle('on', !!ducking);
+}
+$('micOn').addEventListener('click', function () { micSend({on: !(st.mic && st.mic.on)}); });
+$('micMute').addEventListener('click', function () { micSend({muted: !(st.mic && st.mic.muted)}); });
+$('micComp').addEventListener('change', function () { micSend({comp: this.checked}); });
+$('micDuckOn').addEventListener('change', function () { micSend({duck: this.checked}); });
+$('micDevice').addEventListener('change', function () { micSend({device: this.value}); });
+$('micReset').addEventListener('click', function () {
+  var keep = {on: (st.mic || {}).on, muted: (st.mic || {}).muted, device: (st.mic || {}).device}, d = {};
+  for (var k in MIC_DEFAULTS) d[k] = MIC_DEFAULTS[k];
+  for (var k2 in keep) d[k2] = keep[k2];
+  micSend(d);
+});
+[].forEach.call(document.querySelectorAll('#micCard input[data-k]'), function (inp) {
+  var t = null;
+  inp.addEventListener('input', function () {
+    var k = inp.dataset.k, lab = document.querySelector('#micCard span[data-for="' + k + '"]');
+    if (lab) lab.textContent = micUnit(k, inp.value);
+    clearTimeout(t); var v = +inp.value;
+    t = setTimeout(function () { var p = {}; p[k] = v; micSend(p); }, 60);   // live, but not a message per pixel
+  });
+});
+socket.on('mic_level', function (d) { if (!SPEAKER) setMeter(d.db, d.ducking); });
+var micFollow = function () {};
 socket.on('music_progress', function (d) { st.position = d.position; st.duration = d.duration; progress(d.position, d.duration); });
 socket.on('music_error', function (d) { alert('Music: ' + d.error); });
 
@@ -419,9 +531,125 @@ if (SPEAKER) {
     var p = player.play(); if (p && p.catch) p.catch(function () {});
     player.pause(); player.muted = false;
     ready = true; $('gate').style.display = 'none';
+    audioInit();
     socket.emit('speaker_hello', {ready: true});
-    follow();
+    follow(); micFollow();
   });
+
+  /* ---- the mixer: music and mic into one output ----
+     music: <audio> -> duck (dips while the mic is talking) -> master
+     mic:   input -> gain -> low cut -> bass -> mid -> treble -> compressor -> level -> master */
+  var ctx = null, master = null, duckGain = null, mic = {}, micStream = null, micSrc = null, micKey = '',
+      micBusy = false, lastVoice = 0, ducking = false, lastSent = 0;
+  function dbToGain(db) { return Math.pow(10, db / 20); }
+  function audioInit() {
+    if (ctx) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'interactive'});
+    } catch (e) { console.log('no Web Audio', e); return; }
+    master = ctx.createGain(); master.connect(ctx.destination);
+    duckGain = ctx.createGain(); duckGain.connect(master);
+    ctx.createMediaElementSource(player).connect(duckGain);
+    mic.inGain = ctx.createGain();
+    mic.lowCut = ctx.createBiquadFilter(); mic.lowCut.type = 'highpass'; mic.lowCut.Q.value = 0.707;
+    mic.bass = ctx.createBiquadFilter(); mic.bass.type = 'lowshelf'; mic.bass.frequency.value = 120;
+    mic.mid = ctx.createBiquadFilter(); mic.mid.type = 'peaking'; mic.mid.Q.value = 1.0;
+    mic.treble = ctx.createBiquadFilter(); mic.treble.type = 'highshelf'; mic.treble.frequency.value = 6000;
+    mic.comp = ctx.createDynamicsCompressor(); mic.comp.attack.value = 0.005; mic.comp.release.value = 0.2; mic.comp.knee.value = 6;
+    mic.out = ctx.createGain(); mic.out.gain.value = 0;
+    mic.meter = ctx.createAnalyser(); mic.meter.fftSize = 1024;
+    mic.inGain.connect(mic.lowCut); mic.lowCut.connect(mic.bass); mic.bass.connect(mic.mid); mic.mid.connect(mic.treble);
+    mic.treble.connect(mic.comp); mic.comp.connect(mic.out); mic.out.connect(master);
+    mic.lowCut.connect(mic.meter);                       // level (and talking) measured after the low cut
+    setInterval(micTick, 50);
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+  function micReport(status) {
+    var devs = [];
+    var done = function () { socket.emit('mic_report', {status: status, devices: devs}); };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { done(); return; }
+    navigator.mediaDevices.enumerateDevices().then(function (list) {
+      list.forEach(function (d) { if (d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications') devs.push({id: d.deviceId, label: d.label}); });
+      done();
+    }).catch(done);
+  }
+  function micClose() {
+    if (micSrc) { try { micSrc.disconnect(); } catch (e) {} micSrc = null; }
+    if (micStream) { micStream.getTracks().forEach(function (t) { t.stop(); }); micStream = null; }
+    micKey = '';
+  }
+  function micOpen(m) {
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      micReport('This browser only allows a mic on http://localhost - open the speaker tab as http://localhost:5000/music?speaker=1 on this PC.');
+      return;
+    }
+    micBusy = true;
+    var want = m.device || '';
+    var cons = {echoCancellation: false, noiseSuppression: false, autoGainControl: false};
+    if (want) cons.deviceId = {exact: want};
+    navigator.mediaDevices.getUserMedia({audio: cons}).catch(function (e) {
+      // the saved input is gone (unplugged / renumbered): fall back to the default one
+      if (want && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) {
+        delete cons.deviceId; return navigator.mediaDevices.getUserMedia({audio: cons});
+      }
+      throw e;
+    }).then(function (stream) {
+      micBusy = false;
+      micClose();
+      micStream = stream; micKey = want;
+      micSrc = ctx.createMediaStreamSource(stream); micSrc.connect(mic.inGain);
+      var tr = stream.getAudioTracks()[0];
+      micReport('Live: ' + ((tr && tr.label) || 'microphone') + (want && tr && tr.getSettings && tr.getSettings().deviceId !== want ? ' (the chosen input wasn\'t found, using the default)' : ''));
+      micApply();
+    }).catch(function (e) {
+      micBusy = false;
+      var why = e && e.name === 'NotAllowedError' ? 'The browser blocked the mic - allow microphone access for this page (lock icon in the address bar), then turn the mic off and on.'
+              : e && e.name === 'NotFoundError' ? 'No microphone found - check the USB mic is plugged in.'
+              : 'Mic error: ' + ((e && (e.name + ' ' + e.message)) || e);
+      micReport(why);
+    });
+  }
+  function micApply() {
+    if (!ctx) return;
+    var m = st.mic || {}, t = ctx.currentTime, k = 0.03;
+    mic.inGain.gain.setTargetAtTime(dbToGain(m.gain_db || 0), t, k);
+    mic.lowCut.frequency.setTargetAtTime(m.low_cut_hz > 0 ? m.low_cut_hz : 10, t, k);
+    mic.bass.gain.setTargetAtTime(m.bass_db || 0, t, k);
+    mic.mid.gain.setTargetAtTime(m.mid_db || 0, t, k);
+    mic.mid.frequency.setTargetAtTime(m.mid_hz || 1000, t, k);
+    mic.treble.gain.setTargetAtTime(m.treble_db || 0, t, k);
+    mic.comp.threshold.setTargetAtTime(m.comp ? m.comp_threshold_db : 0, t, k);
+    mic.comp.ratio.setTargetAtTime(m.comp ? m.comp_ratio : 1, t, k);
+    mic.out.gain.setTargetAtTime(m.on && !m.muted && micSrc ? m.volume : 0, t, 0.02);
+  }
+  micFollow = function () {
+    if (!ready || !ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    var m = st.mic || {};
+    if (!m.on) {
+      if (micStream) { micClose(); micReport('Mic is off.'); }
+    } else if (!micBusy && (!micStream || micKey !== (m.device || ''))) {
+      micOpen(m);
+    }
+    micApply();
+  };
+  // level meter + dipping the music while someone talks
+  function micTick() {
+    var m = st.mic || {}, db = -90;
+    if (micSrc) {
+      var buf = new Float32Array(mic.meter.fftSize); mic.meter.getFloatTimeDomainData(buf);
+      var sum = 0; for (var i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      db = Math.max(-90, 20 * Math.log10(Math.sqrt(sum / buf.length) + 1e-9));
+    }
+    var now = Date.now(), live = m.on && !m.muted && !!micSrc;
+    if (live && db > (m.duck_threshold_db == null ? -40 : m.duck_threshold_db)) lastVoice = now;
+    var want = live && m.duck && now - lastVoice < 800;   // hold the dip through short pauses
+    if (want !== ducking) {
+      ducking = want;
+      duckGain.gain.setTargetAtTime(ducking ? dbToGain(-(m.duck_db || 0)) : 1, ctx.currentTime, ducking ? 0.06 : 0.4);
+    }
+    if (now - lastSent > 150) { lastSent = now; setMeter(live ? db : -90, ducking); socket.emit('mic_level', {db: live ? db : -90, ducking: ducking}); }
+  }
   // ---- 2-second fades: in on every start/resume, out on stop, pause and
   // song changes, and over the last 2 s of a song that plays to its end ----
   var FADE_MS = 2000, gain = 1, fadeTimer = null, fadeKind = '';
@@ -494,7 +722,7 @@ if (SPEAKER) {
       '" (unsupported or damaged file).</div>';
   });
 }
-renderSongs(); renderWarmup(); renderNow();
+renderSongs(); renderWarmup(); renderNow(); renderMic();
 })();
 </script>
 </body>
