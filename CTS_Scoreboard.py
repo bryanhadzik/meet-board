@@ -340,7 +340,7 @@ def scb_watch_worker():
                 _scb_watch['message'] = 'No .scb files in %s yet' % folder
         socketio.sleep(3.0)
 
-SETTINGS_VERSION = 1
+SETTINGS_VERSION = 2
 
 def migrate_settings():
     """One-time fixes for settings.json files written by older versions."""
@@ -349,7 +349,12 @@ def migrate_settings():
         # v0 defaulted to 6 lanes and saved it; the pool has 8.
         if int(settings.get('num_lanes', 6) or 6) == 6:
             settings['num_lanes'] = 8
-    if v < SETTINGS_VERSION:
+    # Fixed for this pool: 8 lanes, short course yards; ad display removed;
+    # the warm-up slide uses the meet name from the Meet tab (one place)
+    fixed = {'num_lanes': 8, 'pool_course': 'SCY', 'ad_url': '', 'warmup_title': ''}
+    changed = any(settings.get(k) != val for k, val in fixed.items())
+    settings.update(fixed)
+    if v < SETTINGS_VERSION or changed:
         settings['settings_version'] = SETTINGS_VERSION
         try:
             save_settings()
@@ -1907,6 +1912,12 @@ def route_api_warmup_slide():
     return flask.jsonify(out)
 
 
+@app.route('/state_times')
+@flask_login.login_required
+def route_state_times():
+    return flask.render_template('state_times.html')
+
+
 @app.route('/api/state_cuts', methods=['GET', 'POST'])
 def route_api_state_cuts():
     """GET: last season's state cuts per classification and each team's class.
@@ -2243,7 +2254,7 @@ def route_web(name):
     web_name = "web/" + name + '.html'
     test_event = flask.request.args.get('event', None)
     test_heat = flask.request.args.get('heat', None)
-    return flask.render_template(web_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'], test_event=test_event, test_heat=test_heat, ad_url=settings['ad_url'], schedule_has_names=event_info.has_names, team_names=[('score_home', settings.get('team_home', '')), ('score_guest1', settings.get('team_guest1', '')), ('score_guest2', settings.get('team_guest2', '')), ('score_guest3', settings.get('team_guest3', ''))], team_tags=[('score_home', settings.get('team_home_tag', '')), ('score_guest1', settings.get('team_guest1_tag', '')), ('score_guest2', settings.get('team_guest2_tag', '')), ('score_guest3', settings.get('team_guest3_tag', ''))])
+    return flask.render_template(web_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'], test_event=test_event, test_heat=test_heat, ad_url='', schedule_has_names=event_info.has_names, team_names=[('score_home', settings.get('team_home', '')), ('score_guest1', settings.get('team_guest1', '')), ('score_guest2', settings.get('team_guest2', '')), ('score_guest3', settings.get('team_guest3', ''))], team_tags=[('score_home', settings.get('team_home_tag', '')), ('score_guest1', settings.get('team_guest1_tag', '')), ('score_guest2', settings.get('team_guest2_tag', '')), ('score_guest3', settings.get('team_guest3_tag', ''))])
 
 @app.route('/settings', methods=['POST', 'GET'])
 @app.route('/meet_files', methods=['POST', 'GET'])
@@ -2416,6 +2427,8 @@ def route_settings():
         for k in settings.keys(): 
             if k in ('obs_url', 'obs_password'):
                 continue   # handled below (a blank password field must not wipe the saved one)
+            if k in ('num_lanes', 'pool_course', 'ad_url', 'warmup_title'):
+                continue   # fixed (8 lanes, SCY) or removed
             if k in flask.request.form and settings[k]!=flask.request.form.get(k):
                 if k == 'num_lanes':
                     val = int(flask.request.form.get(k))
@@ -2522,14 +2535,13 @@ def route_settings():
         if blank_message_needs_broadcast:
             send_blank_message()
                 
+    if flask.request.method == 'POST' and flask.request.form.get('return_to') in ('/team_colors', '/meet_files'):
+        return flask.redirect(flask.request.form['return_to'])
+
     comm_port_list = [(port, "%s: %s" % (port,desc)) for port, desc, id in serial.tools.list_ports.comports()]
     if settings['serial_port'] not in [port for port,desc in comm_port_list]:
         comm_port_list.insert(0, (settings['serial_port'], settings['serial_port']))
         
-    ad_url_list = []
-    for dirpath, dir, file in os.walk(app_paths.bundle_path("static", "ad")):
-        ad_url_list.extend(file)
- 
     schedule_loaded = bool(event_info.event_names)
     standards_loaded = time_standards is not None
     
@@ -2558,10 +2570,6 @@ def route_settings():
                 serial_port=settings['serial_port'],
                 serial_port_list=comm_port_list,
                 user_name=settings['username'],
-                ad_url_list = ad_url_list,
-                ad_url=settings['ad_url'],
-                num_lanes=settings['num_lanes'],
-                pool_course=settings.get('pool_course', 'SCY'),
                 seed_time_label=settings.get('seed_time_label', 'Seed Time'),
                 schedule_loaded=schedule_loaded,
                 schedule_error=schedule_error,
@@ -3093,6 +3101,9 @@ def route_team_colors():
                                  board_style=settings.get('board_style', 'classic'),
                                  board_styles=meet_board.BOARD_STYLES,
                                  logos=_meet_logos(teams_in_meet),
+                                 score_teams=[(k, label, settings.get(k, ''), settings.get(k + '_tag', ''))
+                                              for k, label in (('team_home', 'Home'), ('team_guest1', 'Guest 1'),
+                                                               ('team_guest2', 'Guest 2'), ('team_guest3', 'Guest 3'))],
                                  msg=flask.request.args.get('msg', ''))
 
 @app.route('/software_update')

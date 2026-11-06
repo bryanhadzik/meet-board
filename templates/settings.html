@@ -145,11 +145,10 @@
             band along the bottom of the stream that steps through the heats one at a time, so the camera still shows
             warm-ups. It comes down by itself when the first race starts.</p>
           <div class="wu-grid">
-            <div><label for="wu_title">Meet name</label><input class="form-control" id="wu_title" style="width:100%"></div>
             <div><label for="wu_sub">Second line</label><input class="form-control" id="wu_sub" style="width:100%"></div>
             <div><label for="wu_start">Meet starts at</label><input class="form-control" id="wu_start" type="time"></div>
           </div>
-          <div class="help-block">Leave the meet name or second line blank to use the meet file (meet name, pool).</div>
+          <div class="help-block">The slide shows the meet name from the <a href="/meet_files">Meet</a> tab. Leave the second line blank to use the pool from the meet file.</div>
           <div class="wu-grid" style="margin-top:14px">
             <div>
               <label for="wu_speed">Scroll speed on the TVs</label>
@@ -192,8 +191,8 @@
             $('wu_state').className = 'wu-state' + (wuOn ? ' on' : '');
             $('wu_toggle').textContent = wuOn ? 'Hide warm-up slide' : 'Show warm-up slide';
             $('wu_teams').textContent = (d.teams || []).length ? (d.teams.length + ' teams: ' + d.teams.map(function(t){ return t.name; }).join(', ')) : 'No start list loaded yet - teams appear once one is.';
-            if (d.defaults){ $('wu_title').placeholder = d.defaults.title || 'Meet name'; $('wu_sub').placeholder = d.defaults.subtitle || 'e.g. the pool'; }
-            if (!loaded && d.saved){ loaded = true; $('wu_title').value = d.saved.title; $('wu_sub').value = d.saved.subtitle; $('wu_start').value = d.saved.start; }
+            if (d.defaults){ $('wu_sub').placeholder = d.defaults.subtitle || 'e.g. the pool'; }
+            if (!loaded && d.saved){ loaded = true; $('wu_sub').value = d.saved.subtitle; $('wu_start').value = d.saved.start; }
             if (d.speed != null && document.activeElement !== $('wu_speed')){ $('wu_speed').value = d.speed; wuSpeedLabel(); }
             if (d.hold != null){
               var h = $('wu_hold'), v = String(+d.hold);
@@ -217,7 +216,7 @@
               });
           };
           window.wuSave = function(on){
-            var body = {title: $('wu_title').value, subtitle: $('wu_sub').value, start: $('wu_start').value};
+            var body = {subtitle: $('wu_sub').value, start: $('wu_start').value};
             if (on !== undefined) body.on = on;
             fetch('/api/warmup_slide', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
               .then(function(r){ return r.json(); }).then(function(d){
@@ -411,27 +410,8 @@
         </script>
 
         </section>
-<h3>Meet Settings</h3>
+<h3>Board display</h3>
 <section class="card">
-        <div class="row">
-            <div class="col-lg-8">
-                <form action="/settings" method="POST">
-                    <div class="input-group">
-                        <label for="meet_title">Meet Title</label>
-                        <div class="input-group">
-                            <input id="meet_title" name="meet_title" value="{{ meet_title }}" class="form-control"
-                                aria-label="..."
-                                oninput="document.getElementById('meet_title_submit').disabled=false;"></input>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="submit" id="meet_title_submit"
-                                    disabled>Update</button>
-                            </span>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
         <div class="row">
             <div class="col-lg-8">
                 <style>
@@ -539,57 +519,6 @@
             <div class="col-lg-6">
                 <form action="/settings" method="POST">
                     <div class="input-group">
-                        <label for="num_lanes">Number of Lanes</label>
-                        <div class="input-group">
-                            <select id="num_lanes" name="num_lanes" class="form-control"
-                                oninput="document.getElementById('num_lanes_submit').disabled=false;">
-                                {% for n in range(4, 11) %}
-                                {% if n == num_lanes %}
-                                <option value="{{n}}" selected>{{n}}</option>
-                                {% else %}
-                                <option value="{{n}}">{{n}}</option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="submit" id="num_lanes_submit" disabled>Update</button>
-                            </span>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        
-        <div class="row">
-            <div class="col-lg-6">
-                <form action="/settings" method="POST">
-                    <div class="input-group">
-                        <label for="pool_course">Pool Course</label>
-                        <div class="input-group">
-                            <select id="pool_course" name="pool_course" class="form-control"
-                                oninput="document.getElementById('pool_course_submit').disabled=false;">
-                                {% for code, label in [('SCY', 'Short Course Yards (SCY)'), ('SCM', 'Short Course Meters
-                                (SCM)'), ('LCM', 'Long Course Meters (LCM)')] %}
-                                {% if code == pool_course %}
-                                <option value="{{code}}" selected>{{label}}</option>
-                                {% else %}
-                                <option value="{{code}}">{{label}}</option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="submit" id="pool_course_submit" disabled>Update</button>
-                            </span>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-lg-6">
-                <form action="/settings" method="POST">
-                    <div class="input-group">
                         <label for="seed_time_label">Seed Time Display</label>
                         <div class="input-group">
                             <select id="seed_time_label" name="seed_time_label" class="form-control"
@@ -654,74 +583,7 @@
         </div>
         
         </section>
-<h3>Team Names</h3>
-<section class="card">
-        <div>Clear team names to prevent showing scores for that team.</div>
-        {% for team_key, team_label, team_val, tag_key, tag_val in [
-        ('team_home', 'Home', team_home, 'team_home_tag', team_home_tag),
-        ('team_guest1', 'Guest 1', team_guest1, 'team_guest1_tag', team_guest1_tag),
-        ('team_guest2', 'Guest 2', team_guest2, 'team_guest2_tag', team_guest2_tag),
-        ('team_guest3', 'Guest 3', team_guest3, 'team_guest3_tag', team_guest3_tag)
-        ] %}
-        <div class="row">
-            <div class="col-lg-8">
-                <form action="/settings" method="POST">
-                    <div class="input-group">
-                        <label for="{{ team_key }}" style="display: inline-block; width: 7ch;">{{ team_label }}</label>
-                        <div class="input-group" style="display: inline-flex; width: auto;">
-                            <input id="{{ team_key }}" name="{{ team_key }}" value="{{ team_val }}" class="form-control"
-                                maxlength="15" aria-label="Team name" placeholder="Team name" style="width: 20ch;"
-                                oninput="document.getElementById('{{ team_key }}_submit').disabled=false;"></input>
-                            <input id="{{ tag_key }}" name="{{ tag_key }}" value="{{ tag_val }}" class="form-control"
-                                maxlength="5" aria-label="Tag" placeholder="TEAM" style="width: 8ch; margin-left: 1ch;"
-                                oninput="document.getElementById('{{ team_key }}_submit').disabled=false;"></input>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="submit" id="{{ team_key }}_submit"
-                                    disabled>Update</button>
-                                <button class="btn btn-default" type="button"
-                                    onclick="document.getElementById('{{ team_key }}').value=''; document.getElementById('{{ tag_key }}').value=''; document.getElementById('{{ team_key }}_submit').disabled=false;">Clear</button>
-                            </span>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-        {% endfor %}
-
-        </section>
-<p class="help-block" style="margin:18px 0 0">Start lists, time standards and records are on the <a href="/meet_files">Meet Files</a> tab.</p>
-<h3>Ad Display</h3>
-<section class="card">
-        <div class="row">
-            <div class="col-lg-6">
-                <form action="/settings" method="POST">
-                    <div class="input-group">
-                        <label for="ad_url">Ad Image</label>
-                        <div class="input-group">
-                            <select id="ad_url" name="ad_url" class="form-control"
-                                oninput="document.getElementById('ad_url_submit').disabled=false;">
-                                <option value="" selected>-- None --</option>
-                                {% for url in ad_url_list %}
-                                {% if url == ad_url %}
-                                <option value="{{url}}" selected>{{url}}</option>
-                                {% else %}
-                                <option value="{{url}}">{{url}}</option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="submit" id="ad_url_submit" disabled>Update</button>
-                            </span>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-        {% if ad_url and (ad_url != '') %}
-        <img src="{{url_for('static', filename='ad/'+ad_url)}}" width='400px' />
-        {% endif %}
- 
-</section>
+<p class="help-block" style="margin:18px 0 0">The meet name, start lists, time standards and records are on the <a href="/meet_files">Meet</a> tab; team names for scoring on <a href="/team_colors">Team Colors</a>; state qualifying times on <a href="/state_times">State Times</a>.</p>
         <div class="footer">
           <span>meet-board {{ app_version }} &middot; <a href="/software_update">Software update</a> &middot; <a href="/debug">Debug</a> &middot; <a href="/">Site map</a></span>
           <button class="btn btn-danger" type="button" onclick="document.getElementById('shutdown-overlay').style.display='flex';">Stop Server</button>

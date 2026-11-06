@@ -66,16 +66,47 @@ def test_lanes_past_configured_width_are_not_hidden():
     assert len(p['next_lanes']) == 6   # heat 10/1 only uses lanes 3-5
 
 
-def test_old_settings_migrate_to_8_lanes(monkeypatch):
+def test_fixed_pool_settings(monkeypatch):
+    """8 lanes and short course yards always; ad display and the warm-up
+    slide's own meet name are gone (the Meet tab's name is the one)."""
     import CTS_Scoreboard as C
     monkeypatch.setattr(C, 'save_settings', lambda: None)
-    monkeypatch.setattr(C, 'settings', dict(C.settings, num_lanes=6))
+    monkeypatch.setattr(C, 'settings', dict(C.settings, num_lanes=6, pool_course='LCM', ad_url='x.jpg', warmup_title='Old'))
     C.settings.pop('settings_version', None)
     C.migrate_settings()
-    assert C.settings['num_lanes'] == 8 and C.settings['settings_version'] == 1
-    C.settings['num_lanes'] = 6          # user chose 6 later: leave it alone
+    assert (C.settings['num_lanes'], C.settings['pool_course'], C.settings['ad_url'], C.settings['warmup_title']) == (8, 'SCY', '', '')
+    assert C.settings['settings_version'] == C.SETTINGS_VERSION
+    C.settings['num_lanes'] = 6           # even if something sets it, the next start puts it back
     C.migrate_settings()
-    assert C.settings['num_lanes'] == 6
+    assert C.settings['num_lanes'] == 8
+
+
+def test_admin_pages_after_the_reshuffle(monkeypatch):
+    import CTS_Scoreboard as C
+    monkeypatch.setattr(C, 'save_settings', lambda: None)
+    c = C.app.test_client()
+    st = c.get('/settings').get_data(as_text=True)
+    assert 'Number of Lanes' not in st and 'Pool Course' not in st and 'Ad Display' not in st
+    assert 'Team Names' not in st and 'id="meet_title"' not in st and 'wu_title' not in st
+    mf = c.get('/meet_files').get_data(as_text=True)
+    assert 'id="meet_title"' in mf and 'statecuts' not in mf and 'Meet Manager start lists' in mf
+    tc = c.get('/team_colors').get_data(as_text=True)
+    assert 'Team names (scores)' in tc and 'name="team_home"' in tc
+    stt = c.get('/state_times').get_data(as_text=True)
+    assert 'id="sc_body"' in stt and '>State Times<' in stt
+    # team names saved from Team Colors land back there
+    old = C.settings.get('team_guest3', ''), C.settings.get('team_guest3_tag', '')
+    try:
+        r = c.post('/settings', data={'team_guest3': 'Timpanogos', 'team_guest3_tag': 'TIMP', 'return_to': '/team_colors'})
+        assert r.status_code == 302 and r.headers['Location'].endswith('/team_colors')
+        assert C.settings['team_guest3'] == 'Timpanogos' and C.settings['team_guest3_tag'] == 'TIMP'
+        # the meet name saved from the Meet tab
+        old_title = C.settings.get('meet_title', '')
+        c.post('/meet_files', data={'meet_title': 'Black and Blue Meet'})
+        assert C.settings['meet_title'] == 'Black and Blue Meet'
+        C.settings['meet_title'] = old_title
+    finally:
+        C.settings['team_guest3'], C.settings['team_guest3_tag'] = old
 
 
 def test_resolved_colors_separate_close_teams():

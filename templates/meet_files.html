@@ -3,15 +3,25 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>meet-board: Meet Files</title>
+    <title>meet-board: Meet</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
 <body>
 {% set active = "files" %}{% include "_nav.html" %}
 <div class="container">
-<h1 class="pagetitle">Meet Files</h1>
-<p class="lead">Load the meet's start lists before warm-ups: a Meet Manager <code>.hy3</code> entry file, or the CTS start lists
-  (<code>.scb</code> files or a <code>.zip</code> of them). Time standards and records are optional.</p>
+<h1 class="pagetitle">Meet</h1>
+<p class="lead">Everything about this meet in one place: its name, and the start lists to load before warm-ups &mdash; a Meet
+  Manager <code>.hy3</code> entry file, or the CTS start lists (<code>.scb</code> files or a <code>.zip</code> of them).
+  Time standards and records are optional.</p>
+<h3>Meet name</h3>
+<section class="card">
+  <form action="/meet_files" method="POST" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0">
+    <input id="meet_title" name="meet_title" value="{{ meet_title }}" class="form-control" style="flex:1 1 320px;max-width:520px"
+           placeholder="e.g. Black and Blue Meet" oninput="document.getElementById('meet_title_submit').disabled=false;">
+    <button class="btn btn-primary" type="submit" id="meet_title_submit" disabled>Save</button>
+  </form>
+  <span class="help-block">Shown on the meet board, the warm-up slide and the stream. Blank = the meet name in the loaded .hy3.</span>
+</section>
 <h3>Meet Manager (Hytek/Active) data</h3>
 <section class="card">
         <div class="row">
@@ -224,166 +234,6 @@
 
         </section>
 
-        <h3 id="statecuts">State qualifying times</h3>
-        <section class="card">
-          <style>
-            .sc-top { display:flex; gap:12px 20px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
-            .sc-sub { font-weight:700; margin:14px 0 6px; }
-            .sc-teams { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:6px 18px; max-width:880px; }
-            .sc-teams label { display:flex; align-items:center; gap:8px; font-weight:500; margin:0; }
-            .sc-teams label span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-            .sc-teams select { width:auto; }
-            .sc-teams .dim { color:var(--dim); }
-            .sc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
-            .sc-tabs .btn.on { background:var(--accent); border-color:var(--accent); color:#fff; }
-            .sc-tbl { border-collapse:collapse; }
-            .sc-tbl th { text-align:left; font-size:13px; color:var(--dim); font-weight:600; padding:2px 10px 4px 0; }
-            .sc-tbl td { padding:2px 10px 2px 0; }
-            .sc-tbl td:first-child { padding-right:18px; white-space:nowrap; }
-            .sc-tbl input { width:9ch; font-family:Consolas, "Cascadia Mono", monospace; text-align:right; }
-            .sc-tbl input.edited { border-color:#d9a441; background:#fff8e6; }
-            .sc-tbl input.bad { border-color:var(--bad); background:#fbeceb; }
-            .sc-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
-            #sc_msg.ok { color:var(--ok); font-weight:600; } #sc_msg.err { color:var(--bad); font-weight:600; }
-          </style>
-          <p class="help-block" style="margin-top:0">The top of the meet board shows "Last season state qualifying time" for the event
-            in the water, one for each classification of the teams in the heat (swimmers aren't tagged). UHSAA has no fixed cuts &mdash; each class takes its 32 fastest per event (20 relays) &mdash; so the
-            built-in times are the slowest seed that made the <span id="sc_year">2026</span> state psych sheet.</p>
-          <div class="sc-top">
-            <label style="font-weight:500;cursor:pointer;margin:0"><input type="checkbox" id="sc_on" onchange="scSave({on: this.checked})"> Show on the meet board
-              <span class="help-inline">(shown at the top as "Last season state qualifying time", one per class in the water)</span></label>
-          </div>
-
-          <div class="alert" id="sc_now" style="margin:0 0 6px"></div>
-          <div class="sc-sub">Team classifications <span class="help-inline">(UHSAA 2025-27; change one if it's wrong)</span></div>
-          <div class="sc-teams" id="sc_teams"></div>
-          <div style="margin-top:10px"><label style="font-weight:500;margin:0">Teams with no classification
-            (intra-squad meets like Black vs Blue, clubs, unknown visitors) use
-            <select class="form-control" id="sc_fb" style="width:auto;display:inline-block;margin-left:6px"
-                    onchange="scSave({fallback_class: this.value}, 'Saved', false)"></select></label></div>
-
-          <div class="sc-sub">Cut times</div>
-          <div class="sc-tabs" id="sc_tabs"></div>
-          <table class="sc-tbl">
-            <thead><tr><th>Event</th><th>Girls</th><th>Boys</th></tr></thead>
-            <tbody id="sc_body"></tbody>
-          </table>
-          <div class="sc-row">
-            <button class="btn btn-primary" type="button" onclick="scSaveAll()">Save times</button>
-            <button class="btn" type="button" id="sc_reset" onclick="scReset()">Reset to the state meet times</button>
-            <span id="sc_fill" style="display:none">
-              <select class="form-control" id="sc_tag" style="width:auto;display:inline-block"></select>
-              <button class="btn" type="button" onclick="scFill()">Fill from .st2</button></span>
-            <span id="sc_msg"></span>
-          </div>
-          <span class="help-block" id="sc_note"></span>
-        </section>
-        <script>
-        (function(){
-          function $(id){ return document.getElementById(id); }
-          var RE = /^(?:\d{1,2}:[0-5]?\d(?:\.\d{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/;
-          var view = null, cls = '';
-          function msg(t, c){ $('sc_msg').textContent = t || ''; $('sc_msg').className = c || ''; }
-          function tabs(){
-            var set = {};
-            view.classes.forEach(function(c){ set[c] = 1; });
-            view.teams.forEach(function(t){ if (t.cls) set[t.cls] = 1; });
-            return view.all_classes.filter(function(c){ return set[c]; });
-          }
-          function drawTeams(){
-            var box = $('sc_teams'); box.textContent = '';
-            view.teams.forEach(function(t){
-              var l = document.createElement('label'), sp = document.createElement('span'), sel = document.createElement('select');
-              sp.textContent = t.name; if (!t.in_meet) sp.className = 'dim';
-              sp.title = t.in_meet ? 'In the loaded meet' : 'Not in the loaded meet';
-              sel.className = 'form-control';
-              ['none'].concat(view.all_classes).forEach(function(c){
-                var o = document.createElement('option'); o.value = c; o.textContent = c === 'none' ? '—' : c; sel.appendChild(o);
-              });
-              sel.value = t.cls || 'none';
-              sel.onchange = function(){ var m = {}; m[t.code] = sel.value; scSave({team_class: m}, 'Saved', false); };
-              l.appendChild(sp); l.appendChild(sel); box.appendChild(l);
-            });
-          }
-          function drawTimes(){
-            var list = tabs();
-            if (list.indexOf(cls) < 0) cls = list.indexOf('4A') >= 0 ? '4A' : (list[0] || '4A');
-            var tb = $('sc_tabs'); tb.textContent = '';
-            list.forEach(function(c){
-              var b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (c === cls ? ' on' : ''); b.textContent = c;
-              b.onclick = function(){ cls = c; drawTimes(); msg(''); };
-              tb.appendChild(b);
-            });
-            var body = $('sc_body'); body.textContent = '';
-            view.rows.forEach(function(r){
-              var tr = document.createElement('tr'), td = document.createElement('td'); td.textContent = r.name; tr.appendChild(td);
-              var cells = r.cells[cls] || {};
-              ['girls', 'boys'].forEach(function(col){
-                var c = cells[col] || {}, td = document.createElement('td'), inp = document.createElement('input');
-                inp.className = 'form-control' + (c.time && !c.builtin && view.builtin_classes.indexOf(cls) >= 0 ? ' edited' : '');
-                inp.dataset.key = c.key || ''; inp.value = c.time || ''; inp.placeholder = '-';
-                if (!c.key){ var e = r.cells[Object.keys(r.cells)[0]]; inp.dataset.key = e ? e[col].key : ''; }
-                inp.oninput = function(){ inp.classList.toggle('bad', !!inp.value.trim() && !RE.test(inp.value.trim())); };
-                td.appendChild(inp); tr.appendChild(td);
-              });
-              body.appendChild(tr);
-            });
-            var builtin = view.builtin_classes.indexOf(cls) >= 0;
-            $('sc_reset').style.display = builtin ? '' : 'none';
-            $('sc_note').innerHTML = builtin
-              ? 'Built-in ' + cls + ' times: slowest qualifier on the ' + view.year + ' UHSAA ' + cls + ' state psych sheet. Boxes you changed are outlined in gold.'
-              : 'No built-in ' + cls + ' times &mdash; type them in (<code>1:52.34</code> or <code>23.45</code>) or fill them from a .st2.';
-          }
-          function show(d, table){
-            view = d;
-            $('sc_on').checked = !!d.on; $('sc_year').textContent = d.year;
-            if (d.now){ $('sc_now').textContent = 'Meet board right now \u2014 ' + d.now.text; $('sc_now').className = 'alert ' + (d.now.ok ? 'alert-success' : 'alert-warning'); }
-            var tags = d.st2_tags || [];
-            $('sc_fill').style.display = tags.length ? '' : 'none';
-            if ($('sc_tag').options.length !== tags.length){
-              $('sc_tag').innerHTML = '';
-              tags.forEach(function(t){ var o = document.createElement('option'); o.value = t.tag; o.textContent = t.tag + ' - ' + t.desc; $('sc_tag').appendChild(o); });
-            }
-            drawTeams();
-            var fb = $('sc_fb');
-            if (!fb.options.length){
-              [''].concat(d.all_classes).forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = c || 'no cut'; fb.appendChild(o); });
-            }
-            fb.value = d.fallback_class || '';
-            if (table !== false || !$('sc_body').children.length) drawTimes();
-            else drawTimesTabsOnly();   // keep typed boxes; a team may have moved class
-          }
-          function drawTimesTabsOnly(){
-            var list = tabs(), tb = $('sc_tabs'); tb.textContent = '';
-            list.forEach(function(c){
-              var b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (c === cls ? ' on' : ''); b.textContent = c;
-              b.onclick = function(){ cls = c; drawTimes(); msg(''); };
-              tb.appendChild(b);
-            });
-          }
-          window.scSave = function(body, okText, table){
-            if (table === undefined) table = 'times' in body || 'from_tag' in body || 'reset' in body;
-            return fetch('/api/state_cuts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
-              .then(function(r){ return r.json(); }).then(function(d){
-                if (d.error){ msg(d.error, 'err'); return; }
-                show(d, table); msg(okText || 'Saved', 'ok');
-              }).catch(function(){ msg('Could not reach the server', 'err'); });
-          };
-          window.scSaveAll = function(){
-            var times = {}, bad = false;
-            document.querySelectorAll('#sc_body input').forEach(function(i){
-              var v = i.value.trim(); if (v && !RE.test(v)) bad = true; times[i.dataset.key] = v;
-            });
-            if (bad){ msg('Fix the boxes marked in red (use 1:52.34 or 23.45)', 'err'); return; }
-            scSave({cls: cls, times: times}, cls + ' times saved');
-          };
-          window.scReset = function(){
-            if (confirm('Put the ' + view.year + ' state meet times back for ' + cls + '?')) scSave({cls: cls, reset: true}, cls + ' reset');
-          };
-          window.scFill = function(){ scSave({cls: cls, from_tag: $('sc_tag').value}, 'Filled ' + cls + ' from the .st2'); };
-          fetch('/api/state_cuts', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){ show(d, true); }).catch(function(){});
-        })();
-        </script>
 </div>
 </body>
 </html>

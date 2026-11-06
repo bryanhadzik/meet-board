@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Changed
+- **Admin pages reorganized.**
+  - *Meet* (was Meet Files) is the one place for the meet: its name, start
+    lists (.hy3 / .scb), the CTS watch folder, time standards and records.
+    The warm-up slide no longer has its own meet name; it uses this one.
+  - *Team Colors* now also holds the team names used for scores.
+  - *State Times* is its own tab (was on Meet Files).
+  - *Settings* keeps the console, screens, warm-up slide, OBS and board
+    display options.
+- Lanes are always 8 and the course is always short course yards: both
+  settings removed (and set on start).
+- Ad display removed (setting, the images, and the ad spot on the scoreboard
+  and 1080p overlays).
+
 ### Added
 - **Microphone, mixed with the music** (Music page -> Microphone). A USB mic
   (or a wireless receiver into line-in) on the pool PC plays through the

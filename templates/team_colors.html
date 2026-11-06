@@ -7,7 +7,7 @@
 <p class="lead">Colors used on the spectator meet board. Teams in the loaded meet are listed first; anything marked
 <span class="tag">auto</span> got a placeholder color because nobody has set one yet. The team abbreviation is always
 shown beside the color, so two similar colors are never ambiguous.</p>
-<p><a href="/settings">&larr; Settings</a> &middot; <a href="/web/meetboard" target="_blank">Open meet board</a></p>
+<p><a href="/web/meetboard" target="_blank">Open meet board</a></p>
 {% if msg %}<div class="card" style="border-left:4px solid #d9a441">{{ msg }}</div>{% endif %}
 
 <div class="card">
@@ -77,6 +77,22 @@ shown beside the color, so two similar colors are never ambiguous.</p>
   });
 })();
 </script>
+
+<div class="card">
+  <strong>Team names (scores)</strong>
+  <p style="margin:4px 0 8px;color:var(--dim);font-size:13px">The teams whose scores show on the scoreboard and meet board header,
+  in the console's score order. Clear a name to hide that team's score.</p>
+  {% for key, label, name, tag in score_teams %}
+  <form method="POST" action="/settings" style="display:flex;gap:8px;align-items:center;margin:4px 0">
+    <input type="hidden" name="return_to" value="/team_colors">
+    <span style="width:7ch;font-weight:600">{{ label }}</span>
+    <input type="text" name="{{ key }}" value="{{ name }}" maxlength="15" placeholder="Team name" style="width:20ch">
+    <input type="text" name="{{ key }}_tag" value="{{ tag }}" maxlength="5" placeholder="CODE" class="mono" style="width:8ch">
+    <button class="btn" type="submit">Save</button>
+    <button class="btn" type="submit" onclick="this.form.{{ key }}.value='';this.form.{{ key }}_tag.value='';">Clear</button>
+  </form>
+  {% endfor %}
+</div>
 
 <form method="POST">
 <div class="card">
