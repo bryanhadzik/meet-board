@@ -112,3 +112,15 @@ def test_cert_routes(tmp_path, monkeypatch):
     assert client.get('/https/ca.crt').data == ca
     assert client.get('/https/info').get_json()['present'] is True
     assert client.post('/https/cert', data={'cert': leaf.decode()}).status_code == 400
+
+
+def test_http_listen_redirects_once_a_ca_cert_is_installed(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, '_https_folder', lambda: str(tmp_path / 'h3'))
+    monkeypatch.setitem(https_server.STATE, 'port', 5443)
+    client = C.app.test_client()
+    assert client.get('/listen').status_code == 200            # no cert yet: the page explains
+    ca, leaf, key, _ = _ca_and_leaf(['127.0.0.1'])
+    monkeypatch.setattr(https_server, 'restart', lambda: None)
+    https_server.install(str(tmp_path / 'h3'), leaf, key, ca)
+    r = client.get('/listen', base_url='http://192.168.8.243:5000')
+    assert r.status_code == 302 and r.headers['Location'] == 'https://192.168.8.243:5443/listen'

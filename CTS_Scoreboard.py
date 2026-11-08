@@ -2275,7 +2275,11 @@ def route_https_ca():
 @app.route('/listen')
 def route_listen():
     """Phone page: listen from the stands and set the mic's level in the mix."""
-    return flask.render_template('listen.html', https_port=https_server.STATE.get('port') or 0)
+    port = https_server.STATE.get('port') or 0
+    # plain http can't use a phone's mic: with a proper (CA-signed) certificate, just go to https
+    if port and not flask.request.is_secure and not https_server.cert_info(_https_folder()).get('self_signed', True):
+        return flask.redirect('https://%s:%d/listen' % (flask.request.host.split(':')[0], port))
+    return flask.render_template('listen.html', https_port=port)
 
 @socketio.on('speaker_report', namespace='/music')
 def ws_music_report(d=None):

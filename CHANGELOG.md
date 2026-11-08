@@ -9,7 +9,8 @@
   your own CA, so a phone that trusts that CA opens `/listen` with no warning.
   The key is checked against the certificate before anything is replaced, and
   the listener picks up the new certificate without a restart. `/https/ca.crt`
-  hands out the CA certificate for installing on a phone.
+  hands out the CA certificate for installing on a phone. With a CA-signed
+  certificate installed, `http://<pc>:5000/listen` goes straight to the https page.
 
 ### Added
 - **Check the sound from the stands with your phone** (`/listen`, linked on
