@@ -86,6 +86,9 @@
   .mic .grid input[type=range] { width:100%; }
   .mic .row2 { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:12px; font-size:14px; }
   .mic .status { font-size:13px; margin-top:8px; }
+  .mic .autobox { margin-top:12px; padding:10px 12px; border:1px solid #3ddc84; border-radius:10px; background:rgba(61,220,132,.08); font-size:14px; }
+  .mic .autobox .fb { color:#ff8d9b; font-weight:700; }
+  .mic .grid label.auto { opacity:.55; }
 </style>
 </head>
 <body>
@@ -117,8 +120,15 @@
     <div class="status small" id="micStatus"></div>
     <div class="row2">
       <label>Input <select class="form-control" id="micDevice" style="width:auto;display:inline-block;max-width:320px"></select></label>
+      <label title="Listens to the room and sets the gain, low cut and music dip by itself"><input type="checkbox" id="micAuto"> <b>Auto</b> (listens and adjusts)</label>
       <label><input type="checkbox" id="micComp"> Compressor (evens out loud and soft)</label>
       <label><input type="checkbox" id="micDuckOn"> Dip the music while someone talks</label>
+    </div>
+    <div class="autobox" id="micAutoBox" hidden>
+      <div><b id="micAutoScene">Listening…</b> <span class="small" id="micAutoWhy"></span></div>
+      <div class="small" id="micAutoVals"></div>
+      <button class="btn" type="button" id="micAutoKeep" style="font-size:12px;padding:2px 8px;margin-top:6px"
+        title="Turn Auto off and keep these values as your manual settings">Keep these settings</button>
     </div>
     <div class="grid">
       <label>Mic gain <span data-for="gain_db"></span><input type="range" data-k="gain_db" min="-20" max="30" step="0.5"></label>
@@ -227,6 +237,7 @@
 </dialog>
 
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
+<script src="{{ url_for('static', filename='mic_auto.js') }}"></script>
 <script>
 (function () {
 "use strict";
@@ -397,6 +408,7 @@ socket.on('music_state', function (d) {
 
 /* ---------------- microphone controls (every Music page) ---------------- */
 var MIC_DEFAULTS = {{ mic_defaults | tojson }};
+var AUTO_KEYS = ['gain_db', 'low_cut_hz', 'duck_db', 'duck_threshold_db'], AUTOINFO = null;
 function micUnit(k, v) {
   v = +v;
   if (k === 'volume') return Math.round(v * 100) + '%';
@@ -413,12 +425,16 @@ function renderMic() {
   $('micOn').classList.toggle('on', !!m.on);
   $('micMute').textContent = m.muted ? 'Muted' : 'Mute';
   $('micMute').classList.toggle('on', !!m.muted);
-  $('micComp').checked = !!m.comp; $('micDuckOn').checked = !!m.duck;
+  $('micComp').checked = !!m.comp; $('micDuckOn').checked = !!m.duck; $('micAuto').checked = !!m.auto;
   [].forEach.call(document.querySelectorAll('#micCard input[data-k]'), function (inp) {
-    var k = inp.dataset.k;
-    if (document.activeElement !== inp) inp.value = m[k];
-    var lab = document.querySelector('#micCard span[data-for="' + k + '"]'); if (lab) lab.textContent = micUnit(k, inp.value);
+    var k = inp.dataset.k, auto = !!m.auto && AUTO_KEYS.indexOf(k) >= 0;
+    var av = auto && AUTOINFO && AUTOINFO[k] != null ? AUTOINFO[k] : null;
+    if (document.activeElement !== inp) inp.value = av != null ? av : m[k];
+    inp.disabled = auto;
+    inp.parentNode.classList.toggle('auto', auto);
+    var lab = document.querySelector('#micCard span[data-for="' + k + '"]'); if (lab) lab.textContent = (auto ? 'auto ' : '') + micUnit(k, inp.value);
   });
+  renderAuto();
   var sel = $('micDevice'), devs = st.mic_devices || [], want = m.device || '';
   if (document.activeElement !== sel) {
     sel.innerHTML = '';
@@ -432,6 +448,19 @@ function renderMic() {
   $('micStatus').textContent = stx;
   if (!m.on) setMeter(-90, false);
 }
+function renderAuto() {
+  var m = st.mic || MIC_DEFAULTS, a = AUTOINFO;
+  $('micAutoBox').hidden = !m.auto;
+  if (!m.auto) return;
+  if (!m.on) { $('micAutoScene').textContent = 'Auto is on'; $('micAutoWhy').textContent = '- it starts listening when the mic is on.'; $('micAutoVals').textContent = ''; $('micAutoKeep').disabled = true; return; }
+  if (!a || !a.ready) { $('micAutoScene').textContent = 'Listening…'; $('micAutoWhy').textContent = '- give it a few seconds of the room.'; $('micAutoVals').textContent = ''; $('micAutoKeep').disabled = true; return; }
+  $('micAutoScene').textContent = a.scene_label || 'Listening…';
+  $('micAutoWhy').textContent = '- room noise ' + a.floor_db + ' dB' + (a.voice_db != null ? ', voice ' + a.voice_db + ' dB' : ', waiting to hear someone talk');
+  $('micAutoVals').innerHTML = 'Gain ' + micUnit('gain_db', a.gain_db) + ' &middot; low cut ' + micUnit('low_cut_hz', a.low_cut_hz) +
+    ' &middot; talking above ' + micUnit('duck_threshold_db', a.duck_threshold_db) + ' &middot; music dips ' + a.duck_db + ' dB' +
+    (a.feedback_cut_db ? ' &middot; <span class="fb">feedback: gain pulled down ' + a.feedback_cut_db + ' dB</span>' : '');
+  $('micAutoKeep').disabled = false;
+}
 function setMeter(db, ducking) {
   var pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
   $('micMeter').style.width = pct + '%';
@@ -441,6 +470,13 @@ $('micOn').addEventListener('click', function () { micSend({on: !(st.mic && st.m
 $('micMute').addEventListener('click', function () { micSend({muted: !(st.mic && st.mic.muted)}); });
 $('micComp').addEventListener('change', function () { micSend({comp: this.checked}); });
 $('micDuckOn').addEventListener('change', function () { micSend({duck: this.checked}); });
+$('micAuto').addEventListener('change', function () { AUTOINFO = null; micSend({auto: this.checked}); });
+$('micAutoKeep').addEventListener('click', function () {
+  var a = AUTOINFO; if (!a || !a.ready) return;
+  var p = {auto: false};
+  AUTO_KEYS.forEach(function (k) { if (a[k] != null) p[k] = a[k]; });
+  micSend(p);
+});
 $('micDevice').addEventListener('change', function () { micSend({device: this.value}); });
 $('micReset').addEventListener('click', function () {
   var keep = {on: (st.mic || {}).on, muted: (st.mic || {}).muted, device: (st.mic || {}).device}, d = {};
@@ -457,7 +493,20 @@ $('micReset').addEventListener('click', function () {
     t = setTimeout(function () { var p = {}; p[k] = v; micSend(p); }, 60);   // live, but not a message per pixel
   });
 });
-socket.on('mic_level', function (d) { if (!SPEAKER) setMeter(d.db, d.ducking); });
+socket.on('mic_level', function (d) {
+  if (SPEAKER) return;
+  setMeter(d.db, d.ducking);
+  if (d.auto) { var was = AUTOINFO && AUTOINFO.ready; AUTOINFO = d.auto; if (was) renderAutoLive(); else renderMic(); }
+});
+// cheap refresh while auto runs: the readout and the slider positions, not the whole card
+function renderAutoLive() {
+  renderAuto();
+  var m = st.mic || MIC_DEFAULTS; if (!m.auto || !AUTOINFO) return;
+  AUTO_KEYS.forEach(function (k) {
+    var inp = document.querySelector('#micCard input[data-k="' + k + '"]'), lab = document.querySelector('#micCard span[data-for="' + k + '"]');
+    if (inp && AUTOINFO[k] != null) { inp.value = AUTOINFO[k]; if (lab) lab.textContent = 'auto ' + micUnit(k, AUTOINFO[k]); }
+  });
+}
 var micFollow = function () {};
 socket.on('music_progress', function (d) { st.position = d.position; st.duration = d.duration; progress(d.position, d.duration); });
 socket.on('music_error', function (d) { alert('Music: ' + d.error); });
@@ -540,7 +589,8 @@ if (SPEAKER) {
      music: <audio> -> duck (dips while the mic is talking) -> master
      mic:   input -> gain -> low cut -> bass -> mid -> treble -> compressor -> level -> master */
   var ctx = null, master = null, duckGain = null, mic = {}, micStream = null, micSrc = null, micKey = '',
-      micBusy = false, lastVoice = 0, ducking = false, lastSent = 0;
+      micBusy = false, lastVoice = 0, ducking = false, lastSent = 0,
+      auto = new MicAuto(), autoOut = null, autoWas = false, specBuf = null, appliedGain = 0;
   function dbToGain(db) { return Math.pow(10, db / 20); }
   function audioInit() {
     if (ctx) return;
@@ -609,10 +659,18 @@ if (SPEAKER) {
       micReport(why);
     });
   }
+  // the settings in force: the saved ones, with auto's values on top while Auto is on
+  function micEff() {
+    var m = st.mic || {}, out = {};
+    for (var k in m) out[k] = m[k];
+    if (m.auto && autoOut && autoOut.ready) AUTO_KEYS.forEach(function (k) { if (autoOut[k] != null) out[k] = autoOut[k]; });
+    return out;
+  }
   function micApply() {
     if (!ctx) return;
-    var m = st.mic || {}, t = ctx.currentTime, k = 0.03;
-    mic.inGain.gain.setTargetAtTime(dbToGain(m.gain_db || 0), t, k);
+    var m = micEff(), t = ctx.currentTime, k = 0.03;
+    appliedGain = m.gain_db || 0;
+    mic.inGain.gain.setTargetAtTime(dbToGain(appliedGain), t, st.mic && st.mic.auto ? 0.25 : k);   // auto glides
     mic.lowCut.frequency.setTargetAtTime(m.low_cut_hz > 0 ? m.low_cut_hz : 10, t, k);
     mic.bass.gain.setTargetAtTime(m.bass_db || 0, t, k);
     mic.mid.gain.setTargetAtTime(m.mid_db || 0, t, k);
@@ -641,6 +699,16 @@ if (SPEAKER) {
       var sum = 0; for (var i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
       db = Math.max(-90, 20 * Math.log10(Math.sqrt(sum / buf.length) + 1e-9));
     }
+    // Auto: hear the room before the gain stage, let it set gain / low cut / dip
+    if (m.auto && m.on && micSrc) {
+      if (!autoWas) { auto.reset(m.gain_db || 0); autoWas = true; }
+      if (!specBuf) specBuf = new Float32Array(mic.meter.frequencyBinCount);
+      mic.meter.getFloatFrequencyData(specBuf);
+      autoOut = auto.step(db - appliedGain, specBuf, ctx.sampleRate / mic.meter.fftSize, Date.now());
+      if (autoOut.ready && (autoOut.gain_db !== appliedGain || autoOut.low_cut_hz !== mic._lc)) { mic._lc = autoOut.low_cut_hz; micApply(); }
+      AUTOINFO = autoOut;
+    } else if (autoWas) { autoWas = false; autoOut = null; AUTOINFO = null; micApply(); }
+    m = micEff();
     var now = Date.now(), live = m.on && !m.muted && !!micSrc;
     if (live && db > (m.duck_threshold_db == null ? -40 : m.duck_threshold_db)) lastVoice = now;
     var want = live && m.duck && now - lastVoice < 800;   // hold the dip through short pauses
@@ -648,7 +716,12 @@ if (SPEAKER) {
       ducking = want;
       duckGain.gain.setTargetAtTime(ducking ? dbToGain(-(m.duck_db || 0)) : 1, ctx.currentTime, ducking ? 0.06 : 0.4);
     }
-    if (now - lastSent > 150) { lastSent = now; setMeter(live ? db : -90, ducking); socket.emit('mic_level', {db: live ? db : -90, ducking: ducking}); }
+    if (now - lastSent > 150) {
+      lastSent = now; setMeter(live ? db : -90, ducking);
+      var msg = {db: live ? db : -90, ducking: ducking};
+      if (autoOut && (st.mic || {}).auto) { msg.auto = autoOut; renderAutoLive(); }
+      socket.emit('mic_level', msg);
+    }
   }
   // ---- 2-second fades: in on every start/resume, out on stop, pause and
   // song changes, and over the last 2 s of a song that plays to its end ----

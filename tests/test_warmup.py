@@ -132,3 +132,21 @@ def test_mic_command_saves_and_broadcasts(monkeypatch):
         assert C.settings['mic']['treble_db'] == -3
     finally:
         C.settings['mic'] = old if old is not None else music.mic_defaults()
+
+
+def test_mic_auto_flag_and_readout_relay(monkeypatch):
+    import music
+    assert music.mic_defaults()['auto'] is False
+    assert music.mic_merge({}, {'auto': 1})['auto'] is True
+    import CTS_Scoreboard as C
+    sent = []
+    monkeypatch.setattr(C.socketio, 'emit', lambda ev, data, **kw: sent.append((ev, data)))
+    class R: sid = 'spk'
+    monkeypatch.setattr(C.flask, 'request', R)
+    monkeypatch.setattr(C.music_state, 'speaker_sid', 'spk')
+    C.ws_mic_level({'db': -30, 'ducking': True, 'auto': {'scene': 'loud', 'scene_label': 'Loud (racing, cheering)',
+                    'gain_db': 4.5, 'low_cut_hz': 150, 'duck_db': 15, 'duck_threshold_db': -36,
+                    'floor_db': -44, 'voice_db': None, 'feedback_cut_db': 0, 'ready': True, 'junk': 'x'}})
+    ev, data = sent[-1]
+    assert ev == 'mic_level' and data['auto']['scene'] == 'loud' and data['auto']['gain_db'] == 4.5
+    assert 'junk' not in data['auto'] and 'voice_db' not in data['auto'] and data['auto']['ready'] is True

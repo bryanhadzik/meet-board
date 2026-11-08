@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added
+- **Mic Auto mode** (Music page -> Microphone -> Auto). The speaker tab listens
+  to the room between words and works out where you are: *Quiet room*, *Busy
+  (warm-up, crowd arriving)* or *Loud (racing, cheering)*. It then sets, on its
+  own: the mic gain (rides the talker toward a steady level, only while someone
+  talks, and never so high the crowd noise comes up with it), the low cut
+  (80 / 120 / 150 Hz), when the music counts someone as talking (just above the
+  room noise) and how far the music dips (8 / 12 / 15 dB). A howl (feedback)
+  pulls the gain down 6 dB at once, then lets it back once it stays quiet.
+  Every Music page shows what Auto is doing; *Keep these settings* turns Auto
+  off and saves its values as your manual ones. EQ, compressor and the mic's
+  level in the mix stay yours.
+
 ### Fixed
 - **Stansbury no longer splits in two on Team Colors.** Saving the page kept
   a nameless row for SHS (Stansbury's other code) with an auto color, which

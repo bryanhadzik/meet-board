@@ -2201,8 +2201,20 @@ def ws_mic_level(d=None):
         db = max(-90.0, min(0.0, float((d or {}).get('db', -90))))
     except (TypeError, ValueError):
         return
-    socketio.emit('mic_level', {'db': round(db, 1), 'ducking': bool((d or {}).get('ducking'))},
-                  namespace='/music', skip_sid=flask.request.sid)
+    out = {'db': round(db, 1), 'ducking': bool((d or {}).get('ducking'))}
+    a = (d or {}).get('auto')
+    if isinstance(a, dict):      # what auto mode is doing, for the remotes' readout
+        keep = {}
+        for k in ('scene', 'scene_label'):
+            if isinstance(a.get(k), str):
+                keep[k] = a[k][:60]
+        for k in ('gain_db', 'low_cut_hz', 'duck_db', 'duck_threshold_db', 'floor_db', 'voice_db', 'feedback_cut_db'):
+            v = a.get(k)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                keep[k] = round(float(v), 1)
+        keep['ready'] = bool(a.get('ready'))
+        out['auto'] = keep
+    socketio.emit('mic_level', out, namespace='/music', skip_sid=flask.request.sid)
 
 @socketio.on('speaker_report', namespace='/music')
 def ws_music_report(d=None):

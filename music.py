@@ -348,7 +348,8 @@ MIC_RANGES = {                      # key: (low, high, default)
     'duck_db': (0.0, 30.0, 10.0),           # how far the music dips while someone talks
     'duck_threshold_db': (-70.0, -10.0, -40.0),  # mic level that counts as talking
 }
-MIC_FLAGS = {'on': False, 'muted': False, 'comp': True, 'duck': True}
+MIC_FLAGS = {'on': False, 'muted': False, 'comp': True, 'duck': True,
+             'auto': False}   # auto: the speaker tab sets gain, low cut and the music dip from the room
 
 
 def mic_defaults():
