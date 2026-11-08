@@ -7,5 +7,5 @@ dist/
 *.log
 music/
 warmup/
-logos/
+/logos/
 captures/

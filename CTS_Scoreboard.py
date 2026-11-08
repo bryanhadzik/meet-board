@@ -2638,6 +2638,20 @@ def route_schedule_undo():
 def _logo_folder():
     return team_logos.logo_dir(app_paths.data_path)
 
+def seed_builtin_logos():
+    """First start of a version with new built-in logos: copy them in (never
+    over an uploaded logo, never back after someone removed one)."""
+    try:
+        copied, done = team_logos.seed_builtin(_logo_folder(), app_paths.bundle_path('static', 'logos'),
+                                               settings.get('logos_seeded'))
+        if done != settings.get('logos_seeded'):
+            settings['logos_seeded'] = done
+            save_settings()
+        if copied:
+            print('Added built-in logos:', ', '.join(copied))
+    except Exception:
+        traceback.print_exc()
+
 
 def _team_names():
     return getattr(event_info, 'team_names', None) or {}
@@ -3357,6 +3371,7 @@ def main():
         if main_thread is None:
             main_thread = socketio.start_background_task(target=main_thread_worker)
         socketio.start_background_task(target=scb_watch_worker)
+        seed_builtin_logos()
         obs.start()   # connects in the background; retries every 5 s until OBS is up
         socketio.start_background_task(target=stream_mute_worker)
         socketio.start_background_task(target=blackout_worker)

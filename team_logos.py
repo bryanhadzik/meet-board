@@ -2,8 +2,11 @@
 
 Logos are files in the "logos" folder next to meet-board.exe, named by the
 Meet Manager team code: TOOEL.png, SHS.png, ... Upload them on the Team Colors
-page (single images or a .zip). They are not shipped in the repo: they are the
-schools' marks, used only on the pool's own displays.
+page (single images or a .zip).
+
+Built-in logos ship in static/logos and are copied into the logos folder the
+first time a version that has them starts. Each one is copied once: a logo
+someone uploaded is never replaced, and one they removed doesn't come back.
 """
 import io
 import os
@@ -114,3 +117,26 @@ def save_uploads(folder, uploads):
         else:
             one(name, data, code)
     return saved, skipped
+
+
+def seed_builtin(folder, builtin_folder, already):
+    """Copy built-in logos for codes that have no logo yet and weren't seeded
+    before. already: codes seeded on earlier starts. Returns the codes copied
+    and the updated 'already' list."""
+    import shutil
+    done = set(c.upper() for c in (already or []))
+    copied = []
+    try:
+        names = sorted(os.listdir(builtin_folder))
+    except OSError:
+        return copied, sorted(done)
+    for n in names:
+        code = code_from_filename(n)
+        if not code or code in done:
+            continue
+        done.add(code)
+        if find_logo(folder, code):
+            continue
+        shutil.copyfile(os.path.join(builtin_folder, n), os.path.join(folder, code + os.path.splitext(n)[1].lower()))
+        copied.append(code)
+    return copied, sorted(done)

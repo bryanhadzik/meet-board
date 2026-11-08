@@ -6,6 +6,9 @@
 - Built-in team names and colors for Ogden (OGDEN), Logan (LHS), St. Joseph
   (SJCHS), Ben Lomond (BLHS) and Fremont (FREM, also FHS / FREMONT), with
   their classifications.
+- **Built-in school logos** (static/logos): the 19 teams' logos now ship
+  with meet-board and are copied into the logos folder on first start. A logo
+  you uploaded is never replaced, and one you removed stays removed.
 
 ### Added
 - **Start lists from MeetDeck.** `POST /api/startlists` takes the start lists
