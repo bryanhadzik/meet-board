@@ -40,6 +40,12 @@ DEFAULT_TEAM_COLORS = {
     'MILL':  {'name': 'Millard',        'color': '#2F7BE6', 'alt': '#E8EEEE'},  # blue, white
     'NSHS':  {'name': 'North Summit',   'color': '#8A4FD8', 'alt': '#F2C230'},  # purple, gold
     'SSHS':  {'name': 'South Summit',   'color': '#2E8B47', 'alt': '#E8EEEE'},  # forest green, white
+    # Northern Utah teams (Spooky Meet, Nov 2026). Colors from MaxPreps, lifted for the dark board.
+    'OGDEN': {'name': 'Ogden',          'color': '#E8682A', 'alt': '#9AA6AB'},  # orange, black
+    'LHS':   {'name': 'Logan',          'color': '#E0405A', 'alt': '#F0B83C'},  # crimson, gold
+    'SJCHS': {'name': 'St. Joseph',     'color': '#2FB872', 'alt': '#E0A630'},  # green, gold
+    'BLHS':  {'name': 'Ben Lomond',     'color': '#EE4256', 'alt': '#6FB0F0'},  # red, Columbia blue, white
+    'FREM':  {'name': 'Fremont',        'color': '#3D7FE8', 'alt': '#A5ACAF', 'aliases': ['FHS', 'FREMONT']},  # blue, silver
 }
 
 # Board-safe fallback colors for teams nobody has configured yet, handed out
@@ -415,7 +421,7 @@ CLASSES = ['6A', '5A', '4A', '3A', '2A']
 DEFAULT_TEAM_CLASS = {
     'TOOEL': '4A', 'STAN': '4A', 'DPEAK': '4A', 'GHS': '3A',
     'BRHS': '4A', 'SVHS': '4A', 'MCHS': '4A', 'RIDGE': '4A', 'GCHS': '4A',
-    'MOR': '3A',
+    'MOR': '3A', 'OGDEN': '3A', 'LHS': '3A', 'BLHS': '3A', 'SJCHS': '2A', 'FREM': '5A',
 }
 
 

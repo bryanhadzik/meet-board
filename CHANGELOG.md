@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- Built-in team names and colors for Ogden (OGDEN), Logan (LHS), St. Joseph
+  (SJCHS), Ben Lomond (BLHS) and Fremont (FREM, also FHS / FREMONT), with
+  their classifications.
+
+### Added
 - **Start lists from MeetDeck.** `POST /api/startlists` takes the start lists
   straight from MeetDeck's meet database (Database page -> *Send start lists*,
   or automatically after scratches and lane moves). It loads like a .hy3 does:
