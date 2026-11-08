@@ -73,6 +73,84 @@ def ensure_cert(folder):
 
 
 STATE = {'port': 0, 'error': ''}
+_srv = {'server': None, 'app': None, 'folder': None}
+
+
+def _load(cert_pem):
+    certs = x509.load_pem_x509_certificates(cert_pem if isinstance(cert_pem, bytes) else cert_pem.encode())
+    if not certs:
+        raise ValueError('no certificate in that file')
+    return certs
+
+
+def cert_info(folder):
+    """What the listener is serving: who it's for, who signed it, when it runs out."""
+    path = os.path.join(folder, 'cert.pem')
+    if x509 is None or not os.path.exists(path):
+        return {'present': False}
+    try:
+        c = _load(open(path, 'rb').read())[0]
+    except Exception as e:
+        return {'present': True, 'error': str(e)}
+    try:
+        san = c.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+        names = [str(v) for v in san.get_values_for_type(x509.IPAddress)] + san.get_values_for_type(x509.DNSName)
+    except x509.ExtensionNotFound:
+        names = []
+    cn = lambda n: (n.get_attributes_for_oid(NameOID.COMMON_NAME) or [None])[0]
+    subj, iss = cn(c.subject), cn(c.issuer)
+    end = c.not_valid_after_utc
+    ips = local_ips()
+    return {'present': True, 'subject': subj.value if subj else '', 'issuer': iss.value if iss else '',
+            'self_signed': c.subject == c.issuer, 'expires': end.strftime('%Y-%m-%d'),
+            'days_left': (end - datetime.datetime.now(datetime.timezone.utc)).days,
+            'names': names, 'this_pc': ips, 'covers': [ip for ip in ips if ip in names]}
+
+
+def install(folder, cert_pem, key_pem, ca_pem=None):
+    """Use a real certificate (e.g. from the home-lab CA) instead of the made-up
+    one. Checks the key belongs to the certificate before replacing anything."""
+    if x509 is None:
+        raise RuntimeError('the cryptography package is missing')
+    certs = _load(cert_pem)
+    key_b = key_pem if isinstance(key_pem, bytes) else key_pem.encode()
+    try:
+        pk = serialization.load_pem_private_key(key_b, password=None)
+    except Exception:
+        raise ValueError("that key file can't be read (it must be an unencrypted PEM key)")
+    pub = lambda k: k.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    if pub(pk.public_key()) != pub(certs[0].public_key()):
+        raise ValueError("the key doesn't belong to that certificate")
+    chain = [certs[0]] + certs[1:]
+    if ca_pem:
+        for c in _load(ca_pem):
+            if all(c.fingerprint(hashes.SHA256()) != x.fingerprint(hashes.SHA256()) for x in chain):
+                chain.append(c)
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, 'key.pem'), 'wb') as f:
+        f.write(pk.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                 serialization.NoEncryption()))
+    with open(os.path.join(folder, 'cert.pem'), 'wb') as f:      # leaf first, then the CA (full chain)
+        f.write(b''.join(c.public_bytes(serialization.Encoding.PEM) for c in chain))
+    if len(chain) > 1:
+        with open(os.path.join(folder, 'ca.pem'), 'wb') as f:
+            f.write(chain[-1].public_bytes(serialization.Encoding.PEM))
+    restart()
+    return cert_info(folder)
+
+
+def restart():
+    """Pick up a new certificate without restarting meet-board."""
+    srv, app, folder = _srv['server'], _srv['app'], _srv['folder']
+    port = STATE.get('port')
+    if srv is None or not port:
+        return
+    try:
+        srv.shutdown(); srv.server_close()
+    except Exception:
+        pass
+    _srv['server'] = None
+    start(app, port, folder)
 
 
 def start(app, port, folder):
@@ -89,5 +167,6 @@ def start(app, port, folder):
         print('HTTPS listener not started:', e)
         return
     STATE.update(port=int(port), error='')
+    _srv.update(server=srv, app=app, folder=folder)
     threading.Thread(target=srv.serve_forever, name='https', daemon=True).start()
     print('  Phone mic:  https://<this-pc>:%d/listen' % int(port))

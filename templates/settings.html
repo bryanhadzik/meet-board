@@ -410,6 +410,45 @@
         </script>
 
         </section>
+<h3 id="https">Phone mic (HTTPS)</h3>
+<section class="card">
+  <p style="margin-top:0">Phones only let <a href="/listen" target="_blank">Listen from the stands</a> use their microphone over
+    https. meet-board serves it on its own port with the certificate below. A certificate from your own CA (one your phone already
+    trusts) means no warning on the phone.</p>
+  <div id="httpsInfo" class="small">Loading&hellip;</div>
+  <details style="margin-top:10px"><summary>Install a certificate</summary>
+    <form id="httpsForm" style="margin-top:8px">
+      <label class="small">Certificate (cert.pem) <input type="file" name="cert" accept=".pem,.crt,.cer"></label><br>
+      <label class="small">Key (key.pem) <input type="file" name="key" accept=".pem,.key"></label><br>
+      <label class="small">CA certificate (optional, ca-cert.pem) <input type="file" name="ca" accept=".pem,.crt,.cer"></label><br>
+      <button class="btn btn-primary btn-sm" type="submit" style="margin-top:6px">Install</button> <span class="small" id="httpsMsg"></span>
+    </form>
+  </details>
+  <script>
+  (function () {
+    function show(d) {
+      var el = document.getElementById('httpsInfo');
+      if (!d.port) { el.innerHTML = '<b>Not running</b>' + (d.error ? ': ' + d.error : ''); return; }
+      if (!d.present) { el.textContent = 'Running on port ' + d.port + ', no certificate yet.'; return; }
+      var ok = d.covers && d.covers.length;
+      el.innerHTML = 'Running on port <b>' + d.port + '</b> &middot; ' + (d.self_signed ? '<b>self-signed</b> (phones will warn)' : 'signed by <b>' + d.issuer + '</b>') +
+        ' &middot; expires ' + d.expires + ' (' + d.days_left + ' days)<br>For: ' + (d.names || []).join(', ') +
+        '<br>' + (ok ? '&#10003; Covers this PC: ' + d.covers.join(', ') : '<span style="color:#c0392b">&#9888; Doesn\'t list this PC\'s address (' + (d.this_pc || []).join(', ') + ') - phones will warn.</span>') +
+        (d.self_signed ? '' : '<br><a href="/https/ca.crt">Download the CA certificate</a> (install it on a phone once if it doesn\'t trust it yet)') +
+        '<br>Phone page: <a href="https://' + location.hostname + ':' + d.port + '/listen" target="_blank">https://' + location.hostname + ':' + d.port + '/listen</a>';
+    }
+    function load() { fetch('/https/info', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(show).catch(function () {}); }
+    document.getElementById('httpsForm').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var msg = document.getElementById('httpsMsg'); msg.textContent = 'Installing…';
+      fetch('/https/cert', {method: 'POST', body: new FormData(ev.target)}).then(function (r) { return r.json(); })
+        .then(function (d) { msg.textContent = d.ok ? 'Installed.' : (d.error || 'Failed'); if (d.ok) show(d); })
+        .catch(function () { msg.textContent = 'Could not reach meet-board.'; });
+    });
+    load();
+  })();
+  </script>
+</section>
 <h3>Board display</h3>
 <section class="card">
         <div class="row">

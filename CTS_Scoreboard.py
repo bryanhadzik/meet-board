@@ -2234,6 +2234,44 @@ def ws_listen_report(d=None):
     _listen_last.clear(); _listen_last.update(out)
     socketio.emit('listen_status', out, namespace='/music')
 
+# --- the phone-mic HTTPS listener's certificate (Settings -> Phone mic) ---
+def _https_folder():
+    return app_paths.data_path('https')
+
+@app.route('/https/info')
+def route_https_info():
+    info = https_server.cert_info(_https_folder())
+    info.update(port=https_server.STATE.get('port') or 0, error=https_server.STATE.get('error') or '')
+    return flask.jsonify(info)
+
+@app.route('/https/cert', methods=['POST'])
+@flask_login.login_required
+def route_https_cert():
+    """Install a certificate + key (e.g. from the home-lab CA). Files or pasted text."""
+    def part(name):
+        f = flask.request.files.get(name)
+        if f and f.filename:
+            return f.read()
+        v = flask.request.form.get(name, '')
+        return v.encode() if v.strip() else None
+    cert, key, ca = part('cert'), part('key'), part('ca')
+    if not cert or not key:
+        return flask.jsonify({'ok': False, 'error': 'send both the certificate and its key'}), 400
+    try:
+        info = https_server.install(_https_folder(), cert, key, ca)
+    except Exception as e:
+        return flask.jsonify({'ok': False, 'error': str(e)}), 400
+    info.update(ok=True, port=https_server.STATE.get('port') or 0, error=https_server.STATE.get('error') or '')
+    return flask.jsonify(info)
+
+@app.route('/https/ca.crt')
+def route_https_ca():
+    """The CA that signed the certificate, for installing on a phone once."""
+    p = os.path.join(_https_folder(), 'ca.pem')
+    if not os.path.exists(p):
+        return flask.abort(404)
+    return flask.send_file(p, mimetype='application/x-x509-ca-cert', as_attachment=True, download_name='meet-board-ca.crt')
+
 @app.route('/listen')
 def route_listen():
     """Phone page: listen from the stands and set the mic's level in the mix."""

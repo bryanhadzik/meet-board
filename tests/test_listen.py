@@ -48,3 +48,67 @@ def test_listen_report_relayed(monkeypatch):
     n = len(sent)
     C.ws_listen_report({'snr': 'x'})
     assert len(sent) == n
+
+
+def _ca_and_leaf(ips):
+    import datetime, ipaddress
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cak = ec.generate_private_key(ec.SECP256R1())
+    can = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'Test Home Lab CA')])
+    ca = (x509.CertificateBuilder().subject_name(can).issuer_name(can).public_key(cak.public_key())
+          .serial_number(1).not_valid_before(now).not_valid_after(now + datetime.timedelta(days=30))
+          .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True).sign(cak, hashes.SHA256()))
+    lk = ec.generate_private_key(ec.SECP256R1())
+    leaf = (x509.CertificateBuilder().subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'meet-board-pool')]))
+            .issuer_name(can).public_key(lk.public_key()).serial_number(2)
+            .not_valid_before(now).not_valid_after(now + datetime.timedelta(days=30))
+            .add_extension(x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address(i)) for i in ips]), critical=False)
+            .sign(cak, hashes.SHA256()))
+    pem = lambda c: c.public_bytes(serialization.Encoding.PEM)
+    key = lambda k: k.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    return pem(ca), pem(leaf), key(lk), key(cak)
+
+
+def test_install_ca_cert_and_serve_it(tmp_path):
+    folder = str(tmp_path / 'https')
+    port = _free_port()
+    https_server.STATE.update(port=0, error='')
+    https_server.start(C.app, port, folder)            # starts with the made-up cert
+    assert https_server.cert_info(folder)['self_signed'] is True
+    ca, leaf, key, other_key = _ca_and_leaf(['127.0.0.1'])
+    try:
+        https_server.install(folder, leaf, other_key, ca)
+        assert False, 'mismatched key accepted'
+    except ValueError:
+        pass
+    assert https_server.cert_info(folder)['self_signed'] is True     # unchanged after a bad install
+    info = https_server.install(folder, leaf, key, ca)
+    assert info['self_signed'] is False and info['issuer'] == 'Test Home Lab CA' and '127.0.0.1' in info['names']
+    assert open(os.path.join(folder, 'ca.pem'), 'rb').read() == ca
+    # the restarted listener now serves the CA-signed cert, and it verifies against the CA
+    cafile = tmp_path / 'ca.pem'; cafile.write_bytes(ca)
+    ctx = ssl.create_default_context(cafile=str(cafile))
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT        # the throwaway test CA is minimal; a real CA's certs are complete
+    body, err = '', None
+    for _ in range(50):
+        try:
+            body = urllib.request.urlopen('https://127.0.0.1:%d/listen' % port, context=ctx, timeout=2).read().decode()
+            break
+        except OSError as e:
+            err = e; time.sleep(0.1)
+    assert 'Listen from the stands' in body, err
+
+
+def test_cert_routes(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, '_https_folder', lambda: str(tmp_path / 'h2'))
+    client = C.app.test_client()
+    ca, leaf, key, _ = _ca_and_leaf(['127.0.0.1'])
+    r = client.post('/https/cert', data={'cert': leaf.decode(), 'key': key.decode(), 'ca': ca.decode()})
+    assert r.status_code == 200 and r.get_json()['issuer'] == 'Test Home Lab CA', r.get_data(as_text=True)
+    assert client.get('/https/ca.crt').data == ca
+    assert client.get('/https/info').get_json()['present'] is True
+    assert client.post('/https/cert', data={'cert': leaf.decode()}).status_code == 400

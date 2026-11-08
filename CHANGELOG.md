@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- **Use your own CA's certificate for the phone-mic page.** Settings -> Phone
+  mic (HTTPS) shows the certificate the https listener serves (who signed it,
+  what addresses it covers, expiry) and installs a certificate + key + CA from
+  your own CA, so a phone that trusts that CA opens `/listen` with no warning.
+  The key is checked against the certificate before anything is replaced, and
+  the listener picks up the new certificate without a restart. `/https/ca.crt`
+  hands out the CA certificate for installing on a phone.
+
+### Added
 - **Check the sound from the stands with your phone** (`/listen`, linked on
   the Music page). Open it on a phone in the seats and tap *Start listening*.
   It knows when the announcer is talking (from the pool PC's mic) and measures
