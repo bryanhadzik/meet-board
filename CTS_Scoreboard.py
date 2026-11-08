@@ -27,6 +27,7 @@ import argparse
 import threading
 import app_paths
 import scb_loader
+import startlist_json
 import meet_board
 from race_book import RaceBook
 from serial_monitor import monitor as serial_mon
@@ -2940,6 +2941,55 @@ def route_health():
         'schedule': settings.get('schedule_filename', ''),
         'watch': _scb_watch.get('message', ''),
     })
+
+# ---------------------------------------------------------------------------
+# Start lists pushed from MeetDeck (or anything else that speaks the format in
+# startlist_json.py). Same effect as loading a .hy3 on the Meet tab, relay
+# swimmers' last names included. Open to other machines on purpose: MeetDeck
+# sends from the browser on the timing laptop, so it needs CORS.
+# ---------------------------------------------------------------------------
+def _cors(resp):
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    resp.headers['Access-Control-Allow-Private-Network'] = 'true'
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+@app.route('/api/startlists', methods=['GET', 'POST', 'OPTIONS'])
+def route_api_startlists():
+    if flask.request.method == 'OPTIONS':
+        return _cors(flask.make_response('', 204))
+    if flask.request.method == 'POST':
+        doc = flask.request.get_json(silent=True, force=True)
+        staged = copy.deepcopy(event_info)
+        try:
+            n_events, n_heats, n_lanes, n_legs = startlist_json.load_into(staged, doc)
+        except startlist_json.StartListError as e:
+            return _cors(flask.make_response(flask.jsonify({'ok': False, 'error': str(e)}), 400))
+        except Exception as e:
+            traceback.print_exc()
+            return _cors(flask.make_response(flask.jsonify({'ok': False, 'error': 'could not read the start list: %s' % e}), 400))
+        backup_schedule()
+        event_info.from_object(staged.to_object())
+        event_info.meet_info = staged.meet_info
+        settings['event_info'] = event_info.to_object()
+        settings['hy3_source'] = settings['event_info']   # .scb reloads borrow its seeds/relay swimmers
+        src = str((doc or {}).get('source') or 'MeetDeck')[:60]
+        meet_name = str(((doc or {}).get('meet') or {}).get('name') or '').strip()
+        settings['schedule_filename'] = '%s%s: %d events, %d heats%s (%s)' % (
+            src, (' - ' + meet_name) if meet_name else '', n_events, n_heats,
+            ', relay swimmers for %d relays' % n_legs if n_legs else '',
+            time.strftime('%a %H:%M'))
+        save_settings()
+        send_event_info()
+        return _cors(flask.jsonify({'ok': True, 'events': n_events, 'heats': n_heats, 'lanes': n_lanes,
+                                    'relays_with_swimmers': n_legs, 'schedule': settings['schedule_filename'],
+                                    'version': __version__}))
+    return _cors(flask.jsonify({'ok': True, 'version': __version__,
+                                'schedule': settings.get('schedule_filename', ''),
+                                'schedule_events': len(event_info.event_names),
+                                'accepts': [startlist_json.FORMAT]}))
 
 @app.route('/standards_clear')
 @flask_login.login_required

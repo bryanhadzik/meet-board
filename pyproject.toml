@@ -33,6 +33,7 @@ only-include = [
     "race_book.py",
     "app_paths.py",
     "scb_loader.py",
+    "startlist_json.py",
     "meet_board.py",
     "updater.py",
     "_version.py",

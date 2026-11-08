@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+- **Start lists from MeetDeck.** `POST /api/startlists` takes the start lists
+  straight from MeetDeck's meet database (Database page -> *Send start lists*,
+  or automatically after scratches and lane moves). It loads like a .hy3 does:
+  event names, heats and lanes, seed times, ages and team names - plus each
+  relay's swimmers' last names in leg order, which .scb start lists can't carry.
+  The Meet tab shows where the schedule came from. A bad push leaves the board
+  unchanged. Answers CORS so MeetDeck can send from the timing laptop's browser.
+  `GET /api/startlists` reports what's loaded. Format: `startlist_json.py`.
+
 ### Changed
 - **Admin pages reorganized.**
   - *Meet* (was Meet Files) is the one place for the meet: its name, start
