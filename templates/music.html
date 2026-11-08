@@ -124,6 +124,10 @@
       <label><input type="checkbox" id="micComp"> Compressor (evens out loud and soft)</label>
       <label><input type="checkbox" id="micDuckOn"> Dip the music while someone talks</label>
     </div>
+    <div class="row2 small" style="margin-top:8px">
+      <span>&#128241; <a href="/listen" target="_blank"><b>Check from the stands</b></a> &mdash; open this on your phone in the seats; it listens and sets the mic's level in the mix.</span>
+      <span id="standsLine" style="font-weight:600">{% if listen_last %}Stands {{ listen_last.at }}: announcer {{ '%+d'|format(listen_last.snr) }} dB over the room{% endif %}</span>
+    </div>
     <div class="autobox" id="micAutoBox" hidden>
       <div><b id="micAutoScene">Listening…</b> <span class="small" id="micAutoWhy"></span></div>
       <div class="small" id="micAutoVals"></div>
@@ -493,6 +497,9 @@ $('micReset').addEventListener('click', function () {
     t = setTimeout(function () { var p = {}; p[k] = v; micSend(p); }, 60);   // live, but not a message per pixel
   });
 });
+socket.on('listen_status', function (d) {
+  $('standsLine').textContent = 'Stands ' + d.at + ': announcer ' + (d.snr >= 0 ? '+' : '') + d.snr + ' dB over the room';
+});
 socket.on('mic_level', function (d) {
   if (SPEAKER) return;
   setMeter(d.db, d.ducking);
@@ -718,7 +725,7 @@ if (SPEAKER) {
     }
     if (now - lastSent > 150) {
       lastSent = now; setMeter(live ? db : -90, ducking);
-      var msg = {db: live ? db : -90, ducking: ducking};
+      var msg = {db: live ? db : -90, ducking: ducking, talk: live && now - lastVoice < 800};
       if (autoOut && (st.mic || {}).auto) { msg.auto = autoOut; renderAutoLive(); }
       socket.emit('mic_level', msg);
     }

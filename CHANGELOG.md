@@ -3,6 +3,24 @@
 ## Unreleased
 
 ### Added
+- **Check the sound from the stands with your phone** (`/listen`, linked on
+  the Music page). Open it on a phone in the seats and tap *Start listening*.
+  It knows when the announcer is talking (from the pool PC's mic) and measures
+  how far the announcer stands above the room - crowd, music - right where
+  people sit. It then turns the mic's *level in the mix* up or down (2 dB at a
+  time, every 8 s at most) to keep the announcer about 12 dB over the room, and
+  says so when the mic is already at 100% and the amp needs turning up. It
+  also checks the tone in the stands and, if the pool is booming, suggests a
+  low-mid cut you can apply with one tap. Every Music page shows the last
+  stands reading. Works alongside mic Auto (that sets the gain at the mic;
+  this sets the level the stands hear).
+- **HTTPS listener on port 5443** (phones only give a page their microphone
+  over https). meet-board makes its own certificate on first start; the phone
+  warns once that the connection isn't private - tap through it. Set
+  `https_port` to 0 in settings.json to turn it off. Needs the `cryptography`
+  package (now a dependency).
+
+### Added
 - **Mic Auto mode** (Music page -> Microphone -> Auto). The speaker tab listens
   to the room between words and works out where you are: *Quiet room*, *Busy
   (warm-up, crowd arriving)* or *Loud (racing, cheering)*. It then sets, on its

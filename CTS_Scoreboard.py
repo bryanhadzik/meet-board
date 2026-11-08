@@ -27,6 +27,7 @@ import argparse
 import threading
 import app_paths
 import scb_loader
+import https_server
 import startlist_json
 import meet_board
 from race_book import RaceBook
@@ -2047,6 +2048,7 @@ def route_music_stream_mute():
 @app.route('/music')
 def route_music():
     return flask.render_template('music.html', speaker='speaker' in flask.request.args,
+                                 listen_last=dict(_listen_last),
                                  songs=_music_songs(), music_folder=_music_folder(),
                                  warmup=_warmup_songs(), warmup_folder=_warmup_folder(),
                                  mic_defaults=music.mic_defaults())
@@ -2201,7 +2203,7 @@ def ws_mic_level(d=None):
         db = max(-90.0, min(0.0, float((d or {}).get('db', -90))))
     except (TypeError, ValueError):
         return
-    out = {'db': round(db, 1), 'ducking': bool((d or {}).get('ducking'))}
+    out = {'db': round(db, 1), 'ducking': bool((d or {}).get('ducking')), 'talk': bool((d or {}).get('talk'))}
     a = (d or {}).get('auto')
     if isinstance(a, dict):      # what auto mode is doing, for the remotes' readout
         keep = {}
@@ -2215,6 +2217,27 @@ def ws_mic_level(d=None):
         keep['ready'] = bool(a.get('ready'))
         out['auto'] = keep
     socketio.emit('mic_level', out, namespace='/music', skip_sid=flask.request.sid)
+
+# Phone in the stands (/listen): what it hears, shown on the Music pages
+_listen_last = {}
+
+@socketio.on('listen_report', namespace='/music')
+def ws_listen_report(d=None):
+    out = {}
+    for k in ('snr', 'room_db', 'speech_db'):
+        try:
+            out[k] = max(-120, min(120, int(round(float((d or {}).get(k))))))
+        except (TypeError, ValueError):
+            return
+    t = time.localtime()
+    out['at'] = '%d:%02d %s' % ((t.tm_hour % 12) or 12, t.tm_min, 'pm' if t.tm_hour >= 12 else 'am')
+    _listen_last.clear(); _listen_last.update(out)
+    socketio.emit('listen_status', out, namespace='/music')
+
+@app.route('/listen')
+def route_listen():
+    """Phone page: listen from the stands and set the mic's level in the mix."""
+    return flask.render_template('listen.html', https_port=https_server.STATE.get('port') or 0)
 
 @socketio.on('speaker_report', namespace='/music')
 def ws_music_report(d=None):
@@ -3394,6 +3417,8 @@ def main():
             main_thread = socketio.start_background_task(target=main_thread_worker)
         socketio.start_background_task(target=scb_watch_worker)
         seed_builtin_logos()
+        # phones need https for their mic (/listen); 0 in settings turns it off
+        https_server.start(app, int(settings.get('https_port', 5443) or 0), app_paths.data_path('https'))
         obs.start()   # connects in the background; retries every 5 s until OBS is up
         socketio.start_background_task(target=stream_mute_worker)
         socketio.start_background_task(target=blackout_worker)

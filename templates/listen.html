@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>meet-board: Listen from the stands</title>
+<style>
+  :root { --bg:#0b1618; --card:#132326; --line:#26383c; --ink:#e8eeee; --dim:#8fa3a8; --ok:#3ddc84; --warn:#f0c96a; --bad:#ff5a6e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  .wrap { max-width:520px; margin:0 auto; padding:16px 16px 40px; }
+  h1 { font-size:20px; margin:4px 0 2px; }
+  .dim { color:var(--dim); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:14px; }
+  .big { font-size:46px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .unit { font-size:16px; font-weight:600; color:var(--dim); }
+  .verdict { font-size:18px; font-weight:700; margin-top:6px; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+  button { font:700 18px "Segoe UI", system-ui, sans-serif; border:0; border-radius:12px; padding:16px; width:100%; cursor:pointer;
+           background:var(--ok); color:#06120d; }
+  button.stop { background:#2a3a3e; color:var(--ink); }
+  button.small { font-size:14px; padding:9px 12px; width:auto; background:#2a3a3e; color:var(--ink); }
+  .meter { height:14px; background:#26383c; border-radius:7px; overflow:hidden; margin-top:10px; position:relative; }
+  .meter i { position:absolute; left:0; top:0; bottom:0; width:0; transition:width .1s linear; }
+  #mRoom i { background:#5b8fe8; } #mSpeech i { background:var(--ok); }
+  .row { display:flex; justify-content:space-between; gap:10px; font-size:14px; margin-top:8px; }
+  .tag { display:inline-block; font:700 11px/1 "Segoe UI", sans-serif; letter-spacing:.08em; padding:5px 8px; border-radius:999px;
+         background:#26383c; color:var(--dim); }
+  .tag.on { background:var(--ok); color:#06120d; }
+  label.tog { display:flex; gap:10px; align-items:center; font-size:15px; margin-top:12px; }
+  label.tog input { width:22px; height:22px; }
+  .log { font-size:13px; color:var(--dim); margin-top:8px; white-space:pre-line; }
+  a { color:#7fd3ff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Listen from the stands</h1>
+  <div class="dim">Hold your phone where the crowd sits while the announcer talks. It measures how far the
+    announcer stands above the room and turns the mic up or down in the mix to match.</div>
+
+  <div class="card" id="needHttps" hidden>
+    <b>This page needs the secure address to use your phone's microphone.</b>
+    <p class="dim">Your phone will warn that the connection isn't private (meet-board makes its own certificate).
+      Tap <i>Show details / Advanced</i>, then <i>visit this website / Proceed</i>. You only do this once.</p>
+    <a id="httpsLink" href="#"><button type="button">Open the secure page</button></a>
+  </div>
+
+  <div class="card" id="mainCard">
+    <button id="go" type="button">Start listening</button>
+    <div class="dim" id="status" style="margin-top:8px">Your phone's mic stays on this phone; only the measurements are sent.</div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-top:0"><span>Announcer over the room</span><span class="tag" id="talkTag">MIC QUIET</span></div>
+    <div><span class="big" id="snr">&ndash;</span> <span class="unit">dB</span></div>
+    <div class="verdict" id="verdict">Waiting for the announcer to talk&hellip;</div>
+    <div class="row"><span>Room (crowd, music)</span><span id="roomDb">&ndash;</span></div>
+    <div class="meter" id="mRoom"><i></i></div>
+    <div class="row"><span>While the announcer talks</span><span id="speechDb">&ndash;</span></div>
+    <div class="meter" id="mSpeech"><i></i></div>
+    <div class="row"><span>Mic level in the mix</span><span id="mixVol">&ndash;</span></div>
+    <label class="tog"><input type="checkbox" id="autoAdj" checked> Adjust the mic level automatically</label>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="card">
+    <b>Tone in the stands</b>
+    <div class="dim" id="tone">Needs a few sentences from the announcer.</div>
+    <div id="eqBox" hidden style="margin-top:10px">
+      <div id="eqText"></div>
+      <button class="small" type="button" id="eqApply" style="margin-top:8px">Apply this EQ</button>
+    </div>
+  </div>
+  <p class="dim" style="margin-top:16px">Aim for about 10&ndash;15 dB: clearly above the cheering, not painful.
+    The mic must be on (Music page) and someone has to be talking for it to measure.</p>
+</div>
+
+<script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
+<script>
+(function () {
+"use strict";
+var HTTPS_PORT = {{ https_port|int }};
+var TARGET = 12, BAND = 3;          // announcer this many dB over the room, +/- BAND before changing anything
+var WINDOW_MS = 12000, ADJ_EVERY_MS = 8000, MAX_STEP_DB = 2;
+function $(id) { return document.getElementById(id); }
+
+// ---- secure context: a phone mic needs https ----
+if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  $('needHttps').hidden = false;
+  if (HTTPS_PORT) $('httpsLink').href = 'https://' + location.hostname + ':' + HTTPS_PORT + '/listen';
+  else { $('httpsLink').hidden = true; $('needHttps').querySelector('p').textContent = 'The secure listener is turned off on the pool PC (Settings).'; }
+  $('go').disabled = true; $('go').style.opacity = .4;
+}
+
+var socket = io.connect(location.protocol + '//' + location.host + '/music');
+var st = {mic: null}, talk = false, talkSince = 0, lastLevelAt = 0;
+socket.on('music_state', function (d) { if (d.mic) st.mic = d.mic; showVol(); });
+socket.on('mic_level', function (d) {
+  lastLevelAt = Date.now();
+  var t = !!(d.talk != null ? d.talk : d.ducking);
+  if (t !== talk) { talk = t; talkSince = Date.now(); }
+  $('talkTag').textContent = talk ? 'ANNOUNCER TALKING' : 'MIC QUIET'; $('talkTag').classList.toggle('on', talk);
+});
+function showVol() { $('mixVol').textContent = st.mic ? Math.round(st.mic.volume * 100) + '%' + (st.mic.on ? '' : ' (mic off)') : '–'; }
+
+// ---- measuring ----
+var ctx, an, buf, fbuf, stream, timer, samples = [], lastAdj = 0, running = false, lastReport = 0;
+function db(x) { return 10 * Math.log10(Math.max(x, 1e-12)); }
+function band(f, lo, hi, hz) {
+  var a = Math.max(1, Math.floor(lo / hz)), b = Math.min(f.length - 1, Math.ceil(hi / hz)), s = 0;
+  for (var i = a; i <= b; i++) s += Math.pow(10, f[i] / 10);
+  return s;
+}
+function start() {
+  navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}})
+    .then(function (s) {
+      stream = s;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      an = ctx.createAnalyser(); an.fftSize = 4096; an.smoothingTimeConstant = 0;
+      ctx.createMediaStreamSource(s).connect(an);
+      buf = new Float32Array(an.fftSize); fbuf = new Float32Array(an.frequencyBinCount);
+      running = true; samples = [];
+      $('go').textContent = 'Stop listening'; $('go').classList.add('stop');
+      $('status').textContent = 'Listening. Keep this page open and the screen on.';
+      try { navigator.wakeLock && navigator.wakeLock.request('screen'); } catch (e) {}
+      timer = setInterval(tick, 100);
+    })
+    .catch(function (e) { $('status').textContent = 'No microphone: ' + (e && e.name === 'NotAllowedError' ? 'allow the mic for this page and try again.' : (e && e.message) || e); });
+}
+function stop() {
+  running = false; clearInterval(timer);
+  if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+  if (ctx) ctx.close();
+  $('go').textContent = 'Start listening'; $('go').classList.remove('stop');
+  $('status').textContent = 'Stopped.';
+}
+$('go').addEventListener('click', function () { running ? stop() : start(); });
+
+function tick() {
+  an.getFloatTimeDomainData(buf);
+  var s = 0; for (var i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+  var p = s / buf.length, now = Date.now();
+  an.getFloatFrequencyData(fbuf);
+  var hz = ctx.sampleRate / an.fftSize;
+  // which bucket: wait a little after the mic changes state (sound travel + network)
+  var kind = null;
+  if (now - lastLevelAt < 2000) {
+    if (talk && now - talkSince > 400) kind = 's';
+    else if (!talk && now - talkSince > 600) kind = 'r';
+  }
+  if (kind) samples.push({t: now, k: kind, p: p, lo: band(fbuf, 200, 500, hz), hi: band(fbuf, 1500, 4000, hz)});
+  while (samples.length && now - samples[0].t > WINDOW_MS) samples.shift();
+  if (now - lastReport > 1000) { lastReport = now; evaluate(now); }
+}
+function mean(arr, f) { var s = 0; arr.forEach(function (x) { s += x[f]; }); return arr.length ? s / arr.length : 0; }
+function meter(id, d) { $(id).querySelector('i').style.width = Math.max(0, Math.min(100, (d + 80) / 70 * 100)) + '%'; }
+
+function evaluate(now) {
+  var sp = samples.filter(function (x) { return x.k === 's'; }), rm = samples.filter(function (x) { return x.k === 'r'; });
+  var rP = mean(rm, 'p'), sP = mean(sp, 'p');
+  if (rm.length) { $('roomDb').textContent = Math.round(db(rP)) + ' dB'; meter('mRoom', db(rP)); }
+  if (sp.length) { $('speechDb').textContent = Math.round(db(sP)) + ' dB'; meter('mSpeech', db(sP)); }
+  if (sp.length < 30 || rm.length < 30) {               // 3 s of each
+    $('verdict').textContent = !st.mic || !st.mic.on ? 'The mic is off (Music page).' : sp.length < 30 ? 'Waiting for the announcer to talk…' : 'Waiting for a pause to hear the room…';
+    $('verdict').className = 'verdict';
+    return;
+  }
+  var voice = sP - rP;                                   // the announcer's own sound, room taken out
+  var snr = voice > 0 ? db(voice) - db(rP) : -10;
+  $('snr').textContent = (snr >= 0 ? '+' : '') + snr.toFixed(0);
+  var cls = snr < TARGET - 6 ? 'bad' : snr < TARGET - BAND ? 'warn' : snr > TARGET + 8 ? 'warn' : 'ok';
+  $('verdict').className = 'verdict ' + cls;
+  $('verdict').textContent = snr < TARGET - 6 ? 'Hard to hear over the room' : snr < TARGET - BAND ? 'A little quiet'
+                            : snr > TARGET + 8 ? 'Louder than it needs to be' : 'Clear in the stands';
+  tone(sp, rm);
+  socket.emit('listen_report', {snr: Math.round(snr), room_db: Math.round(db(rP)), speech_db: Math.round(db(sP))});
+
+  // ride the mic's level in the mix
+  if (!$('autoAdj').checked || !st.mic || !st.mic.on || st.mic.muted || now - lastAdj < ADJ_EVERY_MS) return;
+  var err = TARGET - snr;
+  if (Math.abs(err) <= BAND) return;
+  var step = Math.max(-MAX_STEP_DB, Math.min(MAX_STEP_DB, err * 0.5));
+  var vol = st.mic.volume, nv = Math.max(0.05, Math.min(1, vol * Math.pow(10, step / 20)));
+  lastAdj = now;
+  if (Math.abs(nv - vol) < 0.005) {
+    note(step > 0 ? 'The mic is already at 100% in the mix - turn up the amp or that speaker zone.' : 'The mic is already as low as this page will take it.');
+    return;
+  }
+  socket.emit('music_cmd', {action: 'mic', mic: {volume: Math.round(nv * 100) / 100}});
+  note((step > 0 ? 'Turned the mic up ' : 'Turned the mic down ') + Math.abs(step).toFixed(1) + ' dB (' + Math.round(vol * 100) + '% → ' + Math.round(nv * 100) + '%)');
+  samples = [];                                           // measure again with the new level
+}
+function note(t) {
+  var d = new Date(), hh = d.getHours() % 12 || 12, mm = ('0' + d.getMinutes()).slice(-2);
+  var lines = ($('log').textContent ? $('log').textContent.split('\n') : []).slice(0, 4);
+  lines.unshift(hh + ':' + mm + '  ' + t);
+  $('log').textContent = lines.join('\n');
+}
+
+// ---- tone: natatoriums boom; compare low-mid mud to speech presence at the seats ----
+var eq = null;
+function tone(sp, rm) {
+  var lo = mean(sp, 'lo') - mean(rm, 'lo'), hi = mean(sp, 'hi') - mean(rm, 'hi');
+  if (lo <= 0 || hi <= 0) return;
+  var d = db(lo) - db(hi);                     // how much heavier 200-500 Hz is than 1.5-4 kHz
+  if (d > 12) {
+    var cut = Math.min(8, Math.round(d - 8)), lift = Math.min(4, Math.max(1, Math.round((d - 8) / 2)));
+    eq = {mid_hz: 315, mid_db: -cut, treble_db: lift};
+    $('tone').textContent = 'Boomy: the low-mids are ' + d.toFixed(0) + ' dB over the speech range in the stands.';
+    $('eqText').textContent = 'Suggested: Mid -' + cut + ' dB at 315 Hz, Treble +' + lift + ' dB.';
+    $('eqBox').hidden = false;
+  } else {
+    eq = null; $('eqBox').hidden = true;
+    $('tone').textContent = d < 2 ? 'Bright/thin - fine for speech; if it sounds harsh, take some treble out.' : 'Balanced for speech.';
+  }
+}
+$('eqApply').addEventListener('click', function () {
+  if (!eq) return;
+  socket.emit('music_cmd', {action: 'mic', mic: eq});
+  note('Applied EQ: Mid ' + eq.mid_db + ' dB at ' + eq.mid_hz + ' Hz, Treble +' + eq.treble_db + ' dB');
+  $('eqBox').hidden = true; samples = [];
+});
+})();
+</script>
+</body>
+</html>

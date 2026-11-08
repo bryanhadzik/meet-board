@@ -11,6 +11,7 @@ dependencies = [
     "hytek-parser",
     "transitions",
     "mutagen>=1.48.1",
+    "cryptography>=50.0.2",
 ]
 
 [project.scripts]
@@ -33,6 +34,7 @@ only-include = [
     "race_book.py",
     "app_paths.py",
     "scb_loader.py",
+    "https_server.py",
     "startlist_json.py",
     "meet_board.py",
     "updater.py",
