@@ -136,3 +136,12 @@ def test_one_school_several_codes():
 def test_school_key():
     assert meet_board.school_key('Uintah High School Swim Team') == 'uintah'
     assert meet_board.school_key('Cedar Valley High School Swim') == 'cedar valley'
+
+
+def test_blank_saved_name_falls_back_to_school_name():
+    import meet_board as M
+    st = {'team_colors': {'MILL': {'name': '', 'color': '#ff7f6b'}}}
+    t = M.team_colors(st, ['MILL', 'ZZHS'], {'ZZHS': 'Zebra Valley High School', 'MILL': 'Millard High School'})
+    assert t['MILL']['name'] == 'Millard' and t['MILL']['color'] == '#ff7f6b'
+    assert t['ZZHS']['name'] == 'Zebra Valley'
+    assert M.team_colors({}, ['QQQ'], {})['QQQ']['name'] == ''

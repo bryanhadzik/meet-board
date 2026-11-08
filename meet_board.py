@@ -178,6 +178,22 @@ def team_colors(settings, schedule_teams=(), team_names=None):
         color = palette[i % len(palette)] if palette else FALLBACK_PALETTE[i % len(FALLBACK_PALETTE)]
         merged[code] = {'name': '', 'color': color, 'alt': '', 'auto': True}
         i += 1
+    # A school with no name typed in (a saved row with the name left blank, or
+    # an automatic color) still gets one, so boards show "MILLARD" not "MILL":
+    # the built-in name, else the meet file's team name without "High School".
+    suffix = re.compile(r'\s+(high\s+school|h\.?\s*s\.?|high|school|swim(ming)?(\s+team)?)\s*$', re.I)
+    for code, v in merged.items():
+        if (v.get('name') or '').strip():
+            continue
+        home_code = v.get('alias_of') or code
+        nm = (DEFAULT_TEAM_COLORS.get(home_code) or {}).get('name', '')
+        if not nm:
+            full = ((team_names or {}).get(code) or (team_names or {}).get(home_code) or '').strip()
+            for _ in range(3):
+                full = suffix.sub('', full).strip()
+            nm = full
+        if nm:
+            merged[code] = dict(v, name=nm)
     return merged
 
 

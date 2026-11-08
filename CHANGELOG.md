@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+- A team whose name was left blank on Team Colors showed its code ("MILL") on
+  the boards. It now shows the school's name: the built-in one, or the meet
+  file's team name without "High School".
+
 ### Changed
 - **Meet board relays line up as columns.** In the water, every relay name
   gets the width of the widest one in the heat and the leg names sit in two
