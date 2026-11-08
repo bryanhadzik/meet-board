@@ -23,6 +23,7 @@ So:
   - those results stay up - through the move to the next heat - until the
     next race actually starts (or HOLD_S with no race)
 """
+import collections
 import re
 import time
 
@@ -62,11 +63,17 @@ class RaceBook:
         self.last_clock = None
         self.armed = False         # the clock has been at zero: the next count-up is a start
         self.rising = 0
+        self.log = collections.deque(maxlen=80)   # what the race book decided, and why (Debug page)
+
+    def _note(self, text):
+        clk = str(self.s.get('running_time') or '').strip() or '-'
+        self.log.append((self.clock(), '%s  [clock %s]' % (text.replace('(/)', '(no event)').replace(' / ', ' no event '), clk)))
 
     def _key(self, o):
         return '%s/%s' % (str(o.get('current_event', '')).strip(), str(o.get('current_heat', '')).strip())
 
     def _start(self):
+        self._note('Race started (%s): clock counting up from zero' % self._key(self.s))
         self.racing, self.lanes, self.hold = True, {}, None
 
     def _end(self, heat):
@@ -76,7 +83,10 @@ class RaceBook:
         finals = {i: r['max'] for i, r in self.lanes.items() if r['ran'] and r['max'] > 0}
         self.racing, self.lanes = False, {}
         if not finals:
+            self._note('Race over (%s), no lane times: nothing held' % self._key(heat))
             return
+        self._note('Race over (%s): holding %s' % (self._key(heat), ', '.join(
+            'L%d %s' % (i, fmt(finals[i])) for i in sorted(finals))))
         places = places_for(finals)
         snap = {k: heat.get(k) for k in HEAT_KEYS}
         snap['lanes'] = {}
@@ -98,12 +108,16 @@ class RaceBook:
         old_key = self._key(self.s)
         self.s.update(update)
         if before is not None and self._key(self.s) != old_key:
+            self._note('Heat changed %s -> %s mid-race' % (old_key, self._key(self.s)))
             self._end(before)                       # moved on mid-"race": it's over
         c = secs(self.s.get('running_time'))
         if c is not None:
             if c < 0.05 or (self.last_clock is not None and c < self.last_clock - 1.5):
                 if self.racing and c < 0.05:
+                    self._note('Clock reset to zero')
                     self._end(self.s)
+                if not self.armed:
+                    self._note('Armed: clock at zero/went back, the next count-up is a start')
                 self.armed, self.rising = True, 0
             elif self.armed and self.last_clock is not None and 0 < c - self.last_clock < 5 and c < 20:
                 # two steady ticks up from zero: one odd reading can't start a race
@@ -115,6 +129,7 @@ class RaceBook:
         # server started (or restarted) in the middle of a race
         if (not self.racing and self.hold is None and not self.armed
                 and self.s.get('race_state') == 'Running' and c and c > 0):
+            self._note('Joined a race already running (server started mid-race)')
             self.racing = True
         if not self.racing:
             return
@@ -132,6 +147,22 @@ class RaceBook:
                 rec['at'] = self.clock()
             if not run and rec['ran']:
                 rec['place'] = str(self.s.get('lane_place%d' % i) or '').strip()
+
+    def debug(self):
+        """The race book's state in plain values, for the Debug page."""
+        now = self.clock()
+        return {
+            'racing': self.racing, 'armed': self.armed, 'rising': self.rising,
+            'last_clock': self.last_clock, 'heat': self._key(self.s),
+            'hold': {'heat': self.hold.get('heat_key'), 'age': round(now - self.hold_at, 1),
+                     'expires_in': round(self.HOLD_S - (now - self.hold_at), 1),
+                     'lanes': {k: (v.get('time'), v.get('place')) for k, v in self.hold.get('lanes', {}).items()}}
+            if self.hold else None,
+            'lanes': {str(i): {'ran': r['ran'], 'last': r['last'], 'max': round(r['max'], 2),
+                               'age': round(now - r['at'], 1) if r.get('at') else None, 'place': r.get('place', '')}
+                      for i, r in sorted(self.lanes.items()) if r['ran'] or r['last']},
+            'log': [{'age': round(now - t, 1), 'text': x} for t, x in list(self.log)[::-1]],
+        }
 
     def payload(self):
         hold = self.hold if self.hold and not self.racing and self.clock() - self.hold_at <= self.HOLD_S else None

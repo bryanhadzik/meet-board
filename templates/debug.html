@@ -49,6 +49,9 @@
           .serc .tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; border-radius:4px; padding:1px 6px; background:#e6eef0; color:#22343a; }
           .serc .tag.run { background:#1f8a4c; color:#fff; } .serc .tag.done { background:#0a6b7c; color:#fff; }
           .serc details { margin-top:10px; } .serc summary { cursor:pointer; color:#0a6b7c; font-weight:600; }
+          .serc .dgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+          .serc table.kv td:first-child { color:#5d7379; white-space:nowrap; width:1%; }
+          .serc pre .bad { color:#ff9b8f; } .serc pre .ok { color:#7ee2a0; } .serc pre .dim { color:#7c9aa1; }
           .serc .btnrow { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:13px; color:#5d7379; }
         </style>
         <div class="serc" id="serc">
@@ -86,6 +89,27 @@
             <pre id="ser_raw">-</pre>
             <div style="font-size:12px;color:#5d7379;margin-top:8px">Latest records: raw bytes and what they mean</div>
             <pre id="ser_recent">-</pre>
+          </details>
+          <details id="ser_detbox">
+            <summary>More detail &mdash; connection log, port hardware, garbled records, race clock, race book</summary>
+            <div class="btnrow" style="margin-top:6px">
+              <a class="btn btn-default" href="/api/serial/debug.json">Download debug file</a>
+              <span>Everything below plus the summary above in one .json file &mdash; send it in when the console data looks wrong.</span>
+            </div>
+            <div class="dgrid">
+              <div class="dec"><h4>Port and link</h4><table class="dect kv" id="det_port"></table></div>
+              <div class="dec"><h4>Race book <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; when the board thinks a race is on</span></h4>
+                <table class="dect kv" id="det_rb"></table></div>
+            </div>
+            <div class="dec"><h4>Channels <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; last thing the console sent on each</span></h4>
+              <table class="dect"><thead><tr><th>Channel</th><th>Records</th><th>Last seen</th><th>Last value</th></tr></thead><tbody id="det_ch"></tbody></table></div>
+            <div class="dgrid">
+              <div class="dec"><h4>Race clock changes <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; newest first</span></h4><pre id="det_clock">-</pre></div>
+              <div class="dec"><h4>Race book decisions</h4><pre id="det_rblog">-</pre></div>
+            </div>
+            <div class="dec"><h4>Garbled records <span id="det_badn" style="font-weight:500;letter-spacing:0;text-transform:none"></span></h4><pre id="det_bad">-</pre>
+              <div class="chans" id="det_len"></div></div>
+            <div class="dec"><h4>Connection log <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; opens, errors, silences, format changes</span></h4><pre id="det_log">-</pre></div>
           </details>
           <div class="dec" id="ser_fmtbox">
             <h4>Serial format <span style="font-weight:500;letter-spacing:0;text-transform:none">&mdash; CTS consoles normally send 9600-8N1; some are set differently</span></h4>
@@ -229,7 +253,49 @@
           };
           fetch('/api/serial/autodetect').then(function(r){ return r.json(); }).then(autoShow).catch(function(){});
           fetch('/api/serial/capture').then(function(r){ return r.json(); }).then(capShow).catch(function(){});
-          serPoll(); setInterval(serPoll, 1000);
+          function esc2(x){ return String(x == null ? '' : x).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+          function kv(rows){ return rows.filter(function(r){ return r[1] !== undefined && r[1] !== null && r[1] !== ''; })
+            .map(function(r){ return '<tr><td>' + r[0] + '</td><td class="m">' + esc2(r[1]) + '</td></tr>'; }).join(''); }
+          function secs(v){ return v == null ? '-' : (v < 90 ? v + ' s' : Math.round(v / 60) + ' min'); }
+          window.serDetail = function(){
+            if (!$('ser_detbox').open) return;
+            fetch('/api/serial/detail', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){
+              var pi = d.port_info || {}, st = d.settings || {};
+              $('det_port').innerHTML = kv([
+                ['Device', pi.device || (d.in_file ? 'replaying ' + d.in_file : 'not found on this PC')],
+                ['Adapter', [pi.manufacturer, pi.product || pi.description].filter(Boolean).join(' \u00b7 ')],
+                ['USB VID:PID', pi.vid_pid], ['Adapter serial no.', pi.serial_number], ['Hardware id', pi.hwid],
+                ['Settings in effect', Object.keys(st).length ? [st.format, st.baudrate + ' baud', st.bytesize + ' data bits',
+                   'parity ' + st.parity, st.stopbits + ' stop'].join(', ') : '-'],
+                ['Open since', d.opened_at ? new Date(d.opened_at * 1000).toLocaleTimeString() + ' (' + secs(Math.round(d.now - d.opened_at)) + ')' : '-'],
+                ['Reads with data', d.reads + (d.avg_chunk ? ' (avg ' + d.avg_chunk + ' bytes, max ' + d.max_chunk + ')' : '')],
+                ['Longest silence', secs(d.max_gap) + (d.gaps ? ' \u00b7 ' + d.gaps + ' gap' + (d.gaps === 1 ? '' : 's') + ' over 2 s' : '')],
+                ['Bytes with bit 0 set', d.odd_bit_pct == null ? '-' : d.odd_bit_pct + '% (near 100% = inverted signal)'],
+                ['Garbled records', d.bad_total],
+                ['Versions', d.versions ? 'meet-board ' + d.versions.meet_board + ', pyserial ' + d.versions.pyserial + ', Python ' + d.versions.python : '']]);
+              var rb = d.race_book || {}, h = rb.hold;
+              $('det_rb').innerHTML = kv([
+                ['State', rb.racing ? 'RACING' : (rb.armed ? 'armed (clock at zero, waiting for the start)' : 'idle')],
+                ['Console race state', d.race_state], ['Heat (event/heat)', rb.heat === '/' ? 'no event yet' : rb.heat], ['Last clock', rb.last_clock],
+                ['Lanes this race', Object.keys(rb.lanes || {}).map(function(k){ var l = rb.lanes[k];
+                   return 'L' + k + (l.last ? ' ' + l.last : ' swimming') + (l.place ? ' (P' + l.place + ')' : ''); }).join(', ') || '-'],
+                ['Results held', h ? h.heat + ', for ' + secs(h.age) + ', clears in ' + secs(Math.max(0, h.expires_in)) + ' or at the next start' : 'none']]);
+              $('det_ch').innerHTML = (d.channels || []).map(function(c){
+                return '<tr><td>' + esc2(c.name) + '</td><td class="m">' + c.n + '</td><td class="m">' + secs(c.age) + ' ago</td><td class="m">' + esc2(c.last) + '</td></tr>'; }).join('')
+                || '<tr class="empty"><td colspan="4">nothing yet</td></tr>';
+              $('det_clock').textContent = (d.clock_trace || []).map(function(c){ return ('-' + c.age + 's').padStart(9) + '  ' + c.text; }).join('\n') || '(no race-time records yet)';
+              $('det_rblog').textContent = (rb.log || []).map(function(c){ return ('-' + secs(c.age)).padStart(9) + '  ' + c.text; }).join('\n') || '(nothing decided yet)';
+              $('det_badn').textContent = d.bad_total ? '\u2014 ' + d.bad_total + ' so far, newest first' : '\u2014 none';
+              $('det_bad').innerHTML = (d.bad || []).map(function(b){ return esc2(b.hex.padEnd(27)) + '  <span class="bad">' + esc2(b.why) + '</span>'; }).join('\n') || '<span class="ok">(none \u2014 every record had a clean CTS shape)</span>';
+              var lh = d.len_hist || {};
+              $('det_len').innerHTML = Object.keys(lh).length ? 'Record lengths (bytes): ' + Object.keys(lh).map(function(k){ return '<span>' + k + ' &times;' + lh[k] + '</span>'; }).join('') : '';
+              $('det_log').innerHTML = (d.events || []).map(function(e){
+                var cls = {error:'bad', stalled:'bad', closed:'bad', open:'ok', resumed:'ok', data:'ok'}[e.kind] || 'dim';
+                return '<span class="dim">' + esc2(new Date(e.t * 1000).toLocaleTimeString()) + '</span>  <span class="' + cls + '">' + esc2(e.text) + '</span>' + (e.n > 1 ? ' <span class="dim">\u00d7' + e.n + '</span>' : ''); }).join('\n') || '(nothing yet)';
+            }).catch(function(){});
+          };
+          $('ser_detbox').addEventListener('toggle', serDetail);
+          serPoll(); setInterval(serPoll, 1000); setInterval(serDetail, 2000);
         })();
         </script>
 

@@ -14,6 +14,29 @@ def channel_of(first_byte):
     return ((first_byte & 0x3E) >> 1) ^ 0x1F
 
 
+def record_problem(rec):
+    """Why a record isn't a clean CTS record, in words ('' if it is)."""
+    if not rec:
+        return 'empty'
+    if not (rec[0] & 0x80):
+        return 'no start byte (record began mid-stream)'
+    if len(rec) < 2:
+        return 'start byte with no data'
+    if len(rec) > 9:
+        return 'too long (%d bytes): a start byte was lost' % len(rec)
+    last = -1
+    for i, b in enumerate(rec[1:], 1):
+        if b & 0x80:
+            return 'byte %d has the top bit set' % i
+        p = (b >> 4) & 0x0F
+        if p > 7:
+            return 'byte %d: position %d is past 7' % (i, p)
+        if p <= last:
+            return 'byte %d: position %d after %d (out of order or repeated)' % (i, p, last)
+        last = p
+    return ''
+
+
 def is_valid_record(rec):
     """A real CTS record: a start byte (top bit set) then 1-8 data bytes, each
     (position << 4 | digit) with distinct positions 0-7 in rising order.
@@ -61,21 +84,69 @@ class SerialMonitor:
             self._rate = collections.deque()               # (t, nbytes) in the last 5 s
             self._rec_rate = collections.deque()           # t of records in the last 5 s
             self.attempts = 0
+            # ---- extra detail for the Debug page
+            if not hasattr(self, 'events'):               # the connection log survives counter resets
+                self.events = collections.deque(maxlen=200)    # (t, kind, text, repeats)
+            self.bad = collections.deque(maxlen=20)        # last garbled records, with why
+            self.bad_total = 0
+            self.len_hist = collections.Counter()          # record length -> count
+            self.reads = 0                                 # reads that returned data
+            self.max_chunk = 0                             # biggest single read (a backlog piling up)
+            self.max_gap = 0.0                             # longest silence between bytes since open
+            self.gaps = 0                                  # silences over 2 s
+            self.ch_last = {}                              # channel -> (t, decoded text)
+            self.clock_trace = collections.deque(maxlen=150)  # (t, clock text) when the clock value changes
+            self.settings = {}                             # serial settings in effect
+            self.closed_at = None
+            self._stalled = False
+            self._log('reset', 'Counters reset' + (' for %s' % port if port else ''))
+
+    def _log(self, kind, text, t=None):
+        """Connection log entry (call with the lock held)."""
+        if self.events and self.events[-1][1] == kind and self.events[-1][2] == text:
+            t0, k, x, n = self.events[-1]
+            self.events[-1] = (t or time.time(), k, x, n + 1)     # repeats fold into one line
+        else:
+            self.events.append((t or time.time(), kind, text, 1))
+
+    def log(self, kind, text):
+        with self._lock:
+            self._log(kind, text)
 
     # ---- called from the reader thread
     def opening(self, port):
         with self._lock:
+            retry = self.state == 'error'
             self.port, self.state, self.source = port, 'opening', 'serial'
             self.attempts += 1
+            if not retry:                       # retries after a failure fold into the error line
+                self._log('opening', 'Opening %s' % (port or '(none)'))
 
-    def opened(self, port):
+    def opened(self, port, settings=None):
         with self._lock:
             self.port, self.state, self.error = port, 'open', ''
             self.opened_at = time.time()
+            self.settings = dict(settings or {})
+            self._log('open', 'Opened %s %s' % (port, ' '.join('%s=%s' % kv for kv in sorted(self.settings.items()))))
+
+    def closed(self, port, why=''):
+        with self._lock:
+            if self.state == 'open':
+                self.state = 'closed'
+            self.closed_at = time.time()
+            self._log('closed', 'Closed %s%s' % (port, ' (%s)' % why if why else ''))
+
+    def chunk(self, n):
+        """One read from the port returned n bytes."""
+        with self._lock:
+            self.reads += 1
+            if n > self.max_chunk:
+                self.max_chunk = n
 
     def failed(self, port, err):
         with self._lock:
             self.port, self.state, self.error = port, 'error', str(err)
+            self._log('error', '%s: %s: %s' % (port or '(none)', type(err).__name__, err))
 
     def replay(self, name):
         with self._lock:
@@ -113,6 +184,16 @@ class SerialMonitor:
         with self._lock:
             if self.capture is not None:
                 self.capture.append(c)
+            if self.last_byte_at is not None:
+                gap = now - self.last_byte_at
+                if gap > self.max_gap:
+                    self.max_gap = gap
+                if gap > 2:
+                    self.gaps += 1
+                    self._log('resumed', 'Data resumed after %.1f s of silence' % gap, now)
+            elif self.bytes_total == 0:
+                self._log('data', 'First byte received', now)
+            self._stalled = False
             self.bytes_total += 1
             if c & 0x80:
                 self.high_bytes += 1
@@ -131,17 +212,26 @@ class SerialMonitor:
             return
         now = time.time()
         ch = channel_of(rec[0])
+        text = decode_record(rec)
+        hexs = ' '.join('%02X' % b for b in rec)
+        why = record_problem(rec)
         with self._lock:
             self.records_total += 1
-            if is_valid_record(rec):
+            self.len_hist[len(rec)] += 1
+            if why:
+                self.bad_total += 1
+                self.bad.append({'t': round(now, 2), 'hex': hexs, 'why': why})
+            else:
                 self.valid_total += 1
             self.by_channel[ch] += 1
+            self.ch_last[ch] = (now, text)
             self.last_record_at = now
             if ch == 0:
                 self.last_clock_at = now
+                if not self.clock_trace or self.clock_trace[-1][1] != text:
+                    self.clock_trace.append((now, text))
             self._rec_rate.append(now)
-            self.recent.append({'t': round(now, 2), 'ch': ch, 'hex': ' '.join('%02X' % b for b in rec),
-                                'text': decode_record(rec)})
+            self.recent.append({'t': round(now, 2), 'ch': ch, 'hex': hexs, 'text': text})
 
     # ---- read side
     def snapshot(self):
@@ -173,6 +263,34 @@ class SerialMonitor:
             }
         snap['verdict'], snap['hint'] = self._verdict(snap)
         return snap
+
+    def detail(self):
+        """Everything the Debug page's detail panel shows (and the debug download carries)."""
+        now = time.time()
+        with self._lock:
+            idle = (now - self.last_byte_at) if self.last_byte_at else None
+            if idle is not None and idle > 5 and not self._stalled and self.state == 'open':
+                self._stalled = True
+                self._log('stalled', 'No data for 5 s', self.last_byte_at + 5)
+            name = lambda ch: _CH_NAMES.get(ch, 'lane %d' % ch if 1 <= ch <= 10 else 'ch %d' % ch)
+            return {
+                'now': round(now, 2),
+                'settings': dict(self.settings),
+                'opened_at': round(self.opened_at, 2) if self.opened_at else None,
+                'closed_at': round(self.closed_at, 2) if self.closed_at else None,
+                'reads': self.reads, 'max_chunk': self.max_chunk,
+                'avg_chunk': round(self.bytes_total / self.reads, 1) if self.reads else None,
+                'max_gap': round(self.max_gap, 2), 'gaps': self.gaps,
+                'bad_total': self.bad_total,
+                'bad': list(self.bad)[::-1],
+                'len_hist': {str(k): v for k, v in sorted(self.len_hist.items())},
+                'odd_bit_pct': round(100.0 * self.odd_bytes / self.bytes_total, 1) if self.bytes_total else None,
+                'channels': [{'ch': ch, 'name': name(ch), 'n': self.by_channel[ch], 'age': round(now - t, 1), 'last': txt}
+                             for ch, (t, txt) in sorted(self.ch_last.items())],
+                'clock_trace': [{'age': round(now - t, 1), 'text': x} for t, x in list(self.clock_trace)[::-1]],
+                'events': [{'t': round(t, 2), 'age': round(now - t, 1), 'kind': k, 'text': x, 'n': n}
+                           for t, k, x, n in list(self.events)[::-1]],
+            }
 
     def _clean_pct(self):
         """% of the data that decodes as real CTS. Normal signal: records with a

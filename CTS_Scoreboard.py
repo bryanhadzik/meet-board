@@ -611,7 +611,7 @@ def main_thread_worker():
                     raise serial.SerialException('no serial port selected')
                 with serial.Serial(port, timeout=0, **serial_params(fmt)) as f:
                     print("Reading CTS data from %s (%s)" % (port, fmt))
-                    serial_mon.opened(port)
+                    serial_mon.opened(port, dict(serial_params(fmt), format=fmt))
                     rf = cts_signal.Reframer(cts_signal.is_inverted(fmt))
                     serial_mon.inverted = rf.inverted
                     confirm = cts_signal.Confirmer() if rf.inverted else None
@@ -623,6 +623,7 @@ def main_thread_worker():
                         if not chunk:
                             socketio.sleep(0.01)
                             continue
+                        serial_mon.chunk(len(chunk))
                         for raw in chunk:
                             serial_mon.byte(raw)
                             for c in rf.feed(raw):
@@ -633,6 +634,8 @@ def main_thread_worker():
                                             parse_line(l, j)
                                     l = []
                                 l.append(c)
+                    serial_mon.closed(port, 'port changed in settings' if port != settings['serial_port']
+                                      else 'serial format changed to %s' % (settings.get('serial_format') or '9600-8N1'))
             except Exception as e:
                 serial_mon.failed(port, e)
                 if str(e) != last_error:
@@ -2759,6 +2762,49 @@ def route_api_serial():
     return flask.jsonify(snap)
 
 
+def _serial_detail():
+    """The Debug page's detail panel: connection log, port hardware, garbled records,
+    timing, the race clock as it changed and what the race book decided."""
+    d = serial_mon.detail()
+    port = serial_mon.port
+    d['port_info'] = None
+    try:
+        import serial.tools.list_ports
+        for p in serial.tools.list_ports.comports():
+            if p.device == port:
+                d['port_info'] = {k: getattr(p, k, None) for k in ('device', 'description', 'hwid', 'manufacturer',
+                                                                    'product', 'serial_number', 'location')}
+                if getattr(p, 'vid', None) is not None:
+                    d['port_info']['vid_pid'] = '%04X:%04X' % (p.vid, p.pid or 0)
+    except Exception as e:
+        d['port_info'] = {'error': str(e)}
+    d['race_book'] = race_book.debug()
+    d['race_state'] = race_fsm.state_name
+    try:
+        import platform
+        d['versions'] = {'meet_board': __version__, 'python': platform.python_version(),
+                         'pyserial': getattr(serial, '__version__', '?'), 'os': platform.platform()}
+    except Exception:
+        d['versions'] = {'meet_board': __version__}
+    d['in_file'] = os.path.basename(in_file) if in_file else ''
+    return d
+
+
+@app.route('/api/serial/detail')
+def route_api_serial_detail():
+    return flask.jsonify(_serial_detail())
+
+
+@app.route('/api/serial/debug.json')
+def route_api_serial_debug_download():
+    """One file with everything: send it in when the console data looks wrong."""
+    data = {'summary': route_api_serial().get_json(), 'detail': _serial_detail(),
+            'settings': {k: settings.get(k) for k in ('serial_port', 'serial_format', 'update_interval')}}
+    name = 'meet-board-serial-debug-%s.json' % time.strftime('%Y%m%d-%H%M%S')
+    return flask.Response(json.dumps(data, indent=1, default=str), mimetype='application/json',
+                          headers={'Content-Disposition': 'attachment; filename="%s"' % name})
+
+
 _autodetect = {'running': False, 'results': [], 'message': ''}
 
 
@@ -2770,6 +2816,7 @@ def _autodetect_worker():
     try:
         for fmt in SERIAL_FORMATS:
             _autodetect['message'] = 'Trying %s...' % fmt
+            serial_mon.log('format', 'Find the right format: trying %s' % fmt)
             settings['serial_format'] = fmt
             socketio.sleep(1.0)                      # reader reopens with the new format
             serial_mon.reset(serial_mon.port, serial_mon.state, serial_mon.source)
@@ -2830,9 +2877,11 @@ def route_api_serial_format():
     fmt = (flask.request.get_json(silent=True) or flask.request.form or {}).get('format', '')
     if fmt not in SERIAL_FORMATS:
         return flask.jsonify({'ok': False, 'message': 'unknown format'}), 400
+    old = settings.get('serial_format') or '9600-8N1'
     settings['serial_format'] = fmt
     save_settings()
     serial_mon.reset(serial_mon.port, serial_mon.state, serial_mon.source)
+    serial_mon.log('format', 'Serial format set to %s (was %s) on the Debug page' % (fmt, old))
     return flask.jsonify({'ok': True, 'format': fmt})
 
 
