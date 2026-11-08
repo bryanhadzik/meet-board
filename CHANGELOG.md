@@ -3,6 +3,14 @@
 ## Unreleased
 
 ### Added
+- **Every UHSAA 3A and 4A school built in** (2025-27 alignment, 51 schools):
+  name, board colors (from MaxPreps, lifted to read on the dark board), logo
+  and classification. 34 schools are new, each with a team code and a few
+  other codes; any code is also matched to its school by the school name in
+  the meet file. Wasatch is classed 6A (it swims up). Change any of them on
+  Team Colors.
+
+### Added
 - Built-in team names and colors for Ogden (OGDEN), Logan (LHS), St. Joseph
   (SJCHS), Ben Lomond (BLHS) and Fremont (FREM, also FHS / FREMONT), with
   their classifications.

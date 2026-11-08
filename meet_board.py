@@ -46,6 +46,43 @@ DEFAULT_TEAM_COLORS = {
     'SJCHS': {'name': 'St. Joseph',     'color': '#2FB872', 'alt': '#E0A630'},  # green, gold
     'BLHS':  {'name': 'Ben Lomond',     'color': '#EE4256', 'alt': '#6FB0F0'},  # red, Columbia blue, white
     'FREM':  {'name': 'Fremont',        'color': '#3D7FE8', 'alt': '#A5ACAF', 'aliases': ['FHS', 'FREMONT']},  # blue, silver
+    # Every other UHSAA 2025-27 3A and 4A school. Colors from MaxPreps (logo when
+    # MaxPreps has none), lifted to read on the dark board; codes are guesses at
+    # what Meet Manager files use - a school is also matched by its name.
+    'LCA':   {'name': 'Layton Christian Academy',  'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['LCAHS']},  # 3A R12
+    'LPA':   {'name': 'Liahona',                   'color': '#0461E4', 'alt': '#C8880A', 'aliases': ['LIAH']},  # 3A R12
+    'MANTI': {'name': 'Manti',                     'color': '#D60024', 'alt': '#E8EEEE'},  # 3A R13
+    'NSAN':  {'name': 'North Sanpete',             'color': '#D60024', 'alt': '#E8EEEE'},  # 3A R13
+    'UNION': {'name': 'Union',                     'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['UNHS']},  # 3A R13
+    'CVHS':  {'name': 'Canyon View',               'color': '#108073', 'alt': '#9AA6AB', 'aliases': ['CANYV']},  # 3A R14
+    'DELTA': {'name': 'Delta',                     'color': '#D60024', 'alt': '#9AA6AB'},  # 3A R14
+    'JUAB':  {'name': 'Juab',                      'color': '#D60024', 'alt': '#C8880A', 'aliases': ['JUABH']},  # 3A R14
+    'PHHS':  {'name': 'Providence Hall',           'color': '#0460DE', 'alt': '#D60024', 'aliases': ['PROVH']},  # 3A R14
+    'RICH':  {'name': 'Richfield',                 'color': '#0461E4', 'alt': '#D60024'},  # 3A R14
+    'DCHS':  {'name': 'Deer Creek',                'color': '#0460DE', 'alt': '#9AA6AB', 'aliases': ['DEERC']},  # 4A R8
+    'MVHS':  {'name': 'Mountain View',             'color': '#D60024', 'alt': '#C8880A', 'aliases': ['MTNV']},  # 4A R8
+    'OREM':  {'name': 'Orem',                      'color': '#0461E4', 'alt': '#C8880A'},  # 4A R8
+    'PROVO': {'name': 'Provo',                     'color': '#00824B', 'alt': '#E8EEEE'},  # 4A R8
+    'SAHS':  {'name': 'Summit Academy',            'color': '#0460DE', 'alt': '#C8880A'},  # 4A R8
+    'WASCH': {'name': 'Wasatch',                   'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['WASAT']},  # 4A R8
+    'CEDAR': {'name': 'Cedar',                     'color': '#D60024', 'alt': '#C8880A', 'aliases': ['CEDHS']},  # 4A R9
+    'CCHS':  {'name': 'Crimson Cliffs',            'color': '#0461E4', 'alt': '#D60024', 'aliases': ['CRIMS']},  # 4A R9
+    'DHHS':  {'name': 'Desert Hills',              'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['DESH']},  # 4A R9
+    'DIXIE': {'name': 'Dixie',                     'color': '#0461E4', 'alt': '#E8EEEE', 'aliases': ['DXHS']},  # 4A R9
+    'HURR':  {'name': 'Hurricane',                 'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['HURHS']},  # 4A R9
+    'PVHS':  {'name': 'Pine View',                 'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['PINEV']},  # 4A R9
+    'SCHS':  {'name': 'Snow Canyon',               'color': '#0460DE', 'alt': '#00824B', 'aliases': ['SNOWC']},  # 4A R9
+    'UAA':   {'name': 'Utah Arts Academy',         'color': '#90D0F0', 'alt': '#E8EEEE'},  # 4A R9
+    'VISTA': {'name': 'Vista School',              'color': '#D01717', 'alt': '#E8EEEE'},  # 4A R9
+    'CITYA': {'name': 'City Academy',              'color': '#909050', 'alt': '#277527'},  # 4A R10
+    'CTWD':  {'name': 'Cottonwood',                'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['COTT']},  # 4A R10
+    'EAST':  {'name': 'East',                      'color': '#D60024', 'alt': '#E8EEEE'},  # 4A R10
+    'HIGH':  {'name': 'Highland',                  'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['HIGHL']},  # 4A R10
+    'JORD':  {'name': 'Jordan',                    'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['JORDN']},  # 4A R10
+    'JDCHS': {'name': 'Juan Diego',                'color': '#0460DE', 'alt': '#1580A5', 'aliases': ['JDIEGO']},  # 4A R10
+    'JMCHS': {'name': 'Judge Memorial',            'color': '#D60024', 'alt': '#C8880A', 'aliases': ['JUDGE']},  # 4A R10
+    'MURR':  {'name': 'Murray',                    'color': '#CC4E10', 'alt': '#9AA6AB'},  # 4A R10
+    'PCHS':  {'name': 'Park City',                 'color': '#D60024', 'alt': '#E8EEEE', 'aliases': ['PARKC']},  # 4A R10
 }
 
 # Board-safe fallback colors for teams nobody has configured yet, handed out
@@ -422,6 +459,14 @@ DEFAULT_TEAM_CLASS = {
     'TOOEL': '4A', 'STAN': '4A', 'DPEAK': '4A', 'GHS': '3A',
     'BRHS': '4A', 'SVHS': '4A', 'MCHS': '4A', 'RIDGE': '4A', 'GCHS': '4A',
     'MOR': '3A', 'OGDEN': '3A', 'LHS': '3A', 'BLHS': '3A', 'SJCHS': '2A', 'FREM': '5A',
+    # rest of 3A/4A (Wasatch swims up in 6A Region 3)
+    'DCHS': '4A', 'MVHS': '4A', 'OREM': '4A', 'PROVO': '4A', 'SAHS': '4A', 'TIMP': '4A',
+    'UHS': '4A', 'WASCH': '6A', 'CEDAR': '4A', 'CCHS': '4A', 'DHHS': '4A', 'DIXIE': '4A',
+    'HURR': '4A', 'PVHS': '4A', 'SCHS': '4A', 'UAA': '4A', 'VISTA': '4A', 'CTWD': '4A',
+    'EAST': '4A', 'HIGH': '4A', 'JORD': '4A', 'JDCHS': '4A', 'JMCHS': '4A', 'MURR': '4A',
+    'PCHS': '4A', 'CITYA': '4A', 'LCA': '3A', 'LPA': '3A', 'CARB': '3A', 'EMERY': '3A',
+    'MANTI': '3A', 'NSAN': '3A', 'UNION': '3A', 'CVHS': '3A', 'DELTA': '3A', 'JUAB': '3A',
+    'PHHS': '3A', 'RICH': '3A',
 }
 
 
