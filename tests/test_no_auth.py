@@ -23,3 +23,15 @@ def test_board_style_saved_and_sent(monkeypatch):
     assert C.settings['board_style'] == 'lanes'
     client.post('/team_colors', data={'board_style': 'bogus'})
     assert C.settings['board_style'] == 'lanes'
+
+
+def test_alias_code_not_split_off_as_its_own_team(monkeypatch):
+    """Saving the form must not turn SHS (Stansbury's other code) into a separate, nameless team."""
+    monkeypatch.setattr(C, 'save_settings', lambda: None)
+    client = C.app.test_client()
+    client.post('/team_colors', data={'code': ['STAN', 'SHS', 'MILL'],
+                                      'name_STAN': 'Stansbury', 'aliases_STAN': 'SHS', 'color_STAN': '#3d8bf5',
+                                      'name_SHS': '', 'color_SHS': '#e57ab8',
+                                      'name_MILL': '', 'color_MILL': '#ff7f6b'})
+    saved = C.settings['team_colors']
+    assert 'SHS' not in saved and 'STAN' in saved and 'MILL' in saved

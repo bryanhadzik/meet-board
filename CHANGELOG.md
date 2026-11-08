@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+- **Stansbury no longer splits in two on Team Colors.** Saving the page kept
+  a nameless row for SHS (Stansbury's other code) with an auto color, which
+  then showed as its own team; codes another school claims are no longer
+  saved unless you give them a name. Same for DPHS (Deseret Peak).
+- Team Colors shows each school's logo even when it's saved under its other
+  code (STAN shows the SHS logo).
+
 ### Added
 - **Every UHSAA 3A and 4A school built in** (2025-27 alignment, 51 schools):
   name, board colors (from MaxPreps, lifted to read on the dark board), logo

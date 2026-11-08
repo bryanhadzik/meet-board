@@ -3180,8 +3180,18 @@ def route_team_colors():
         new_code = flask.request.form.get('new_code', '').strip().upper()[:6]
         if new_code:
             codes.add(new_code)
+        # codes another school lists as its own (typed here or built in): a
+        # nameless row for one of those is just the auto color the form carried
+        # along - saving it would split it off as a separate "team"
+        claimed = set()
+        for c in codes:
+            claimed.update(a for a in re.split(r'[\s,;/]+', flask.request.form.get('aliases_' + c, '').upper()) if a and a != c)
+        for c, v in meet_board.DEFAULT_TEAM_COLORS.items():
+            claimed.update(a.upper() for a in v.get('aliases', []) if a.upper() != c)
         for code in codes:
             if flask.request.form.get('reset_' + code):
+                continue
+            if code in claimed and not flask.request.form.get('name_' + code, '').strip():
                 continue
             aliases = [a for a in re.split(r'[\s,;/]+', flask.request.form.get('aliases_' + code, '').upper())
                        if a and a != code and team_logos.valid_code(a)][:8]
@@ -3213,7 +3223,7 @@ def route_team_colors():
                                  home_team=settings.get('board_home_team') or settings.get('team_home_tag', ''),
                                  board_style=settings.get('board_style', 'classic'),
                                  board_styles=meet_board.BOARD_STYLES,
-                                 logos=_meet_logos(teams_in_meet),
+                                 logos=_meet_logos(order),   # STAN shows the logo saved as SHS
                                  score_teams=[(k, label, settings.get(k, ''), settings.get(k + '_tag', ''))
                                               for k, label in (('team_home', 'Home'), ('team_guest1', 'Guest 1'),
                                                                ('team_guest2', 'Guest 2'), ('team_guest3', 'Guest 3'))],
