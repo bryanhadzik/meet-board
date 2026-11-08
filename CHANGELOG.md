@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+- **Meet board relays line up as columns.** In the water, every relay name
+  gets the width of the widest one in the heat and the leg names sit in two
+  aligned columns, so the legs start at the same place on every row; a long
+  surname only shortens when there truly isn't room. The lane number sits
+  tighter to the colour stripe and the relay name is a touch smaller, which
+  gives the names more room.
+
 ### Added
 - **Use your own CA's certificate for the phone-mic page.** Settings -> Phone
   mic (HTTPS) shows the certificate the https listener serves (who signed it,

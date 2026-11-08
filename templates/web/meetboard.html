@@ -57,11 +57,18 @@
   .nm .legs { font-size:1.5cqw; font-weight:500; opacity:.78; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; }
   /* In the water: relay name on the left, the four legs' last names in the
      space before the team column, two over two in a small font */
-  .colL .nm.relay { flex-direction:row; align-items:center; justify-content:flex-start; gap:1.4cqw; }
-  .colL .nm.relay .nm1 { flex:0 0 auto; font-size:2.95cqw; max-width:45%; }
+  .colL .nm.relay { flex-direction:row; align-items:center; justify-content:flex-start; gap:1.1cqw; }
+  .colL .nm.relay .nm1 { flex:0 0 auto; font-size:2.6cqw; max-width:45%; }
   .colL .nm .legs { flex:1; min-width:0; display:grid; grid-template-columns:repeat(2, minmax(0, max-content));
-                    gap:.15cqw 2cqw; font-size:1.35cqw; line-height:1.15; opacity:.85; }
+                    gap:.15cqw 1.4cqw; font-size:1.35cqw; line-height:1.15; opacity:.85; }
   .colL .nm .legs span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* Line the relays up as columns: alignLeft() sets these from the widest
+     relay name / leg in the heat, so every row's legs start at the same x */
+  .colL .nm.relay .nm1 { width:var(--rn, auto); }
+  .colL .nm .legs { grid-template-columns:var(--lg1, minmax(0, max-content)) var(--lg2, minmax(0, max-content)); }
+  /* lane number tucked in toward the stripe: more room for names */
+  .colL .ln { width:2.2cqw; margin-right:-.3cqw; text-align:left; padding-left:.15cqw; }
+  .colL .colhead .h-sp.lnsp { width:1.9cqw; }
   .tm { font-size:1.5cqw; font-weight:700; letter-spacing:.06em; flex:0 0 auto; width:8cqw; color:var(--tc, #7d9aa1);
         white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tmr { font-size:2.95cqw; font-variant-numeric:tabular-nums; text-align:right; width:13cqw; padding-right:.5cqw; flex:0 0 auto; color:#dfe9ea; }
@@ -312,6 +319,37 @@ function schoolName(team){
   var t = (s.team_colors || {})[team];
   return (t && t.name ? t.name : team || '').toUpperCase();
 }
+// In the water: give every relay name, and each column of leg names, the width
+// of the widest one in the heat, so the columns line up row to row. The name
+// may take at most 45% of the name cell; anything past that still ellipsizes.
+function alignLeft(box){
+  var col = box.closest('.colL') || box, rows = box.querySelectorAll('.nm.relay');
+  ['--rn', '--lg1', '--lg2'].forEach(function(k){ col.style.removeProperty(k); });
+  if (!rows.length) return;
+  var rn = 0, c1 = 0, c2 = 0, cell = 0;
+  rows.forEach(function(r){
+    var n = r.querySelector('.nm1');
+    if (n) rn = Math.max(rn, n.scrollWidth);
+    cell = Math.max(cell, r.clientWidth);
+    r.querySelectorAll('.legs span').forEach(function(sp, i){
+      if (i % 2) c2 = Math.max(c2, sp.scrollWidth); else c1 = Math.max(c1, sp.scrollWidth);
+    });
+  });
+  if (!cell) return;
+  var nameW = Math.min(rn + 2, cell * 0.45);
+  col.style.setProperty('--rn', nameW + 'px');
+  // what is left after the name and the gaps goes to the legs, shared in proportion
+  var gap = parseFloat(getComputedStyle(rows[0]).columnGap) || 0;
+  var lg = rows[0].querySelector('.legs'), lgGap = lg ? parseFloat(getComputedStyle(lg).columnGap) || 0 : 0;
+  var room = cell - nameW - gap - lgGap - 2;
+  if (c1 + c2 > room) {                // short column keeps its width, the long one gets the rest
+    var half = room / 2;
+    if (c1 <= half) c2 = room - c1; else if (c2 <= half) c1 = room - c2; else { c1 = half; c2 = half; }
+  }
+  col.style.setProperty('--lg1', Math.max(0, Math.floor(c1) + 1) + 'px');
+  col.style.setProperty('--lg2', Math.max(0, Math.floor(c2) + 1) + 'px');
+}
+window.addEventListener('resize', function(){ var b = document.getElementById('rowsL'); if (b) alignLeft(b); });
 // Name cell; relays get their legs' last names on a second, smaller line
 function nameCell(name, team, legs){
   legs = (legs || []).filter(function(x){ return trim(x); });
@@ -425,10 +463,11 @@ function renderCurrent(){
     r.appendChild(el('div','pl mono', L.fin ? L.place : ''));
     box.appendChild(r);
   });
+  alignLeft(box);
   // Column headings: DROP = seconds under the seed time
   var h = document.getElementById('headL'); h.textContent = '';
   var pre = !B.racing && !holding && /PreRace$/.test(s.race_state || '');
-  h.appendChild(el('div','h-ln')); h.appendChild(el('div','h-sp'));
+  h.appendChild(el('div','h-ln')); h.appendChild(el('div','h-sp lnsp'));
   if (logos) { var lg = el('div','h-sp'); lg.style.width = '3.4cqw'; h.appendChild(lg); }
   h.appendChild(el('div','h-nm', ''));
   h.appendChild(el('div','h-tm' + (logos ? '' : ' code'), 'TEAM'));
