@@ -2451,6 +2451,7 @@ def route_settings():
                     settings['event_info'] = event_info.to_object()
                     settings['hy3_source'] = settings['event_info']   # .scb reloads borrow its seeds/relay swimmers
                     settings['schedule_filename'] = file.filename
+                    settings['schedule_meet'] = None   # a .hy3 from Meet Manager: not a MeetDeck meet
                     send_event_info()
                     modified = True
         
@@ -3179,6 +3180,9 @@ def route_api_startlists():
         event_info.from_object(staged.to_object())
         event_info.meet_info = staged.meet_info
         _store_usc(doc)
+        m = (doc or {}).get('meet') or {}
+        settings['schedule_meet'] = {'id': str(m.get('id') or '')[:40], 'name': str(m.get('name') or '')[:120],
+                                     'date': str(m.get('date') or '')[:20]}
         settings['event_info'] = event_info.to_object()
         settings['hy3_source'] = settings['event_info']   # .scb reloads borrow its seeds/relay swimmers
         src = str((doc or {}).get('source') or 'MeetDeck')[:60]
@@ -3193,6 +3197,7 @@ def route_api_startlists():
                                     'relays_with_swimmers': n_legs, 'schedule': settings['schedule_filename'],
                                     'version': __version__}))
     return _cors(flask.jsonify({'ok': True, 'version': __version__,
+                                'meet': settings.get('schedule_meet') or None,
                                 'schedule': settings.get('schedule_filename', ''),
                                 'schedule_events': len(event_info.event_names),
                                 'accepts': [startlist_json.FORMAT]}))

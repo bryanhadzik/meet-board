@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- `GET /api/startlists` returns the loaded MeetDeck meet (`meet: {id, name, date}`),
+  so MeetDeck can flag a board that still has another meet loaded.
 - **This season's state standings** (from utahswimcoach.com, sent with MeetDeck
   start lists). On the blocks each ranked swimmer shows their class rank
   ("4A #12") in a STATE RANK column; a finish faster than their season best

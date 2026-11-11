@@ -38,3 +38,9 @@ def test_plain_start_list_clears_old_standings(clean):
     C._store_usc(DOC)
     C._store_usc({"events": [{"number": 3, "heats": []}]})
     assert C._usc_lane(3, "STAN", "Ava Cox") is None and C.settings["usc_src"] == {}
+
+
+def test_startlist_get_echoes_the_meet(monkeypatch, clean):
+    monkeypatch.setitem(C.settings, "schedule_meet", {"id": "abc123", "name": "Fremont @ Tooele", "date": "2026-11-12"})
+    g = C.app.test_client().get("/api/startlists").get_json()
+    assert g["meet"]["id"] == "abc123"
