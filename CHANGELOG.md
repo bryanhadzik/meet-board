@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Changed
+- The launcher shows the new icon (it was stuck on the old one) and puts a
+  meet-board shortcut with that icon on the desktop the first time it opens.
 - New, festive icon: a scoreboard with fireworks (exe, tray shortcut, browser tab).
   Source is assets/meet-board.svg.
 
