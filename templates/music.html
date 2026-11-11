@@ -119,7 +119,6 @@
     </div>
   </div>
 
-  {% if not speaker %}
   <h2>Announcements</h2>
   <div class="card" id="annCard">
     <div class="ann">
@@ -140,7 +139,6 @@
       <span class="small" id="annInfo"></span>
     </div>
   </div>
-  {% endif %}
 
   <h2>Microphone</h2>
   <div class="card mic" id="micCard">
@@ -606,8 +604,8 @@ $('up').addEventListener('submit', function (ev) {
 });
 
 
-/* ---------------- announcements (remote) ---------------- */
-if (!SPEAKER) {
+/* ---------------- announcements (remote and speaker tab) ---------------- */
+{
   var ANN = null;
   var annPost = function (body) {
     return fetch('/api/announce', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
