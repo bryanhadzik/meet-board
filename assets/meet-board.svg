@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a2b52"/>
+      <stop offset="1" stop-color="#0a1226"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffd23f" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ffd23f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+  <!-- fireworks -->
+  <g stroke-linecap="round" stroke-width="6">
+    <g stroke="#ff4d6d" transform="translate(62 62)">
+      <line x1="0" y1="-14" x2="0" y2="-30"/><line x1="0" y1="14" x2="0" y2="30"/>
+      <line x1="-14" y1="0" x2="-30" y2="0"/><line x1="14" y1="0" x2="30" y2="0"/>
+      <line x1="10" y1="10" x2="21" y2="21"/><line x1="-10" y1="-10" x2="-21" y2="-21"/>
+      <line x1="10" y1="-10" x2="21" y2="-21"/><line x1="-10" y1="10" x2="-21" y2="21"/>
+    </g>
+    <g stroke="#7cf29a" transform="translate(196 58) scale(.75)">
+      <line x1="0" y1="-14" x2="0" y2="-30"/><line x1="0" y1="14" x2="0" y2="30"/>
+      <line x1="-14" y1="0" x2="-30" y2="0"/><line x1="14" y1="0" x2="30" y2="0"/>
+      <line x1="10" y1="10" x2="21" y2="21"/><line x1="-10" y1="-10" x2="-21" y2="-21"/>
+      <line x1="10" y1="-10" x2="21" y2="-21"/><line x1="-10" y1="10" x2="-21" y2="21"/>
+    </g>
+  </g>
+  <circle cx="128" cy="40" r="5" fill="#c38bff"/>
+  <circle cx="230" cy="112" r="4" fill="#ffd23f"/>
+  <circle cx="26" cy="118" r="4" fill="#3fd0f0"/>
+  <!-- the board -->
+  <rect x="34" y="104" width="188" height="118" rx="14" fill="#05080f" stroke="#3fd0f0" stroke-width="5"/>
+  <!-- three lane rows: place dot, bar, time -->
+  <g font-family="DejaVu Sans Mono, Consolas, monospace" font-weight="700" font-size="24">
+    <circle cx="58" cy="132" r="9" fill="#ffd23f"/>
+    <rect x="76" y="124" width="70" height="16" rx="4" fill="#9B5DE5"/>
+    <text x="206" y="141" text-anchor="end" fill="#ffd23f">58.12</text>
+    <circle cx="58" cy="163" r="9" fill="#c9d3dd"/>
+    <rect x="76" y="155" width="56" height="16" rx="4" fill="#3D7FF0"/>
+    <text x="206" y="172" text-anchor="end" fill="#e6edf3">59.40</text>
+    <circle cx="58" cy="194" r="9" fill="#d08a4a"/>
+    <rect x="76" y="186" width="62" height="16" rx="4" fill="#E5383B"/>
+    <text x="206" y="203" text-anchor="end" fill="#e6edf3">1:01.8</text>
+  </g>
+</svg>

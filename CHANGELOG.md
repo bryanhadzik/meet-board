@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- New, festive icon: a scoreboard with fireworks (exe, tray shortcut, browser tab).
+  Source is assets/meet-board.svg.
+
 ### Added
 - `GET /api/startlists` returns the loaded MeetDeck meet (`meet: {id, name, date}`),
   so MeetDeck can flag a board that still has another meet loaded.
