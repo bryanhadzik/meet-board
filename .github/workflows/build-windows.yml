@@ -58,17 +58,22 @@ jobs:
           name: meet-board-${{ steps.ver.outputs.version }}
           path: dist/meet-board.exe
 
+      - name: Release notes
+        shell: bash
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          printf '%s\n' "$MSG" | grep -viE '^(co-authored-by|claude-session|signed-off-by):' > notes.md
+          printf '\nInstall: download meet-board.exe (and optionally the launcher files) into a folder like C:\\MeetBoard.\n' >> notes.md
+          printf 'Update: double-click meet-board-launcher.exe (or .cmd) and click Update, or Settings > Software Update.\n' >> notes.md
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.version }}
           name: meet-board ${{ steps.ver.outputs.version }}
           target_commitish: ${{ github.sha }}
-          body: |
-            ${{ github.event.head_commit.message }}
-
-            Install: download meet-board.exe (and optionally the launcher files) into a folder like C:\MeetBoard.
-            Update: double-click meet-board-launcher.exe (or .cmd) and click Update, or Settings > Software Update.
+          body_path: notes.md
           files: |
             dist/meet-board.exe
             tools/meet-board-launcher.ps1

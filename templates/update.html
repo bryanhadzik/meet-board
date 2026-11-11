@@ -30,7 +30,12 @@ function check(){
   $('msg').textContent = 'Checking GitHub for the latest release…'; $('go').disabled = true;
   fetch('/update_check').then(r => r.json()).then(d => {
     if (d.error) { $('msg').innerHTML = '<span class="bad"></span>'; $('msg').firstChild.textContent = d.error; return; }
-    if (d.newer) {
+    if (d.source) {
+      $('msg').innerHTML = d.source_behind
+        ? '<strong>Latest release is ' + d.latest + ' (commit ' + d.release_commit + '); this copy is at commit ' + d.source + '.</strong>'
+        : '<span class="ok">This copy is on the latest release (' + d.latest + ').</span>';
+      $('notes').textContent = d.source_behind ? (d.notes || '') : '';
+    } else if (d.newer) {
       $('msg').innerHTML = '<strong class="ok">Version ' + d.latest + ' is available.</strong>';
       $('notes').textContent = d.notes || '';
       $('go').disabled = !canUpdate;

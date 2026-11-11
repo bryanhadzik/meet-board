@@ -3631,7 +3631,7 @@ def route_team_colors():
 @app.route('/software_update')
 @flask_login.login_required
 def route_software_update():
-    return flask.render_template('update.html', app_version=__version__,
+    return flask.render_template('update.html', app_version=updater.display_version(),
                                  can_self_update=app_paths.FROZEN and os.name == 'nt',
                                  repo=updater.REPO)
 

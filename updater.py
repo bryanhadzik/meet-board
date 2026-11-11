@@ -35,6 +35,46 @@ def _version_tuple(v):
     return tuple(int(n) for n in nums[:4]) if nums else (0,)
 
 
+TRAILER = re.compile(r'^(co-authored-by|claude-session|signed-off-by)\s*:.*$\n?', re.I | re.M)
+
+
+def clean_notes(text):
+    """Release notes without commit attribution trailers."""
+    return re.sub(r'\n{3,}', '\n\n', TRAILER.sub('', text or '')).strip()
+
+
+def source_commit(root=None):
+    """Full commit hash of a from-source checkout ('' if unknown). Reads .git directly - no git needed."""
+    root = root or os.path.dirname(os.path.abspath(__file__))
+    g = os.path.join(root, '.git')
+    try:
+        with open(os.path.join(g, 'HEAD')) as f:
+            head = f.read().strip()
+        if not head.startswith('ref:'):
+            return head
+        ref = head[4:].strip()
+        p = os.path.join(g, *ref.split('/'))
+        if os.path.exists(p):
+            with open(p) as f:
+                return f.read().strip()
+        with open(os.path.join(g, 'packed-refs')) as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) == 2 and parts[1] == ref:
+                    return parts[0]
+    except OSError:
+        pass
+    return ''
+
+
+def display_version():
+    """What the app calls itself: the release number, or 'source abc1234' when run from a checkout."""
+    if FROZEN or __version__ != '0.0.0-dev':
+        return __version__
+    sha = source_commit()
+    return ('source ' + sha[:7]) if sha else __version__
+
+
 def is_newer(latest, current=__version__):
     return _version_tuple(latest) > _version_tuple(current)
 
@@ -101,13 +141,21 @@ def check(token=None):
         info['error'] = 'Could not reach GitHub: %s' % e
         return info
     info['latest'] = rel.get('tag_name', '').lstrip('v')
-    info['notes'] = rel.get('body', '') or ''
+    info['notes'] = clean_notes(rel.get('body', ''))
     info['published'] = rel.get('published_at', '') or ''
     for a in rel.get('assets', []):
         if a.get('name', '').lower() == ASSET_NAME:
             # API url works for private repos with a token; browser url for public
             info['asset_url'] = a.get('url') if token else a.get('browser_download_url')
     info['newer'] = is_newer(info['latest'])
+    if not FROZEN:
+        # a source checkout: up to date when it sits on the release's commit, else just say where each is
+        sha = source_commit()
+        info['current'] = display_version()
+        info['source'] = sha[:7]
+        info['release_commit'] = (rel.get('target_commitish') or '')[:7]
+        info['newer'] = False
+        info['source_behind'] = bool(sha) and not (rel.get('target_commitish') or '').startswith(sha[:7])
     if not info['asset_url']:
         info['error'] = 'Latest release has no %s attached' % ASSET_NAME
     return info
