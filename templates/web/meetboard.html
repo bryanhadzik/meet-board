@@ -628,7 +628,7 @@ var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard'
     if (window.mbAutoReload) window.mbAutoReload(socket);
     if (window.mbBlackout) window.mbBlackout(socket);
     if (window.mbWarmupSlide) window.mbWarmupSlide(socket, {mode: 'full'});
-    if (window.mbResultsQr) window.mbResultsQr({busy: function () { return B.racing || s.race_state === 'Running' || holding; }});
+    if (window.mbResultsQr) window.mbResultsQr({busy: function () { return B.racing || s.race_state === 'Running' || holding; }, dock: document.getElementById('colR')});
 socket.on('connect', function(){ connected = true; render(); });
 socket.on('disconnect', function(){ connected = false; render(); });
 socket.on('update_scoreboard', function(u){

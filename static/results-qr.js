@@ -6,7 +6,9 @@
              enough to scan from the stands (about 20 ft from a 65" TV)
      off     nothing
 
-     mbResultsQr({busy: function () { return true while a race is running or results are up }})
+     mbResultsQr({busy: function () { return true while a race is running or results are up },
+                  dock: element})   dock: put the small code at the bottom of this column (so it pushes
+                                    the rows up instead of covering them); without it, a fixed corner card
    ?noresultsqr on the page URL hides it on that screen.
 */
 window.mbResultsQr = function (opts) {
@@ -33,18 +35,22 @@ window.mbResultsQr = function (opts) {
     '.rqr-s .h{font-weight:800;font-size:calc(92*var(--u));line-height:1.02;margin-top:calc(22*var(--u))}',
     '.rqr-s .p{color:#bfe6ec;font-size:calc(38*var(--u));margin-top:calc(24*var(--u));line-height:1.3}',
     '.rqr-s .a{color:#ffd60a;font-weight:700;font-size:calc(44*var(--u));margin-top:calc(30*var(--u));word-break:break-all}',
+    '.rqr-d{position:static;flex:0 0 auto;align-items:center;gap:.9cqw;padding:.8cqw 1.2cqw;border-top:.2cqw solid #24393e;background:#0b1719}',
+    '.rqr-d .q{width:8.4cqw;height:8.4cqw;flex:0 0 auto;background:#fff;border-radius:.4cqw;padding:.35cqw}',
+    '.rqr-d .k{color:#3ddc84;font-weight:800;letter-spacing:.12em;font-size:1cqw;line-height:1.25}',
+    '.rqr-d .a{color:#fff;font-weight:600;font-size:1.05cqw;margin-top:.4cqw;word-break:break-all;line-height:1.25}',
     '.rqr svg{width:100%;height:100%;display:block}'
   ].join('\n');
   document.head.appendChild(css);
 
   corner = document.createElement('div');
-  corner.className = 'rqr rqr-c';
+  corner.className = opts.dock ? 'rqr rqr-d' : 'rqr rqr-c';
   corner.innerHTML = '<div class="q"></div><div><div class="k">RESULTS ON YOUR PHONE</div><div class="a"></div></div>';
   slide = document.createElement('div');
   slide.className = 'rqr rqr-s';
   slide.innerHTML = '<div class="q"></div><div class="t"><span class="k">LIVE RESULTS</span><div class="h">Results on your phone</div>' +
     '<div class="p">Point your camera at the code. Every event, place and time, plus team scores &mdash; updated through the meet.</div><div class="a"></div></div>';
-  document.body.appendChild(corner);
+  (opts.dock || document.body).appendChild(corner);
   document.body.appendChild(slide);
 
   function short(u) { return (u || '').replace(/^https?:\/\//, '').replace(/\/$/, ''); }
