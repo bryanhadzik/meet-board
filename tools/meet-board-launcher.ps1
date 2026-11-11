@@ -248,6 +248,20 @@ function Update-LauncherScript {
     } catch {
         Log ('Could not update the launcher itself: ' + $_.Exception.Message)
     }
+    # meet-board-launcher.exe: a small stub with the meet-board icon that opens this script
+    try {
+        $exeAsset = $script:Latest.assets | Where-Object { $_.name -eq 'meet-board-launcher.exe' } | Select-Object -First 1
+        $exe = Join-Path $AppDir 'meet-board-launcher.exe'
+        if ($exeAsset -and (-not (Test-Path $exe) -or (Get-Item $exe).Length -ne $exeAsset.size)) {
+            Save-ReleaseAsset $exeAsset ($exe + '.new')
+            Move-Item -Path ($exe + '.new') -Destination $exe -Force
+            Unblock-File -Path $exe -ErrorAction SilentlyContinue
+            Log 'Added meet-board-launcher.exe (opens this launcher, with the meet-board icon).'
+            New-DesktopShortcut
+        }
+    } catch {
+        Log ('Could not get meet-board-launcher.exe: ' + $_.Exception.Message)
+    }
 }
 
 function Update-Status {
@@ -321,10 +335,15 @@ function New-DesktopShortcut {
         $ps1 = Join-Path $AppDir 'meet-board-launcher.ps1'
         $sh = New-Object -ComObject WScript.Shell
         $lnk = $sh.CreateShortcut($lnkPath)
-        $lnk.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $lnk.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $ps1 + '"'
+        $exe = Join-Path $AppDir 'meet-board-launcher.exe'
+        if (Test-Path $exe) {
+            $lnk.TargetPath = $exe; $lnk.Arguments = ''; $lnk.IconLocation = $exe + ',0'
+        } else {
+            $lnk.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            $lnk.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $ps1 + '"'
+            $lnk.IconLocation = $IconFile + ',0'
+        }
         $lnk.WorkingDirectory = $AppDir
-        $lnk.IconLocation = $IconFile + ',0'
         $lnk.Description = 'meet-board launcher'
         $lnk.Save()
         Log "Desktop shortcut created: $lnkPath"
