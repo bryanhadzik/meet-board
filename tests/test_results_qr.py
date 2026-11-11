@@ -12,5 +12,5 @@ def test_results_qr_info_and_svg():
     d = c.get('/api/results_qr').get_json()
     assert d == {'url': 'https://bryanhadzik.github.io/swim-results/', 'mode': 'corner', 'every': 4, 'secs': 120}
     r = c.get('/results_qr.svg')
-    assert r.status_code == 200 and r.mimetype == 'image/svg+xml' and b'<svg' in r.data
+    assert r.status_code == 200 and r.mimetype == 'image/svg+xml' and b'<svg' in r.data and b'viewBox' in r.data and b'width=' not in r.data.split(b'>')[0]
     cs.settings['results_url'] = ''

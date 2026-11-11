@@ -3074,7 +3074,7 @@ def results_qr_svg():
     import io
     import segno
     buf = io.BytesIO()
-    segno.make(url, error='m', micro=False).save(buf, kind='svg', border=0, dark='#000', light=None, xmldecl=False, svgns=True)
+    segno.make(url, error='m', micro=False).save(buf, kind='svg', border=0, dark='#000', light=None, xmldecl=False, svgns=True, omitsize=True)   # viewBox only: scales to its box
     r = flask.Response(buf.getvalue(), mimetype='image/svg+xml')
     r.headers['Cache-Control'] = 'no-store'
     return r
