@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- Announcements: one-off buttons for "Please stand for the national anthem",
+  "Coaches and captains meeting under the scoreboard" and "Welcome to our meet"
+  (clips x_anthem, x_meeting, x_welcome; the PC voice until they're recorded).
+
 ### Changed
 - Auto-announce fires as soon as every swimmer in the heat has touched (a final
   time with a place), not only when the clock is reset or the heat changes.

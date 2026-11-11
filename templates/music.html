@@ -58,6 +58,9 @@
   .ann-now .t { font:800 26px "Segoe UI", sans-serif; line-height:1.2; }
   .ann-now .say { font-size:15px; color:#3b5054; margin-top:4px; }
   [hidden] { display:none !important; }
+  .ann-extra { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .ann-extra button { font:600 14px "Segoe UI", sans-serif; padding:9px 14px; border-radius:10px; border:1px solid #c9d6d8; background:#f3f8f8; cursor:pointer; }
+  .ann-extra button[disabled] { opacity:.45; cursor:default; }
   .ann .what .say { font-size:13px; color:#5d7175; margin-top:3px; }
   .ann .nav button { font:700 16px "Segoe UI", sans-serif; padding:8px 12px; border-radius:8px; border:1px solid #c9d6d8; background:#fff; cursor:pointer; }
   .ann-opts { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:12px; font-size:14px; }
@@ -142,6 +145,7 @@
       <div class="nav"><button type="button" id="annPrev" title="Back one heat">&#9664;</button>
         <button type="button" id="annNext" title="Skip ahead one heat">&#9654;</button></div>
     </div>
+    <div class="ann-extra" id="annExtras"></div>
     <div class="ann-opts">
       <label style="font-weight:600"><input type="checkbox" id="annAuto"> Announce the next heat automatically when a race is over</label>
       <label>after <select id="annDelay"><option value="0">0 s</option><option value="3">3 s</option><option value="5">5 s</option>
@@ -633,6 +637,17 @@ $('up').addEventListener('submit', function (ev) {
     var L = d.last;
     $('annNowT').textContent = L ? ('Event ' + L.event + (L.name ? ' · ' + L.name : '') + (L.heats > 1 ? ' · Heat ' + L.heat + ' of ' + L.heats : '')) : 'Nothing announced yet';
     $('annNowSay').textContent = L && L.text ? '"' + L.text + '"' : '';
+    if (d.now) { $('annNowT').textContent = d.now.title; $('annNowSay').textContent = '"' + d.now.text + '"'; }
+    var ex = $('annExtras');
+    if (ex.children.length !== (d.extras || []).length) {
+      ex.innerHTML = '';
+      (d.extras || []).forEach(function (x) {
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = x.label; b.title = x.text;
+        b.addEventListener('click', function () { $('annInfo').textContent = ''; annPost({action: 'extra', clip: x.clip}); });
+        ex.appendChild(b);
+      });
+    }
+    [].forEach.call(ex.children, function (b) { b.disabled = !d.speaker; });
     $('annSay').textContent = t ? '"' + t.text + '"' : '';
     $('annAuto').checked = !!d.auto; $('annDelay').value = String(d.delay);
     $('annCancel').hidden = !d.pending;

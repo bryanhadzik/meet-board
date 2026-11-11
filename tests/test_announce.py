@@ -91,3 +91,14 @@ def test_clip_upload_zip_and_auto(board):
     assert play['items'][0]['url'] == '/announce/clip/event_1.mp3' and play['items'][-1]['url'] == '/announce/clip/report.mp3'
     assert [it.get('say') for it in play['items']][1:3] == ["Women's 200 freestyle relay.", 'Heat two.'] and 'url' not in play['items'][2]
     assert (1, 2) in C._ann['announced'] and (1, 1) in C._ann['swum']
+
+
+def test_extra_announcement_buttons(board):
+    c = C.app.test_client()
+    d = c.get('/api/announce').get_json()
+    assert [x['clip'] for x in d['extras']] == ['x_anthem', 'x_meeting', 'x_welcome']
+    r = c.post('/api/announce', json={'action': 'extra', 'clip': 'x_anthem'}).get_json()
+    assert r['now']['text'] == 'Please stand for the national anthem.'
+    assert r['target']['event'] == 1 and r['last'] is None          # the heat queue doesn't move
+    assert c.post('/api/announce', json={'action': 'extra', 'clip': 'nope'}).status_code == 400
+    assert 'x_welcome' in dict(A.clip_script())

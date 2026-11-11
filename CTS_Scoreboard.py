@@ -2116,7 +2116,8 @@ def route_music_stream_mute():
 # "Event five. Women's 200 freestyle. Heat one. Please report to the blocks." stitched from
 # recorded clips (announce.py). The Music page has one Announce button that always offers the
 # next heat; optionally it fires by itself when a race is over.
-_ann = {'announced': set(), 'swum': set(), 'override': None, 'last': None, 'last_text': '', 'seq': 0, 'timer': None}
+_ann = {'announced': set(), 'swum': set(), 'override': None, 'last': None, 'last_text': '', 'seq': 0, 'timer': None,
+        'now': None}     # what was said last (heat or one-off): {'title', 'text'}
 
 
 def _ann_settings():
@@ -2171,6 +2172,9 @@ def _ann_view():
                          'name': announce.event_label(meta) if meta else event_info.get_event_name(key[0]),
                          'text': announce.text_of(pieces), 'missing': [p['clip'] for p in pieces if p['clip'] not in have],
                          'override': _ann['override'] == key}
+    have = announce.clips_on_disk(_ann_folder())
+    out['extras'] = [{'clip': k, 'label': lab, 'text': t, 'have': k in have} for k, lab, t in announce.EXTRAS]
+    out['now'] = _ann['now']
     if _ann['last']:
         e, h = _ann['last']
         meta = (getattr(event_info, 'event_meta', {}) or {}).get(e) or {}
@@ -2184,6 +2188,23 @@ def _ann_view():
 
 def _ann_broadcast():
     socketio.emit('announce_state', _ann_view(), namespace='/music')
+
+
+def _ann_play_extra(clip):
+    x = next((x for x in announce.EXTRAS if x[0] == clip), None)
+    if not x:
+        return 'unknown announcement'
+    if not music_state.speaker_sid:
+        return 'no speaker tab open (/music?speaker=1 on the pool PC)'
+    k, label, text = x
+    _ann['seq'] += 1
+    item = {'url': '/announce/clip/%s.mp3' % k, 'say': text} if k in announce.clips_on_disk(_ann_folder()) else {'say': text}
+    socketio.emit('announce_play', {'id': _ann['seq'], 'items': [item], 'text': text},
+                  namespace='/music', to=music_state.speaker_sid)
+    _ann['now'] = {'title': label, 'text': text}
+    print('Announced %s: %s' % (label, text))
+    _ann_broadcast()
+    return None
 
 
 def _ann_play(key, why='button'):
@@ -2201,6 +2222,7 @@ def _ann_play(key, why='button'):
     _ann['announced'].add(key)
     _ann['last'] = key
     _ann['last_text'] = announce.text_of(pieces)
+    _ann['now'] = None
     _ann['override'] = None
     print('Announced %s/%s (%s): %s' % (key[0], key[1], why, announce.text_of(pieces)))
     _ann_broadcast()
@@ -2247,6 +2269,8 @@ def route_api_announce():
         err = None
         if act == 'play':
             err = _ann_play(_ann_target())
+        elif act == 'extra':
+            err = _ann_play_extra(str(d.get('clip') or ''))
         elif act in ('next', 'prev'):
             order, key = _ann_order(), _ann_target()
             if key in order:

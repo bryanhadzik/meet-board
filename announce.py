@@ -77,6 +77,14 @@ def event_label(meta):
 
 
 # ---------------------------------------------------------------- the clip set (what gets recorded)
+# one-off announcements, each a button on the music page: (clip, button label, text)
+EXTRAS = [
+    ('x_anthem', 'National anthem', 'Please stand for the national anthem.'),
+    ('x_meeting', 'Coaches & captains', 'Coaches and captains meeting under the scoreboard.'),
+    ('x_welcome', 'Welcome', 'Welcome to our meet.'),
+]
+
+
 def clip_script():
     """[(clip name, text to record)] - every clip the announcements can use."""
     out = [('report', 'Please report to the blocks.')]
@@ -90,6 +98,7 @@ def clip_script():
     out += [('d_%d' % d, dist_words(d)) for d in DISTANCES]
     out += [('s_%d' % s, w) for s, w in STROKE_WORD.items()]
     out += [('s_%d_R' % s, w) for s, w in RELAY_WORD.items()]
+    out += [(k, text) for k, _label, text in EXTRAS]
     return out
 
 
