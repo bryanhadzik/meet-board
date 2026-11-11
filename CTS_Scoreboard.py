@@ -2115,7 +2115,7 @@ def route_music_stream_mute():
 # "Event five. Women's 200 freestyle. Heat one. Please report to the blocks." stitched from
 # recorded clips (announce.py). The Music page has one Announce button that always offers the
 # next heat; optionally it fires by itself when a race is over.
-_ann = {'announced': set(), 'swum': set(), 'override': None, 'last': None, 'seq': 0, 'timer': None}
+_ann = {'announced': set(), 'swum': set(), 'override': None, 'last': None, 'last_text': '', 'seq': 0, 'timer': None}
 
 
 def _ann_settings():
@@ -2171,7 +2171,13 @@ def _ann_view():
                          'text': announce.text_of(pieces), 'missing': [p['clip'] for p in pieces if p['clip'] not in have],
                          'override': _ann['override'] == key}
     if _ann['last']:
-        out['last'] = {'event': _ann['last'][0], 'heat': _ann['last'][1]}
+        e, h = _ann['last']
+        meta = (getattr(event_info, 'event_meta', {}) or {}).get(e) or {}
+        try:
+            name = announce.event_label(meta) if meta else event_info.get_event_name(e)
+        except Exception:
+            name = ''
+        out['last'] = {'event': e, 'heat': h, 'heats': meta_heats(e), 'name': name or '', 'text': _ann.get('last_text', '')}
     return out
 
 
@@ -2193,6 +2199,7 @@ def _ann_play(key, why='button'):
                   namespace='/music', to=music_state.speaker_sid)
     _ann['announced'].add(key)
     _ann['last'] = key
+    _ann['last_text'] = announce.text_of(pieces)
     _ann['override'] = None
     print('Announced %s/%s (%s): %s' % (key[0], key[1], why, announce.text_of(pieces)))
     _ann_broadcast()

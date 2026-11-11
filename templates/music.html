@@ -51,7 +51,13 @@
   .ann .big.busy { background:#f0c96a; color:#2a1f00; }
   .ann .what { flex:1; min-width:240px; }
   .ann .what .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#6f8a90; }
-  .ann .what .t { font:700 20px "Segoe UI", sans-serif; }
+  .ann .what .t { font:600 15px "Segoe UI", sans-serif; color:#3b5054; }
+  .ann .what .say { font-size:12px; }
+  .ann-now { margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #e3eaeb; }
+  .ann-now .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#6f8a90; }
+  .ann-now .t { font:800 26px "Segoe UI", sans-serif; line-height:1.2; }
+  .ann-now .say { font-size:15px; color:#3b5054; margin-top:4px; }
+  [hidden] { display:none !important; }
   .ann .what .say { font-size:13px; color:#5d7175; margin-top:3px; }
   .ann .nav button { font:700 16px "Segoe UI", sans-serif; padding:8px 12px; border-radius:8px; border:1px solid #c9d6d8; background:#fff; cursor:pointer; }
   .ann-opts { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:12px; font-size:14px; }
@@ -121,10 +127,15 @@
 
   <h2>Announcements</h2>
   <div class="card" id="annCard">
+    <div class="ann-now">
+      <div class="k">Current announcement</div>
+      <div class="t" id="annNowT">Nothing announced yet</div>
+      <div class="say" id="annNowSay"></div>
+    </div>
     <div class="ann">
       <button class="big" type="button" id="annBtn" disabled>Announce</button>
       <div class="what">
-        <div class="k" id="annK">Next to announce</div>
+        <div class="k" id="annK">Next</div>
         <div class="t" id="annT">&mdash;</div>
         <div class="say" id="annSay"></div>
       </div>
@@ -618,14 +629,16 @@ $('up').addEventListener('submit', function (ev) {
     $('annBtn').classList.toggle('busy', !!d.pending);
     $('annBtn').textContent = d.pending ? 'Announcing soon…' : 'Announce';
     $('annT').textContent = t ? ('Event ' + t.event + ' · ' + t.name + (t.heats > 1 ? ' · Heat ' + t.heat + ' of ' + t.heats : '')) : 'Nothing left to announce';
-    $('annK').textContent = t && t.override ? 'Next to announce (picked)' : 'Next to announce';
+    $('annK').textContent = t && t.override ? 'Next (picked)' : 'Next';
+    var L = d.last;
+    $('annNowT').textContent = L ? ('Event ' + L.event + (L.name ? ' · ' + L.name : '') + (L.heats > 1 ? ' · Heat ' + L.heat + ' of ' + L.heats : '')) : 'Nothing announced yet';
+    $('annNowSay').textContent = L && L.text ? '"' + L.text + '"' : '';
     $('annSay').textContent = t ? '"' + t.text + '"' : '';
     $('annAuto').checked = !!d.auto; $('annDelay').value = String(d.delay);
     $('annCancel').hidden = !d.pending;
     var info = [];
     if (!d.speaker) info.push('No speaker tab open - open /music?speaker=1 on the pool PC.');
     if (d.clips < d.clips_total) info.push(d.clips + ' of ' + d.clips_total + ' voice clips loaded; missing words use the PC voice.');
-    if (d.last) info.push('Last: event ' + d.last.event + ' heat ' + d.last.heat + '.');
     $('annInfo').textContent = info.join(' ');
   };
   $('annBtn').addEventListener('click', function () { $('annInfo').textContent = ''; annPost({action: 'play'}); });
