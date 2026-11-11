@@ -157,3 +157,20 @@ def test_a_split_without_a_place_drops_off_after_15_seconds():
     # and the results at the reset still use every lane's largest time
     go(book, '0.0')
     assert {k: v['time'] for k, v in book.payload()['hold']['lanes'].items()} == {'4': '2:28.89', '3': '1:27.27'}
+
+
+def test_all_touched_fires_once_when_every_swimmer_has_a_time():
+    b = RaceBook(Clock())
+    got = []
+    b.on_all_touched = lambda e, h: got.append((e, h))
+    b.feed(heat(7, {3: 'A', 4: 'B'}))
+    start(b, [3, 4])
+    go(b, '30.0', {3: '29.50', 4: '30.10'})      # the 50 split: both stopped, no places
+    assert got == []
+    go(b, '31.0', {3: 'R', 4: 'R'})
+    go(b, '59.0', {3: '58.50'}, lane_place3='1')  # one touched, one still swimming
+    assert got == []
+    go(b, '61.0', {4: '1:00.80'}, lane_place4='2')
+    assert got == [('7', '1')]
+    go(b, '32.0')
+    assert got == [('7', '1')]

@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Changed
+- Auto-announce fires as soon as every swimmer in the heat has touched (a final
+  time with a place), not only when the clock is reset or the heat changes.
+- Debug page: warns when meet-board is replaying a recording, which fights with the
+  simulator buttons.
+
+### Changed
 - State cuts: teams with no classification (Black vs Blue, clubs, unknown
   visitors) now race **the host team's class** by default instead of a fixed 4A.
   A fixed class or "no cut" can still be picked; a board on the old 4A default

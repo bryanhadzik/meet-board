@@ -65,6 +65,8 @@ class RaceBook:
         self.rising = 0
         self.log = collections.deque(maxlen=80)   # what the race book decided, and why (Debug page)
         self.on_end = None         # callback(event, heat) when a race is over (announcements)
+        self.on_all_touched = None # callback(event, heat) once every swimmer in the race has a final time
+        self.touched = False
 
     def _note(self, text):
         clk = str(self.s.get('running_time') or '').strip() or '-'
@@ -76,6 +78,7 @@ class RaceBook:
     def _start(self):
         self._note('Race started (%s): clock counting up from zero' % self._key(self.s))
         self.racing, self.lanes, self.hold = True, {}, None
+        self.touched = False
 
     def _end(self, heat):
         """The race is over: freeze its results, named from `heat` (the heat as it was)."""
@@ -153,6 +156,18 @@ class RaceBook:
                 rec['at'] = self.clock()
             if not run and rec['ran']:
                 rec['place'] = str(self.s.get('lane_place%d' % i) or '').strip()
+        ran = [r for r in self.lanes.values() if r['ran']]
+        # a final touch has a place; a split (every lane stops at the 50 too) doesn't
+        if (not self.touched and ran and all(r['max'] > 0 and r['place'] for r in ran)
+                and not any(self.s.get('lane_running%d' % i) for i in range(1, 11))):
+            self.touched = True
+            self._note('Everyone touched (%s)' % self._key(self.s))
+            if self.on_all_touched:
+                try:
+                    self.on_all_touched(str(self.s.get('current_event', '')).strip(),
+                                        str(self.s.get('current_heat', '')).strip())
+                except Exception:
+                    pass
 
     def debug(self):
         """The race book's state in plain values, for the Debug page."""

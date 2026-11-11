@@ -306,6 +306,7 @@
                 <p class="help-block">Drives the meet board and the OBS overlay from the loaded start lists, with made-up
                     times (seed times when the .hy3 has them). If the console is connected its data still arrives and
                     will fight with this &mdash; use it with the console off.</p>
+                <div class="alert alert-warning" id="dbg_replay" style="display:none"></div>
                 <div class="well" style="padding:12px 16px;">
                     <div style="font-size:18px; margin-bottom:10px;">
                         <strong id="dbg_where">&ndash;</strong>
@@ -352,6 +353,10 @@
             document.getElementById('dbg_where').textContent = 'Event ' + d.event + ' heat ' + d.heat + (d.event_name ? ' - ' + d.event_name : '');
             document.getElementById('dbg_state').textContent = d.race_state;
             document.getElementById('dbg_status').textContent = d.status || '';
+            var rp = document.getElementById('dbg_replay');
+            rp.style.display = d.replay ? '' : 'none';
+            rp.textContent = d.replay ? 'meet-board was started replaying a recording (' + d.replay + '), so the replay keeps ' +
+                'changing the heat and clock and will fight with these buttons. Restart it without --in to use the simulator.' : '';
             dbgAuto = d.auto;
             var b = document.getElementById('dbg_auto');
             b.textContent = d.auto ? 'Stop auto-run' : 'Auto-run the meet';

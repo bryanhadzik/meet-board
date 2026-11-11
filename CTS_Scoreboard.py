@@ -1831,7 +1831,8 @@ def debug_status():
     return {'ok': True, 'event': e, 'heat': h, 'event_name': event_info.get_event_name(e),
             'race_state': race_fsm.state_name, 'auto': _dbg['auto'], 'speed': _dbg['speed'],
             'seeds': _dbg.get('seeds', 'mixed'),
-            'status': _dbg['status'], 'heats': [list(k) for k in meet_board.heat_order(event_info)]}
+            'status': _dbg['status'], 'heats': [list(k) for k in meet_board.heat_order(event_info)],
+            'replay': os.path.basename(in_file) if in_file else ''}
 
 
 # ---------------------------------------------------------------------------
@@ -2211,6 +2212,8 @@ def _ann_race_over(event, heat):
         k = (int(event), int(heat))
     except (TypeError, ValueError):
         return
+    if k in _ann['swum']:          # already handled when everyone touched
+        return
     _ann['swum'].add(k)
     a = _ann_settings()
     if a.get('auto'):
@@ -2233,6 +2236,7 @@ def _ann_race_over(event, heat):
 
 
 race_book.on_end = _ann_race_over
+race_book.on_all_touched = _ann_race_over      # auto-announce as soon as the last swimmer touches
 
 
 @app.route('/api/announce', methods=['GET', 'POST'])
