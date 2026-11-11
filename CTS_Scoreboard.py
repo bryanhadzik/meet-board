@@ -1007,6 +1007,7 @@ def send_event_info():
         update["lane_age_code%i" % i] = event_info.get_age_code(last_event_sent[0], last_event_sent[1], i) if show_age_codes else ""
         seed = event_info.get_seed_time(last_event_sent[0], last_event_sent[1], i)
         update["lane_seed_time%i" % i] = seed if seed is not None else ""
+        update["lane_usc%i" % i] = _usc_lane(last_event_sent[0], update["lane_team%i" % i], update["lane_name%i" % i])
 
     update["show_pr_tags"] = settings.get('show_pr_tags', True)
     update["show_confetti"] = settings.get('show_confetti', True)
@@ -1029,11 +1030,55 @@ def send_event_info():
     update["meet_title"] = settings.get('meet_title', '')
     update["board_style"] = settings.get('board_style', 'classic')
     update["state_cut"] = _state_cut_payload(last_event_sent[0])
+    update["state_now"] = _usc_event(last_event_sent[0])
     # lets the board tell a split from a finish time
     update["event_distance"] = ((getattr(event_info, 'event_meta', {}) or {}).get(last_event_sent[0]) or {}).get('distance') or 0
 
     socketio.emit('update_scoreboard', update, namespace='/scoreboard')
     _warmup_broadcast()
+
+
+def _store_usc(doc):
+    """This season's standings (utahswimcoach.com) sent with a MeetDeck start list:
+    per event the state line / #1 / record per class, per swimmer class rank + season best.
+    Keyed by event + team + last name (not lane) so an .scb reload with new heats still matches."""
+    lanes, events = {}, {}
+    for ev in (doc or {}).get('events') or []:
+        num = ev.get('number')
+        if ev.get('state_now'):
+            events[str(num)] = ev['state_now']
+        for ht in ev.get('heats') or []:
+            for ln in ht.get('lanes') or []:
+                st = ln.get('state') if isinstance(ln, dict) else None
+                if st and st.get('rank'):
+                    item = {'cls': st.get('cls', ''), 'rank': st['rank'], 'sb': st.get('sb')}
+                    if ev.get('relay'):
+                        item['relay'] = ln.get('letter') or 'A'
+                    else:
+                        item['last'] = str(ln.get('last') or '')
+                    lanes.setdefault('%s|%s' % (num, ln.get('team', '')), []).append(item)
+    settings['usc_lanes'] = lanes
+    settings['usc_events'] = events
+    settings['usc_src'] = (doc or {}).get('state_src') or {}
+
+
+def _usc_lane(ev, team, name):
+    if settings.get('usc_board') is False:
+        return None
+    name = name or ''
+    low = name.lower()
+    for x in (settings.get('usc_lanes') or {}).get('%s|%s' % (ev, team or ''), []):
+        if x.get('last') and re.search(r'\b%s\b' % re.escape(x['last'].lower()), low):
+            return x
+        if x.get('relay') and re.search(r'(^|[\s"(])%s($|[\s")])' % re.escape(x['relay']), name):
+            return x
+    return None
+
+
+def _usc_event(ev):
+    if settings.get('usc_board') is False:
+        return None
+    return (settings.get('usc_events') or {}).get(str(ev)) or None
 
 
 def _state_cuts():
@@ -1175,7 +1220,10 @@ def _state_cuts_view():
               'cls': over.get(c, meet_board.DEFAULT_TEAM_CLASS.get(c, '')),
               'default': meet_board.DEFAULT_TEAM_CLASS.get(c, ''), 'in_meet': c in canon.values()}
              for c in homes]
+    src = settings.get('usc_src') or {}
     return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''), 'now': _state_cut_now(cuts),
+            'usc_board': settings.get('usc_board', True), 'usc_src': src,
+            'usc_swimmers': sum(len(v) for v in (settings.get('usc_lanes') or {}).values()),
             'fallback_class': cuts.get('fallback_class', '4A'),
             'default_label': meet_board.STATE_CUTS_YEAR + ' State', 'year': meet_board.STATE_CUTS_YEAR,
             'classes': classes, 'builtin_classes': sorted(builtin, key=meet_board.CLASSES.index),
@@ -1991,6 +2039,8 @@ def route_api_state_cuts():
             cuts['label'] = str(d.get('label') or '').strip()[:30]
         if 'on' in d:
             cuts['on'] = bool(d['on'])
+        if 'usc_board' in d:
+            settings['usc_board'] = bool(d['usc_board'])
         settings['state_cuts'] = cuts
         save_settings()
         send_event_info()
@@ -3128,6 +3178,7 @@ def route_api_startlists():
         backup_schedule()
         event_info.from_object(staged.to_object())
         event_info.meet_info = staged.meet_info
+        _store_usc(doc)
         settings['event_info'] = event_info.to_object()
         settings['hy3_source'] = settings['event_info']   # .scb reloads borrow its seeds/relay swimmers
         src = str((doc or {}).get('source') or 'MeetDeck')[:60]

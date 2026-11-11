@@ -23,6 +23,12 @@ Document (format "meetdeck-startlist", version 1):
 gender: F girls, M boys, W women, X mixed (Meet Manager's letters).
 stroke: A free, B back, C breast, D fly, E medley/IM (Meet Manager's letters).
 seed: seconds, or null/0 for NT.
+
+Optional, from MeetDeck's copy of utahswimcoach.com (this season's Utah HS top times):
+  lane "state": {"cls": "4A", "rank": 12, "sb": 61.02}   class rank + season best
+  event "state_now": [{"cls", "line", "spots", "top", "record", ...}]   #32 (#20 relays) time
+  doc "state_src": {"name", "season", "as_of"}
+CTS_Scoreboard._store_usc keeps these by event + team + last name.
 """
 from hytek_parser.hy3.enums import GenderAge
 

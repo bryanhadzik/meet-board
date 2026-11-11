@@ -126,10 +126,14 @@
   .ctitle .cut { font-size:1.15cqw; font-weight:700; letter-spacing:.06em; color:#f0c96a; white-space:nowrap; flex:0 0 auto; margin-left:1.2cqw; }
   .ctitle .cut b { font-weight:800; color:#fff; margin-left:.35cqw; }
   .ctitle .cut i { font-style:normal; color:#c9a85a; margin-left:.9cqw; }
+  .ctitle .cut .nowsep { margin-left:1.4cqw; padding-left:1.1cqw; border-left:.12cqw solid #5d7d84; }
   .style-light .ctitle .cut { color:#8a5d00; } .style-light .ctitle .cut b { color:#10202a; } .style-light .ctitle .cut i { color:#8a5d00; }
   .q { flex:0 0 auto; width:6.2cqw; display:flex; justify-content:flex-end; }
   .q span { font-size:1.15cqw; font-weight:800; letter-spacing:.08em; background:#f0c96a; color:#1c1404;
             border-radius:.4cqw; padding:.2cqw .55cqw; white-space:nowrap; }
+  .q span.rk { background:transparent; color:#9fc3cc; border:.12cqw solid #3d5a61; font-weight:700; }
+  .style-light .q span.rk { color:#2b4a52; border-color:#9fb3b8; }
+  .q span.sb { background:#2fbf71; color:#04210f; font-size:.95cqw; }
   .colhead .h-q { width:6.2cqw; text-align:right; color:#f0c96a; }
   .style-light .colhead .h-q { color:#8a5d00; }
 
@@ -415,6 +419,12 @@ function stateLabel(){
 function stateCut(){ var c = s.state_cut; return c && c.items && c.items.length ? c : null; }
 function renderCut(){
   var c = stateCut(), box = document.getElementById('cutL'); box.textContent = '';
+  var now = (s.state_now || []).filter(function(x){ return x && x.line; });
+  if (!c && now.length){            // no last-season cut configured: this season's line alone
+    box.appendChild(document.createTextNode('STATE LINE THIS SEASON'));
+    now.forEach(function(x){ if (now.length > 1) box.appendChild(el('i', '', x.cls)); box.appendChild(el('b', '', fmtSecs(x.line))); });
+    return;
+  }
   if (!c) return;
   box.appendChild(document.createTextNode('LAST SEASON STATE QUALIFYING TIME'));
   var classes = {}, sexes = {};
@@ -425,7 +435,13 @@ function renderCut(){
     if (tag) box.appendChild(el('i', '', tag));
     box.appendChild(el('b', '', it.time));
   });
+  // this season so far: the #32 time (#20 relays) in each class = who'd go to state today
+  if (now.length){
+    box.appendChild(el('span', 'nowsep', 'THIS SEASON'));
+    now.forEach(function(x){ if (multiC || now.length > 1) box.appendChild(el('i', '', x.cls)); box.appendChild(el('b', '', fmtSecs(x.line))); });
+  }
 }
+function fmtSecs(v){ v = Math.round(Number(v) * 100) / 100; var m = Math.floor(v / 60), x = v - m * 60; return m ? m + ':' + (x < 10 ? '0' : '') + x.toFixed(2) : v.toFixed(2); }
 function renderCurrent(){
   renderCut();
   var box = document.getElementById('rowsL'); box.textContent = '';
@@ -439,6 +455,15 @@ function renderCurrent(){
   laneView().slice(0, n).forEach(function(L){
     L.dr = L.fin ? dropOf(L.t, s['lane_seed_time'+L.i]) : '';
     L.st = false;   // the cut is shown in the header only, never tagged on a lane
+    // this season's class rank on the blocks; SEASON BEST once a finish beats it (utahswimcoach.com)
+    var u = s['lane_usc'+L.i], lpre = !L.t && !L.running && !B.racing && !holding && /PreRace$/.test(s.race_state || '');
+    L.q = ''; L.qc = '';
+    if (u && u.rank){
+      var ft = secs(L.t);
+      if (L.fin && ft > 0 && u.sb && ft < u.sb && s.show_pr_tags !== false){ L.q = 'SEASON BEST'; L.qc = 'sb'; }
+      else if (lpre){ L.q = u.cls + ' #' + u.rank; L.qc = 'rk'; }
+    }
+    if (L.q) states = true;
     if (L.dr) drops = true;
     if (L.t) anyTime = true;
     lanes.push(L);
@@ -454,6 +479,7 @@ function renderCurrent(){
     if (states){
       var q = el('div','q mono');
       if (L.st) q.appendChild(el('span', '', 'STATE'));
+      else if (L.q) q.appendChild(el('span', L.qc, L.q));
       r.appendChild(q);
     }
     if (drops) r.appendChild(el('div','drop mono', L.dr));
@@ -472,7 +498,7 @@ function renderCurrent(){
   if (logos) { var lg = el('div','h-sp'); lg.style.width = '3.4cqw'; h.appendChild(lg); }
   h.appendChild(el('div','h-nm', ''));
   h.appendChild(el('div','h-tm' + (logos ? '' : ' code'), 'TEAM'));
-  if (states) h.appendChild(el('div','h-q', ''));
+  if (states) h.appendChild(el('div','h-q', pre ? 'STATE RANK' : ''));
   if (drops) h.appendChild(el('div','h-drop', 'DROP'));
   h.appendChild(el('div','h-tmr' + (!anyTime && pre ? ' seed' : ''), anyTime ? 'TIME' : (pre ? 'SEED' : '')));
   h.appendChild(el('div','h-pl', anyTime ? 'PL' : ''));
@@ -589,12 +615,12 @@ function boardView(){
   for (i = 1; i <= 10; i++){
     var h = heldLane(i) || {};
     v['lane_name'+i] = h.lane_name || ''; v['lane_team'+i] = h.lane_team || '';
-    v['lane_legs'+i] = h.lane_legs || []; v['lane_seed_time'+i] = h.lane_seed_time || '';
+    v['lane_legs'+i] = h.lane_legs || []; v['lane_seed_time'+i] = h.lane_seed_time || ''; v['lane_usc'+i] = h.lane_usc || null;
   }
   var sameHeat = B.hold.heat_key === heatKey(s);
   if (sameHeat){
     // still on the finished heat (clock reset, event not moved yet): keep its names
-    for (i = 1; i <= 10; i++){ v['lane_name'+i] = s['lane_name'+i]; v['lane_team'+i] = s['lane_team'+i]; v['lane_legs'+i] = s['lane_legs'+i]; v['lane_seed_time'+i] = s['lane_seed_time'+i]; }
+    for (i = 1; i <= 10; i++){ v['lane_name'+i] = s['lane_name'+i]; v['lane_team'+i] = s['lane_team'+i]; v['lane_legs'+i] = s['lane_legs'+i]; v['lane_seed_time'+i] = s['lane_seed_time'+i]; v['lane_usc'+i] = s['lane_usc'+i]; }
     return v;
   }
   var n = Math.max(1, Math.min(10, parseInt(s.num_lanes, 10) || 8)), lanes = [];

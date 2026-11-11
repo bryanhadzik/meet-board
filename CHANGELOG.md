@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- **This season's state standings** (from utahswimcoach.com, sent with MeetDeck
+  start lists). On the blocks each ranked swimmer shows their class rank
+  ("4A #12") in a STATE RANK column; a finish faster than their season best
+  shows SEASON BEST. The header adds this season's #32 time (#20 relays) next
+  to last season's state cut. Toggle on Meet Files -> State qualifying times.
 - **Phone results QR code on the meet boards.** Settings -> Phone results takes
   the address of the public results page MeetDeck publishes. The boards show a
   small code in the corner and, every few minutes between races, a full-screen

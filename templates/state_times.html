@@ -40,6 +40,12 @@
               <span class="help-inline">(shown at the top as "Last season state qualifying time", one per class in the water)</span></label>
           </div>
 
+          <div class="sc-top">
+            <label style="font-weight:500;cursor:pointer;margin:0"><input type="checkbox" id="sc_usc" onchange="scSave({usc_board: this.checked})"> Show this season's standings
+              <span class="help-inline">(from <a href="https://utahswimcoach.com/" target="_blank" rel="noopener">utahswimcoach.com</a>, sent with MeetDeck start lists:
+              each swimmer's class rank on the blocks, SEASON BEST when they beat it, and this season's #32 time beside last season's cut)</span></label>
+            <span class="help-inline" id="sc_usc_src"></span>
+          </div>
           <div class="alert" id="sc_now" style="margin:0 0 6px"></div>
           <div class="sc-sub">Team classifications <span class="help-inline">(UHSAA 2025-27; change one if it's wrong)</span></div>
           <div class="sc-teams" id="sc_teams"></div>
@@ -123,6 +129,10 @@
           function show(d, table){
             view = d;
             $('sc_on').checked = !!d.on; $('sc_year').textContent = d.year;
+            $('sc_usc').checked = d.usc_board !== false;
+            $('sc_usc_src').textContent = d.usc_src && d.usc_src.as_of
+              ? (d.usc_swimmers + ' ranked swimmers in the loaded start lists, standings checked ' + String(d.usc_src.as_of).replace('T', ' '))
+              : 'No standings yet - send start lists from MeetDeck.';
             if (d.now){ $('sc_now').textContent = 'Meet board right now \u2014 ' + d.now.text; $('sc_now').className = 'alert ' + (d.now.ok ? 'alert-success' : 'alert-warning'); }
             var tags = d.st2_tags || [];
             $('sc_fill').style.display = tags.length ? '' : 'none';

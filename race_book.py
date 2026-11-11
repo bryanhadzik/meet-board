@@ -29,7 +29,7 @@ import time
 
 _TIME = re.compile(r'^(?:(\d+):)?(\d+(?:\.\d+)?)$')
 HEAT_KEYS = ('current_event', 'current_heat', 'heat_count', 'event_name', 'event_distance', 'event_is_relay')
-LANE_KEYS = ('lane_name', 'lane_team', 'lane_legs', 'lane_seed_time')
+LANE_KEYS = ('lane_name', 'lane_team', 'lane_legs', 'lane_seed_time', 'lane_usc')
 
 
 def secs(v):
