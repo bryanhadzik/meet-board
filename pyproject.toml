@@ -26,6 +26,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 only-include = [
+    "announce.py",
     "CTS_Scoreboard.py",
     "ap.py",
     "hytek_event_loader.py",

@@ -45,6 +45,16 @@
   dialog#ed label { display:block; margin:10px 0 0; font-weight:600; font-size:14px; }
   dialog#ed input[type=text] { width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; font-size:15px; }
   dialog#ed .row { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+  .ann { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .ann .big { font:800 26px "Segoe UI", sans-serif; padding:18px 34px; border-radius:14px; border:0; cursor:pointer; background:#3ddc84; color:#04210f; min-width:220px; }
+  .ann .big[disabled] { opacity:.45; cursor:default; }
+  .ann .big.busy { background:#f0c96a; color:#2a1f00; }
+  .ann .what { flex:1; min-width:240px; }
+  .ann .what .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#6f8a90; }
+  .ann .what .t { font:700 20px "Segoe UI", sans-serif; }
+  .ann .what .say { font-size:13px; color:#5d7175; margin-top:3px; }
+  .ann .nav button { font:700 16px "Segoe UI", sans-serif; padding:8px 12px; border-radius:8px; border:1px solid #c9d6d8; background:#fff; cursor:pointer; }
+  .ann-opts { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:12px; font-size:14px; }
   .alert { border-radius:8px; padding:10px 14px; margin:12px 0; font-size:14px; }
   .alert.warn { background:#fff4d6; border:1px solid #f0c96a; }
   .alert.ok { background:#e2f6ea; border:1px solid #9fdab5; }
@@ -108,6 +118,29 @@
       <label class="vol">Volume <input type="range" id="vol" min="0" max="100" value="80"> <span id="volT">80%</span></label>
     </div>
   </div>
+
+  {% if not speaker %}
+  <h2>Announcements</h2>
+  <div class="card" id="annCard">
+    <div class="ann">
+      <button class="big" type="button" id="annBtn" disabled>Announce</button>
+      <div class="what">
+        <div class="k" id="annK">Next to announce</div>
+        <div class="t" id="annT">&mdash;</div>
+        <div class="say" id="annSay"></div>
+      </div>
+      <div class="nav"><button type="button" id="annPrev" title="Back one heat">&#9664;</button>
+        <button type="button" id="annNext" title="Skip ahead one heat">&#9654;</button></div>
+    </div>
+    <div class="ann-opts">
+      <label style="font-weight:600"><input type="checkbox" id="annAuto"> Announce the next heat automatically when a race is over</label>
+      <label>after <select id="annDelay"><option value="0">0 s</option><option value="3">3 s</option><option value="5">5 s</option>
+        <option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
+      <button class="btn" type="button" id="annCancel" hidden>Cancel the automatic one</button>
+      <span class="small" id="annInfo"></span>
+    </div>
+  </div>
+  {% endif %}
 
   <h2>Microphone</h2>
   <div class="card mic" id="micCard">
@@ -219,6 +252,7 @@
   </div>
 </div>
 <audio id="player" preload="auto"></audio>
+<audio id="annPlayer" preload="auto"></audio>
 {% endif %}
 
 <dialog id="ed">
@@ -571,6 +605,42 @@ $('up').addEventListener('submit', function (ev) {
   }).catch(function () { $('upMsg').innerHTML = '<div class="alert bad">Upload failed.</div>'; });
 });
 
+
+/* ---------------- announcements (remote) ---------------- */
+if (!SPEAKER) {
+  var ANN = null;
+  var annPost = function (body) {
+    return fetch('/api/announce', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+      .then(function (r) { return r.json(); }).then(function (d) { if (d.error) $('annInfo').textContent = d.error; annShow(d); });
+  };
+  var annShow = function (d) {
+    if (!d) return; ANN = d;
+    var t = d.target;
+    $('annBtn').disabled = !t || !d.speaker;
+    $('annBtn').classList.toggle('busy', !!d.pending);
+    $('annBtn').textContent = d.pending ? 'Announcing soon…' : 'Announce';
+    $('annT').textContent = t ? ('Event ' + t.event + ' · ' + t.name + (t.heats > 1 ? ' · Heat ' + t.heat + ' of ' + t.heats : '')) : 'Nothing left to announce';
+    $('annK').textContent = t && t.override ? 'Next to announce (picked)' : 'Next to announce';
+    $('annSay').textContent = t ? '"' + t.text + '"' : '';
+    $('annAuto').checked = !!d.auto; $('annDelay').value = String(d.delay);
+    $('annCancel').hidden = !d.pending;
+    var info = [];
+    if (!d.speaker) info.push('No speaker tab open - open /music?speaker=1 on the pool PC.');
+    if (d.clips < d.clips_total) info.push(d.clips + ' of ' + d.clips_total + ' voice clips loaded; missing words use the PC voice.');
+    if (d.last) info.push('Last: event ' + d.last.event + ' heat ' + d.last.heat + '.');
+    $('annInfo').textContent = info.join(' ');
+  };
+  $('annBtn').addEventListener('click', function () { $('annInfo').textContent = ''; annPost({action: 'play'}); });
+  $('annPrev').addEventListener('click', function () { annPost({action: 'prev'}); });
+  $('annNext').addEventListener('click', function () { annPost({action: 'next'}); });
+  $('annAuto').addEventListener('change', function () { annPost({action: 'settings', auto: this.checked}); });
+  $('annDelay').addEventListener('change', function () { annPost({action: 'settings', delay: +this.value}); });
+  $('annCancel').addEventListener('click', function () { annPost({action: 'cancel'}); });
+  socket.on('announce_state', annShow);
+  var annPoll = function () { fetch('/api/announce').then(function (r) { return r.json(); }).then(annShow).catch(function () {}); };
+  annPoll(); setInterval(annPoll, 4000);       // follows the board moving to the next heat
+}
+
 /* ---------------- speaker: the tab that makes sound ---------------- */
 function follow() {}
 if (SPEAKER) {
@@ -592,9 +662,37 @@ if (SPEAKER) {
     follow(); micFollow();
   });
 
+
+  /* ---- announcements: play the clips one after another; the music dips under them ---- */
+  function annDuck(on) {
+    if (!ctx || !annDip) return;
+    annDip.gain.setTargetAtTime(on ? Math.pow(10, -18 / 20) : 1, ctx.currentTime, on ? 0.08 : 0.5);
+  }
+  function annStep() {
+    var it = annQueue.shift();
+    if (!it) { annBusy = false; setTimeout(function () { if (!annBusy) annDuck(false); }, 400); return; }
+    if (it.url) {
+      annPlayer.src = it.url; annPlayer.volume = 1;
+      var done = false, next = function () { if (!done) { done = true; setTimeout(annStep, 350); } };
+      annPlayer.onended = next;
+      annPlayer.onerror = function () { if (it.say) { annQueue.unshift({say: it.say}); } next(); };
+      var p = annPlayer.play(); if (p && p.catch) p.catch(function () { annPlayer.onerror(); });
+    } else if (it.say && window.speechSynthesis) {
+      var u = new SpeechSynthesisUtterance(it.say); u.rate = 0.95;
+      u.onend = function () { setTimeout(annStep, 350); }; u.onerror = u.onend;
+      speechSynthesis.speak(u);
+    } else { annStep(); }
+  }
+  socket.on('announce_play', function (d) {
+    if (!ready || !d || !d.items) return;
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    annQueue = d.items.slice(); annBusy = true; annDuck(true);
+    setTimeout(annStep, 350);            // let the music dip first
+  });
   /* ---- the mixer: music and mic into one output ----
      music: <audio> -> duck (dips while the mic is talking) -> master
      mic:   input -> gain -> low cut -> bass -> mid -> treble -> compressor -> level -> master */
+  var annPlayer = $('annPlayer'), annDip = null, annGain = null, annQueue = [], annBusy = false;
   var ctx = null, master = null, duckGain = null, mic = {}, micStream = null, micSrc = null, micKey = '',
       micBusy = false, lastVoice = 0, ducking = false, lastSent = 0,
       auto = new MicAuto(), autoOut = null, autoWas = false, specBuf = null, appliedGain = 0;
@@ -605,8 +703,11 @@ if (SPEAKER) {
       ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'interactive'});
     } catch (e) { console.log('no Web Audio', e); return; }
     master = ctx.createGain(); master.connect(ctx.destination);
-    duckGain = ctx.createGain(); duckGain.connect(master);
+    annDip = ctx.createGain(); annDip.connect(master);
+    duckGain = ctx.createGain(); duckGain.connect(annDip);
     ctx.createMediaElementSource(player).connect(duckGain);
+    annGain = ctx.createGain(); annGain.connect(master);
+    ctx.createMediaElementSource(annPlayer).connect(annGain);
     mic.inGain = ctx.createGain();
     mic.lowCut = ctx.createBiquadFilter(); mic.lowCut.type = 'highpass'; mic.lowCut.Q.value = 0.707;
     mic.bass = ctx.createBiquadFilter(); mic.bass.type = 'lowshelf'; mic.bass.frequency.value = 120;

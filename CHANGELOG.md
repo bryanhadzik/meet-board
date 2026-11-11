@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+- **Announcements** on the music page: one big Announce button calls the next
+  event/heat ("Event 4, Women's 200 IM, Heat 1"; later heats just "Heat 2") and
+  moves on. Arrows pick a different heat. Optional auto-announce a few seconds
+  after the last race of a heat finishes (off by default, with a cancel). The
+  speaker tab plays it and dips the music. Uses pre-recorded voice clips
+  (`POST /api/announce/clips`, a zip); anything missing is spoken by the PC voice.
+
 ### Changed
 - meet-board-launcher.exe: double-click it instead of the .cmd - it has the
   meet-board icon and opens the launcher with no PowerShell window. The launcher's

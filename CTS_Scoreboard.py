@@ -29,6 +29,7 @@ import app_paths
 import scb_loader
 import https_server
 import startlist_json
+import announce
 import meet_board
 from race_book import RaceBook
 from serial_monitor import monitor as serial_mon
@@ -2100,6 +2101,197 @@ def route_music_stream_mute():
     return flask.jsonify(dict(stream_mute.status(), inputs=inputs, obs_error=err,
                               delay=float(settings.get('music_unmute_delay', 2.0) or 0)))
 
+
+# ---------------------------------------------------------------- heat announcements
+# "Event five. Women's 200 freestyle. Heat one. Please report to the blocks." stitched from
+# recorded clips (announce.py). The Music page has one Announce button that always offers the
+# next heat; optionally it fires by itself when a race is over.
+_ann = {'announced': set(), 'swum': set(), 'override': None, 'last': None, 'seq': 0, 'timer': None}
+
+
+def _ann_settings():
+    a = settings.setdefault('announce', {})
+    a.setdefault('auto', False)
+    a.setdefault('delay', 5)
+    return a
+
+
+def _ann_order():
+    try:
+        return meet_board.heat_order(event_info)
+    except Exception:
+        return []
+
+
+def _ann_target():
+    cur = (int(last_event_sent[0]), int(last_event_sent[1])) if last_event_sent else None
+    return announce.pick_target(_ann_order(), cur, bool(race_book.racing), _ann['swum'], _ann['announced'], _ann['override'])
+
+
+def _ann_pieces(key):
+    e, h = key
+    meta = (getattr(event_info, 'event_meta', {}) or {}).get(e) or {}
+    last = _ann['last']
+    new_event = h == 1 or not (last and last[0] == e)     # same event as the last announcement: just the heat
+    pieces = announce.build(e, h, meta_heats(e), meta, new_event=new_event)
+    return announce.resolve(pieces, announce.clips_on_disk(_ann_folder()), meta), meta
+
+
+def meta_heats(e):
+    try:
+        return meet_board.heat_count(event_info, e)
+    except Exception:
+        return 0
+
+
+def _ann_folder():
+    return announce.clip_folder(app_paths.data_path)
+
+
+def _ann_view():
+    a = _ann_settings()
+    key = _ann_target()
+    out = {'auto': bool(a.get('auto')), 'delay': a.get('delay', 5), 'target': None, 'last': None,
+           'speaker': bool(music_state.speaker_sid), 'clips': len(announce.clips_on_disk(_ann_folder())),
+           'clips_total': len(announce.clip_script()), 'pending': bool(_ann['timer'])}
+    if key:
+        pieces, meta = _ann_pieces(key)
+        have = announce.clips_on_disk(_ann_folder())
+        out['target'] = {'event': key[0], 'heat': key[1], 'heats': meta_heats(key[0]),
+                         'name': announce.event_label(meta) if meta else event_info.get_event_name(key[0]),
+                         'text': announce.text_of(pieces), 'missing': [p['clip'] for p in pieces if p['clip'] not in have],
+                         'override': _ann['override'] == key}
+    if _ann['last']:
+        out['last'] = {'event': _ann['last'][0], 'heat': _ann['last'][1]}
+    return out
+
+
+def _ann_broadcast():
+    socketio.emit('announce_state', _ann_view(), namespace='/music')
+
+
+def _ann_play(key, why='button'):
+    if not key:
+        return 'nothing left to announce'
+    if not music_state.speaker_sid:
+        return 'no speaker tab open (/music?speaker=1 on the pool PC)'
+    pieces, meta = _ann_pieces(key)
+    _ann['seq'] += 1
+    have = announce.clips_on_disk(_ann_folder())
+    items = [{'url': '/announce/clip/%s.mp3' % p['clip'], 'say': p['say']} if p['clip'] in have else {'say': p['say']}
+             for p in pieces]
+    socketio.emit('announce_play', {'id': _ann['seq'], 'items': items, 'text': announce.text_of(pieces)},
+                  namespace='/music', to=music_state.speaker_sid)
+    _ann['announced'].add(key)
+    _ann['last'] = key
+    _ann['override'] = None
+    print('Announced %s/%s (%s): %s' % (key[0], key[1], why, announce.text_of(pieces)))
+    _ann_broadcast()
+    return None
+
+
+def _ann_race_over(event, heat):
+    try:
+        k = (int(event), int(heat))
+    except (TypeError, ValueError):
+        return
+    _ann['swum'].add(k)
+    a = _ann_settings()
+    if a.get('auto'):
+        if _ann['timer']:
+            try:
+                _ann['timer'].cancel()
+            except Exception:
+                pass
+
+        def fire():
+            _ann['timer'] = None
+            err = _ann_play(_ann_target(), 'auto')
+            if err:
+                print('Auto announce skipped:', err)
+                _ann_broadcast()
+        _ann['timer'] = threading.Timer(max(0.0, float(a.get('delay', 5) or 0)), fire)
+        _ann['timer'].daemon = True
+        _ann['timer'].start()
+    _ann_broadcast()
+
+
+race_book.on_end = _ann_race_over
+
+
+@app.route('/api/announce', methods=['GET', 'POST'])
+def route_api_announce():
+    if flask.request.method == 'POST':
+        d = flask.request.get_json(silent=True, force=True) or {}
+        act = d.get('action')
+        err = None
+        if act == 'play':
+            err = _ann_play(_ann_target())
+        elif act in ('next', 'prev'):
+            order, key = _ann_order(), _ann_target()
+            if key in order:
+                i = order.index(key) + (1 if act == 'next' else -1)
+                if 0 <= i < len(order):
+                    _ann['override'] = order[i]
+        elif act == 'reset':                 # start over: forget what was announced / swum
+            _ann.update(announced=set(), swum=set(), override=None, last=None)
+        elif act == 'settings':
+            a = _ann_settings()
+            if 'auto' in d:
+                a['auto'] = bool(d['auto'])
+                if not a['auto'] and _ann['timer']:
+                    _ann['timer'].cancel()
+                    _ann['timer'] = None
+            if 'delay' in d:
+                try:
+                    a['delay'] = max(0, min(60, int(d['delay'])))
+                except (TypeError, ValueError):
+                    pass
+            save_settings()
+        elif act == 'cancel' and _ann['timer']:
+            _ann['timer'].cancel()
+            _ann['timer'] = None
+        _ann_broadcast()
+        if err:
+            return _cors(flask.make_response(flask.jsonify({'ok': False, 'error': err, **_ann_view()}), 400))
+    return _cors(flask.jsonify({'ok': True, **_ann_view()}))
+
+
+@app.route('/announce/clip/<name>.mp3')
+def route_announce_clip(name):
+    if not announce.SAFE.match(name):
+        return flask.abort(404)
+    return flask.send_from_directory(_ann_folder(), name + '.mp3', conditional=True)
+
+
+@app.route('/api/announce/clips', methods=['GET', 'POST', 'OPTIONS'])
+def route_api_announce_clips():
+    """GET: the clip list (recorded or not). POST: upload clips (files named <clip>.mp3, or a .zip of them)."""
+    if flask.request.method == 'OPTIONS':
+        return _cors(flask.make_response('', 204))
+    folder = _ann_folder()
+    saved = []
+    known = {c for c, _ in announce.clip_script()}
+    if flask.request.method == 'POST':
+        import zipfile as _zf
+        for f in flask.request.files.getlist('clips'):
+            fn = os.path.basename(f.filename or '')
+            if fn.lower().endswith('.zip'):
+                with _zf.ZipFile(f.stream) as z:
+                    for n in z.namelist():
+                        b = os.path.basename(n)
+                        if b.lower().endswith('.mp3') and b[:-4] in known:
+                            with open(os.path.join(folder, b), 'wb') as out:
+                                out.write(z.read(n))
+                            saved.append(b[:-4])
+            elif fn.lower().endswith('.mp3') and fn[:-4] in known:
+                f.save(os.path.join(folder, fn))
+                saved.append(fn[:-4])
+        _ann_broadcast()
+    have = announce.clips_on_disk(folder)
+    return _cors(flask.jsonify({'saved': saved, 'clips': [{'clip': c, 'text': t, 'have': c in have}
+                                                           for c, t in announce.clip_script()]}))
+
 @app.route('/music')
 def route_music():
     return flask.render_template('music.html', speaker='speaker' in flask.request.args,
@@ -3180,6 +3372,7 @@ def route_api_startlists():
         event_info.from_object(staged.to_object())
         event_info.meet_info = staged.meet_info
         _store_usc(doc)
+        _ann.update(announced=set(), swum=set(), override=None, last=None)   # new start lists: start announcing over
         m = (doc or {}).get('meet') or {}
         settings['schedule_meet'] = {'id': str(m.get('id') or '')[:40], 'name': str(m.get('name') or '')[:120],
                                      'date': str(m.get('date') or '')[:20]}

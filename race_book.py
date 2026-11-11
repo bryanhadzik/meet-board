@@ -64,6 +64,7 @@ class RaceBook:
         self.armed = False         # the clock has been at zero: the next count-up is a start
         self.rising = 0
         self.log = collections.deque(maxlen=80)   # what the race book decided, and why (Debug page)
+        self.on_end = None         # callback(event, heat) when a race is over (announcements)
 
     def _note(self, text):
         clk = str(self.s.get('running_time') or '').strip() or '-'
@@ -82,6 +83,11 @@ class RaceBook:
             return
         finals = {i: r['max'] for i, r in self.lanes.items() if r['ran'] and r['max'] > 0}
         self.racing, self.lanes = False, {}
+        if self.on_end:
+            try:
+                self.on_end(str(heat.get('current_event', '')).strip(), str(heat.get('current_heat', '')).strip())
+            except Exception:
+                pass
         if not finals:
             self._note('Race over (%s), no lane times: nothing held' % self._key(heat))
             return
