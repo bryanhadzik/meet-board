@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+- **Phone results QR code on the meet boards.** Settings -> Phone results takes
+  the address of the public results page MeetDeck publishes. The boards show a
+  small code in the corner and, every few minutes between races, a full-screen
+  slide with a code big enough to scan from the stands. `?noresultsqr` hides it
+  on one screen.
+
 ### Fixed
 - A team whose name was left blank on Team Colors showed its code ("MILL") on
   the boards. It now shows the school's name: the built-in one, or the meet

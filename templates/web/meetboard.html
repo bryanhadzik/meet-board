@@ -227,6 +227,7 @@
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
 <script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
 <script src="{{ url_for('static', filename='warmup-slide.js') }}"></script>
+<script src="{{ url_for('static', filename='results-qr.js') }}"></script>
 <script>
 (function(){
 "use strict";
@@ -627,6 +628,7 @@ var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard'
     if (window.mbAutoReload) window.mbAutoReload(socket);
     if (window.mbBlackout) window.mbBlackout(socket);
     if (window.mbWarmupSlide) window.mbWarmupSlide(socket, {mode: 'full'});
+    if (window.mbResultsQr) window.mbResultsQr({busy: function () { return B.racing || s.race_state === 'Running' || holding; }});
 socket.on('connect', function(){ connected = true; render(); });
 socket.on('disconnect', function(){ connected = false; render(); });
 socket.on('update_scoreboard', function(u){

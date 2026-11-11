@@ -12,6 +12,7 @@ dependencies = [
     "transitions",
     "mutagen>=1.48.1",
     "cryptography>=50.0.2",
+    "segno",
 ]
 
 [project.scripts]

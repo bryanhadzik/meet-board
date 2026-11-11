@@ -66,6 +66,10 @@ settings = {
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
+    'results_url': '',            # public phone results page (MeetDeck publishes it), shown as a QR code on the meet boards
+    'results_qr': 'slide',        # off | corner | slide (corner + a full-screen slide every few minutes between races)
+    'results_every': '4',         # minutes between full-screen slides
+    'results_secs': '15',         # seconds each slide stays up
     'num_lanes': 8,           # Tooele: 8-lane pool
     'pool_course': 'SCY',
     'show_pr_tags': True,
@@ -2652,6 +2656,8 @@ def route_settings():
                 serial_port_list=comm_port_list,
                 user_name=settings['username'],
                 seed_time_label=settings.get('seed_time_label', 'Seed Time'),
+                results_url=settings.get('results_url', ''), results_qr=settings.get('results_qr', 'slide'),
+                results_every=settings.get('results_every', '4'), results_secs=settings.get('results_secs', '15'),
                 schedule_loaded=schedule_loaded,
                 schedule_error=schedule_error,
                 schedule_filename=settings.get('schedule_filename', ''),
@@ -3046,6 +3052,33 @@ def _cors(resp):
     resp.headers['Access-Control-Allow-Private-Network'] = 'true'
     resp.headers['Cache-Control'] = 'no-store'
     return resp
+
+@app.route('/api/results_qr')
+def results_qr_info():
+    """What the meet boards need for the phone-results QR code (public: the boards don't log in)."""
+    def num(k, d, lo, hi):
+        try:
+            return max(lo, min(hi, float(settings.get(k) or d)))
+        except (TypeError, ValueError):
+            return d
+    mode = settings.get('results_qr') if settings.get('results_qr') in ('off', 'corner', 'slide') else 'slide'
+    return flask.jsonify(url=(settings.get('results_url') or '').strip(), mode=mode,
+                         every=num('results_every', 4, 1, 60), secs=num('results_secs', 15, 5, 120))
+
+
+@app.route('/results_qr.svg')
+def results_qr_svg():
+    url = (settings.get('results_url') or '').strip()
+    if not url:
+        return flask.Response('', status=404)
+    import io
+    import segno
+    buf = io.BytesIO()
+    segno.make(url, error='m', micro=False).save(buf, kind='svg', border=0, dark='#000', light=None, xmldecl=False, svgns=True)
+    r = flask.Response(buf.getvalue(), mimetype='image/svg+xml')
+    r.headers['Cache-Control'] = 'no-store'
+    return r
+
 
 @app.route('/api/startlists', methods=['GET', 'POST', 'OPTIONS'])
 def route_api_startlists():

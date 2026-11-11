@@ -449,6 +449,24 @@
   })();
   </script>
 </section>
+<h3 id="phoneresults">Phone results</h3>
+<section class="card">
+  <p style="margin-top:0">A QR code on the spectator boards that opens the public results page MeetDeck publishes
+    (MeetDeck: Setup &rarr; Phone results). Paste that page's address here.</p>
+  <form action="/settings#phoneresults" method="POST">
+    <label class="small">Results page address <input name="results_url" value="{{ results_url }}" placeholder="https://bryanhadzik.github.io/swim-results/" style="width:360px" class="form-control"></label>
+    <label class="small" style="margin-top:6px">Show it
+      <select name="results_qr" class="form-control" style="width:auto;display:inline-block">
+        {% for code, label in [('slide', 'Corner code + a full-screen slide between races'), ('corner', 'Corner code only'), ('off', 'Off')] %}
+        <option value="{{code}}" {% if code == results_qr %}selected{% endif %}>{{label}}</option>
+        {% endfor %}
+      </select></label>
+    <label class="small">Slide every <input name="results_every" value="{{ results_every }}" style="width:60px;display:inline-block" class="form-control"> minutes, for
+      <input name="results_secs" value="{{ results_secs }}" style="width:60px;display:inline-block" class="form-control"> seconds (never during a race or while results are up)</label><br>
+    <button class="btn btn-primary btn-sm" type="submit" style="margin-top:6px">Save</button>
+    {% if results_url %}<a href="/results_qr.svg" target="_blank" class="small" style="margin-left:10px">See the code</a>{% endif %}
+  </form>
+</section>
 <h3>Board display</h3>
 <section class="card">
         <div class="row">
