@@ -70,6 +70,7 @@ settings = {
     'results_qr': 'slide',        # off | corner | slide (corner + a full-screen slide every few minutes between races)
     'results_every': '4',         # minutes between full-screen slides
     'results_secs': '15',         # seconds each slide stays up
+    'youtube_channel': '',        # @handle or channel URL; youtube.com/<it>/live opens whatever is streaming now
     'num_lanes': 8,           # Tooele: 8-lane pool
     'pool_course': 'SCY',
     'show_pr_tags': True,
@@ -2658,6 +2659,7 @@ def route_settings():
                 seed_time_label=settings.get('seed_time_label', 'Seed Time'),
                 results_url=settings.get('results_url', ''), results_qr=settings.get('results_qr', 'slide'),
                 results_every=settings.get('results_every', '4'), results_secs=settings.get('results_secs', '15'),
+                youtube_channel=settings.get('youtube_channel', ''),
                 schedule_loaded=schedule_loaded,
                 schedule_error=schedule_error,
                 schedule_filename=settings.get('schedule_filename', ''),
@@ -3064,6 +3066,35 @@ def results_qr_info():
     mode = settings.get('results_qr') if settings.get('results_qr') in ('off', 'corner', 'slide') else 'slide'
     return flask.jsonify(url=(settings.get('results_url') or '').strip(), mode=mode,
                          every=num('results_every', 4, 1, 60), secs=num('results_secs', 15, 5, 120))
+
+
+def youtube_live_url(chan):
+    """@handle, a handle without @, a channel id (UC...) or any youtube.com channel URL -> its /live address,
+    which YouTube sends to the broadcast that's on right now (or the channel page when nothing is)."""
+    c = (chan or '').strip()
+    if not c:
+        return ''
+    m = re.search(r'youtube\.com/((?:@[\w.-]+)|(?:channel/UC[\w-]+)|(?:c/[\w.-]+)|(?:user/[\w.-]+))', c)
+    if m:
+        path = m.group(1)
+    elif re.fullmatch(r'UC[\w-]{20,}', c):
+        path = 'channel/' + c
+    else:
+        path = '@' + c.lstrip('@')
+    return 'https://www.youtube.com/%s/live' % path
+
+
+@app.route('/api/stream_link', methods=['GET', 'OPTIONS'])
+def stream_link():
+    """The public link to the meet's live stream, for MeetDeck's phone results page (public, read-only)."""
+    try:
+        live = bool(obs.status().get('streaming')) if obs else False
+    except Exception:
+        live = False
+    r = flask.jsonify(url=youtube_live_url(settings.get('youtube_channel')), live=live,
+                      channel=(settings.get('youtube_channel') or '').strip())
+    r.headers['Access-Control-Allow-Origin'] = '*'
+    return r
 
 
 @app.route('/results_qr.svg')

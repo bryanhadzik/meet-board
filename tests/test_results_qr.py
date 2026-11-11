@@ -14,3 +14,16 @@ def test_results_qr_info_and_svg():
     r = c.get('/results_qr.svg')
     assert r.status_code == 200 and r.mimetype == 'image/svg+xml' and b'<svg' in r.data and b'viewBox' in r.data and b'width=' not in r.data.split(b'>')[0]
     cs.settings['results_url'] = ''
+
+
+def test_stream_link():
+    c = cs.app.test_client()
+    for given, want in [('@tooeleswim', 'https://www.youtube.com/@tooeleswim/live'),
+                        ('tooeleswim', 'https://www.youtube.com/@tooeleswim/live'),
+                        ('https://www.youtube.com/@Pool.Live/featured', 'https://www.youtube.com/@Pool.Live/live'),
+                        ('https://youtube.com/channel/UCabcdefghijklmnopqrstuv', 'https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv/live'),
+                        ('', '')]:
+        cs.settings['youtube_channel'] = given
+        d = c.get('/api/stream_link').get_json()
+        assert d['url'] == want and d['live'] is False
+    cs.settings['youtube_channel'] = ''

@@ -8,6 +8,9 @@
   small code in the corner and, every few minutes between races, a full-screen
   slide with a code big enough to scan from the stands. `?noresultsqr` hides it
   on one screen.
+- **YouTube channel setting** (Settings -> Phone results). `/api/stream_link`
+  gives the channel's `/live` address (always the broadcast that's on now) and
+  whether OBS is streaming; MeetDeck puts it on the phone results page.
 
 ### Fixed
 - A team whose name was left blank on Team Colors showed its code ("MILL") on
