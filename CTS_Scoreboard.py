@@ -1095,7 +1095,7 @@ def _state_cut_classes(cuts, meet_teams, heat_teams):
     canon = meet_board.canonical_codes(settings, codes + [_home_code()], _team_names())
     tc = meet_board.team_class_map(cuts, codes + [_home_code()], canon)
     home_cls = tc.get(_home_code(), '')
-    fallback = cuts.get('fallback_class', '4A') or ''
+    fallback = meet_board.resolve_fallback(cuts, home_cls)
     picked = [tc[c] for c in heat_teams if c in tc]
     # a team with no classification in the water races the fallback class
     if fallback and any(c and c not in tc for c in heat_teams):
@@ -1195,6 +1195,14 @@ def _state_cut_now(cuts):
     return {'ok': False, 'text': head + ': no ' + '/'.join(classes) + ' time entered for this event.'}
 
 
+def _host_class(cuts):
+    try:
+        canon = meet_board.canonical_codes(settings, [_home_code()], _team_names())
+        return meet_board.team_class_map(cuts, [_home_code()], canon).get(_home_code(), '')
+    except Exception:
+        return ''
+
+
 def _state_cuts_view():
     cuts = _state_cuts()
     tables = cuts.get('classes') or {}
@@ -1225,7 +1233,8 @@ def _state_cuts_view():
     return {'on': bool(cuts.get('on')), 'label': cuts.get('label', ''), 'now': _state_cut_now(cuts),
             'usc_board': settings.get('usc_board', True), 'usc_src': src,
             'usc_swimmers': sum(len(v) for v in (settings.get('usc_lanes') or {}).values()),
-            'fallback_class': cuts.get('fallback_class', '4A'),
+            'fallback_class': cuts.get('fallback_class', meet_board.FALLBACK_HOST),
+            'host_class': _host_class(cuts),
             'default_label': meet_board.STATE_CUTS_YEAR + ' State', 'year': meet_board.STATE_CUTS_YEAR,
             'classes': classes, 'builtin_classes': sorted(builtin, key=meet_board.CLASSES.index),
             'rows': rows, 'teams': teams, 'all_classes': meet_board.CLASSES,
@@ -2033,7 +2042,7 @@ def route_api_state_cuts():
                     over[code] = c if c != 'none' else ''
         if 'fallback_class' in d:
             fb = str(d.get('fallback_class') or '')
-            if fb and fb not in meet_board.CLASSES:
+            if fb and fb not in meet_board.CLASSES and fb != meet_board.FALLBACK_HOST:
                 return flask.jsonify({'error': 'Unknown classification'}), 400
             cuts['fallback_class'] = fb
         if 'label' in d:

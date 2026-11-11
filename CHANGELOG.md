@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+- State cuts: teams with no classification (Black vs Blue, clubs, unknown
+  visitors) now race **the host team's class** by default instead of a fixed 4A.
+  A fixed class or "no cut" can still be picked; a board on the old 4A default
+  switches to the host's class.
+
 ### Added
 - **Announcements** on the music page: one big Announce button calls the next
   event/heat ("Event 4, Women's 200 IM, Heat 1"; later heats just "Heat 2") and

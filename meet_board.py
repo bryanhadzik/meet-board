@@ -490,18 +490,34 @@ def builtin_state_cuts():
     return {c: _cuts_table(rows) for c, rows in _STATE_2026.items()}
 
 
+FALLBACK_HOST = 'host'
+
+
 def default_state_cuts():
     # fallback_class: for teams with no classification (intra-squad "Black vs
-    # Blue" meets, clubs, unknown visitors) - the county's 4A by default
+    # Blue" meets, clubs, unknown visitors) - the host team's class by default
     # header only on the meet board ("last season qualifying time"), no lane tags
-    return {'on': True, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {}, 'fallback_class': '4A', 'v': 2}
+    return {'on': True, 'label': '', 'classes': builtin_state_cuts(), 'team_class': {},
+            'fallback_class': FALLBACK_HOST, 'fb_v': 2, 'v': 2}
+
+
+def resolve_fallback(cuts, home_cls):
+    """The class unclassified teams race: the host's (4A if the host has none), a fixed class, or '' for none."""
+    fb = (cuts or {}).get('fallback_class', FALLBACK_HOST)
+    if fb == FALLBACK_HOST:
+        return home_cls or '4A'
+    return fb or ''
 
 
 def migrate_state_cuts(cuts):
     """v0.2.40 kept one table ({on, label, times}); now it's one per class.
     Anything typed into the old table becomes the 4A table's overrides."""
     if isinstance(cuts, dict) and cuts.get('v') == 2:
-        cuts.setdefault('fallback_class', '4A')
+        cuts.setdefault('fallback_class', FALLBACK_HOST)
+        if cuts.get('fb_v') != 2:           # the old fixed 4A default becomes "same as the host team"
+            if cuts['fallback_class'] == '4A':
+                cuts['fallback_class'] = FALLBACK_HOST
+            cuts['fb_v'] = 2
         return cuts
     old = cuts if isinstance(cuts, dict) else {}
     new = default_state_cuts()

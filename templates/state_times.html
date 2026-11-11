@@ -143,8 +143,9 @@
             drawTeams();
             var fb = $('sc_fb');
             if (!fb.options.length){
-              [''].concat(d.all_classes).forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = c || 'no cut'; fb.appendChild(o); });
+              ['host'].concat(d.all_classes, ['']).forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = c || 'no cut'; fb.appendChild(o); });
             }
+            fb.options[0].textContent = 'the host team\'s class' + (d.host_class ? ' (' + d.host_class + ')' : ' (4A - host has none)');
             fb.value = d.fallback_class || '';
             if (table !== false || !$('sc_body').children.length) drawTimes();
             else drawTimesTabsOnly();   // keep typed boxes; a team may have moved class

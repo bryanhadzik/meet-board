@@ -191,7 +191,16 @@ def test_intra_squad_meet_uses_the_fallback_class(monkeypatch, quiet):
     assert c.post('/api/state_cuts', json={'fallback_class': '9Z'}).status_code == 400
     # old saved v2 settings without the key get 4A
     old = M.default_state_cuts(); old.pop('fallback_class')
-    assert M.migrate_state_cuts(old)['fallback_class'] == '4A'
+    assert M.migrate_state_cuts(old)['fallback_class'] == 'host'
+    old = M.default_state_cuts(); old.pop('fb_v'); old['fallback_class'] = '4A'     # the old default
+    assert M.migrate_state_cuts(old)['fallback_class'] == 'host'
+    assert M.migrate_state_cuts(dict(old, fallback_class='3A'))['fallback_class'] == '3A'
+    # "host": unclassified teams race the host team's class
+    assert M.resolve_fallback({'fallback_class': 'host'}, '3A') == '3A'
+    assert M.resolve_fallback({'fallback_class': 'host'}, '') == '4A'
+    assert c.post('/api/state_cuts', json={'fallback_class': 'host'}).status_code == 200
+    monkeypatch.setitem(C.settings, 'board_home_team', 'GHS')
+    assert [(x['cls']) for x in C._state_cut_payload(3, 1)['items']] == ['3A']
 
 
 def test_state_cuts_off_send_nothing(monkeypatch, quiet):
