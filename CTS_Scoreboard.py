@@ -2246,6 +2246,7 @@ def _ann_view():
     have = announce.clips_on_disk(_ann_folder())
     out['extras'] = [{'clip': k, 'label': lab, 'text': t, 'have': k in have} for k, lab, t in announce.EXTRAS]
     out['now'] = _ann['now']
+    out['ago'] = int(time.time() - _ann['at']) if _ann.get('at') else None
     if _ann['last']:
         e, h = _ann['last']
         meta = (getattr(event_info, 'event_meta', {}) or {}).get(e) or {}
@@ -2273,6 +2274,7 @@ def _ann_play_extra(clip):
     socketio.emit('announce_play', {'id': _ann['seq'], 'items': [item], 'text': text},
                   namespace='/music', to=music_state.speaker_sid)
     _ann['now'] = {'title': label, 'text': text}
+    _ann['at'] = time.time()
     print('Announced %s: %s' % (label, text))
     _ann_broadcast()
     return None
@@ -2294,6 +2296,7 @@ def _ann_play(key, why='button'):
     _ann['last'] = key
     _ann['last_text'] = announce.text_of(pieces)
     _ann['now'] = None
+    _ann['at'] = time.time()
     _ann['override'] = None
     print('Announced %s/%s (%s): %s' % (key[0], key[1], why, announce.text_of(pieces)))
     _ann_broadcast()

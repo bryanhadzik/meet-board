@@ -51,13 +51,15 @@
   .ann .big[disabled] { opacity:.45; cursor:default; }
   .ann .big.busy { background:#f0c96a; color:#2a1f00; }
   .ann .what { flex:1; min-width:240px; }
-  .ann .what .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#6f8a90; }
-  .ann .what .t { font:600 15px "Segoe UI", sans-serif; color:#3b5054; }
-  .ann .what .say { font-size:12px; }
-  .ann-now { margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #e3eaeb; }
-  .ann-now .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#6f8a90; }
-  .ann-now .t { font:800 26px "Segoe UI", sans-serif; line-height:1.2; }
-  .ann-now .say { font-size:15px; color:#3b5054; margin-top:4px; }
+  .ann .what .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#1f8a4c; font-weight:700; }
+  .ann .what .t { font:800 26px "Segoe UI", sans-serif; line-height:1.2; }
+  .ann .what .say { font-size:13px; }
+  /* what was said last: small, under the next one, so it's never mistaken for the one to announce */
+  .ann-now { margin-top:12px; padding-top:10px; border-top:1px solid #e3eaeb; color:#3b5054; }
+  .ann-now .k { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:#6f8a90; }
+  .ann-now .t { font:600 15px "Segoe UI", sans-serif; line-height:1.3; }
+  .ann-now .say { font-size:12px; }
+  .ann-now .say { color:#3b5054; margin-top:2px; }
   [hidden] { display:none !important; }
   .ann-extra { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
   .ann-extra button { font:600 14px "Segoe UI", sans-serif; padding:9px 14px; border-radius:10px; border:1px solid #c9d6d8; background:#f3f8f8; cursor:pointer; }
@@ -131,20 +133,20 @@
 
   <h2>Announcements</h2>
   <div class="card" id="annCard">
-    <div class="ann-now">
-      <div class="k">Current announcement</div>
-      <div class="t" id="annNowT">Nothing announced yet</div>
-      <div class="say" id="annNowSay"></div>
-    </div>
     <div class="ann">
       <button class="big" type="button" id="annBtn" disabled>Announce</button>
       <div class="what">
-        <div class="k" id="annK">Next</div>
+        <div class="k" id="annK">Next to announce</div>
         <div class="t" id="annT">&mdash;</div>
         <div class="say" id="annSay"></div>
       </div>
       <div class="nav"><button type="button" id="annPrev" title="Back one heat">&#9664;</button>
         <button type="button" id="annNext" title="Skip ahead one heat">&#9654;</button></div>
+    </div>
+    <div class="ann-now">
+      <div class="k" id="annNowK">Last announced</div>
+      <div class="t" id="annNowT">Nothing announced yet</div>
+      <div class="say" id="annNowSay"></div>
     </div>
     <div class="ann-extra" id="annExtras"></div>
     <div class="ann-opts">
@@ -628,6 +630,14 @@ $('up').addEventListener('submit', function (ev) {
     return fetch('/api/announce', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
       .then(function (r) { return r.json(); }).then(function (d) { if (d.error) $('annInfo').textContent = d.error; annShow(d); });
   };
+  var annAt = null;
+  var annAgo = function () {
+    var k = $('annNowK'); if (!k) return;
+    if (annAt == null) { k.textContent = 'Last announced'; return; }
+    var m = Math.floor((Date.now() - annAt) / 60000);
+    k.textContent = 'Last announced \u00b7 ' + (m < 1 ? 'just now' : m === 1 ? '1 min ago' : m + ' min ago');
+  };
+  setInterval(annAgo, 15000);
   var annShow = function (d) {
     if (!d) return; ANN = d;
     var t = d.target;
@@ -635,11 +645,13 @@ $('up').addEventListener('submit', function (ev) {
     $('annBtn').classList.toggle('busy', !!d.pending);
     $('annBtn').textContent = d.pending ? 'Announcing soon…' : 'Announce';
     $('annT').textContent = t ? ('Event ' + t.event + ' · ' + t.name + (t.heats > 1 ? ' · Heat ' + t.heat + ' of ' + t.heats : '')) : 'Nothing left to announce';
-    $('annK').textContent = t && t.override ? 'Next (picked)' : 'Next';
+    $('annK').textContent = t && t.override ? 'Next to announce (picked)' : 'Next to announce';
     var L = d.last;
     $('annNowT').textContent = L ? ('Event ' + L.event + (L.name ? ' · ' + L.name : '') + (L.heats > 1 ? ' · Heat ' + L.heat + ' of ' + L.heats : '')) : 'Nothing announced yet';
     $('annNowSay').textContent = L && L.text ? '"' + L.text + '"' : '';
     if (d.now) { $('annNowT').textContent = d.now.title; $('annNowSay').textContent = '"' + d.now.text + '"'; }
+    annAt = d.ago == null ? null : Date.now() - 1000 * d.ago;
+    annAgo();
     var ex = $('annExtras');
     if (ex.children.length !== (d.extras || []).length) {
       ex.innerHTML = '';
