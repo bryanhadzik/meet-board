@@ -188,3 +188,26 @@ def test_places_show_as_each_lane_finishes():
     p = book.payload()
     assert p['racing'] and p['place'] == {'5': '1', '4': '2'}
     assert p['last']['5'] == '1:55.98'
+
+
+def test_near_end_from_splits_and_seeds():
+    """Announce when the slowest swimmer still in the water should have ~5 yards to go."""
+    book = RaceBook()
+    fired = []
+    book.on_near_end = lambda e, h: fired.append((e, h))
+    book.near_yards = 5
+    u = heat(9, {4: 'Ava', 5: 'Mia'}, dist=100)
+    u.update(lane_seed_time4='1:05.00', lane_seed_time5='1:10.00')
+    book.feed(u)
+    start(book, [4, 5])
+    assert abs(book.near_end_estimate() - 70 * 95 / 100) < 0.01      # before any split: the slowest seed
+    go(book, '31', {4: '30.00'})                                    # lane 4's 50
+    go(book, '34', {5: '33.00'})                                    # lane 5's 50: 33 + 45 yd at 33/50*1.08
+    est = book.near_end_estimate()
+    assert abs(est - (33 + 45 * 33 / 50 * 1.08)) < 0.01
+    go(book, '%.1f' % (est - 1))
+    assert not fired
+    go(book, '%.1f' % (est + 0.2))
+    assert fired == [('9', '1')]
+    go(book, '%.1f' % (est + 1))
+    assert len(fired) == 1                                          # once per race

@@ -67,6 +67,10 @@ class RaceBook:
         self.on_end = None         # callback(event, heat) when a race is over (announcements)
         self.on_all_touched = None # callback(event, heat) once every swimmer in the race has a final time
         self.on_start = None       # callback() when a race starts
+        self.on_near_end = None    # callback(event, heat) once the last swimmer should have near_yards to go
+        self.near_yards = 0        # 0 = off
+        self.near_fired = False
+        self.split_yards = 50      # touchpads at one end: a split every 50 (25-yard pool)
         self.touched = False
 
     def _note(self, text):
@@ -80,6 +84,7 @@ class RaceBook:
         self._note('Race started (%s): clock counting up from zero' % self._key(self.s))
         self.racing, self.lanes, self.hold = True, {}, None
         self.touched = False
+        self.near_fired = False
         if self.on_start:
             try:
                 self.on_start()
@@ -146,13 +151,18 @@ class RaceBook:
                 and self.s.get('race_state') == 'Running' and c and c > 0):
             self._note('Joined a race already running (server started mid-race)')
             self.racing = True
+            if self.on_start:
+                try:
+                    self.on_start()
+                except Exception:
+                    pass
         if not self.racing:
             return
         for i in range(1, 11):
             run = bool(self.s.get('lane_running%d' % i))
             ts = str(self.s.get('lane_time%d' % i) or '').strip()
             t = secs(ts)
-            rec = self.lanes.setdefault(i, {'ran': False, 'last': '', 'max': 0.0, 'at': 0.0, 'place': ''})
+            rec = self.lanes.setdefault(i, {'ran': False, 'last': '', 'max': 0.0, 'at': 0.0, 'place': '', 'splits': []})
             if run:
                 rec['ran'] = True
             elif rec['ran'] and t and t > 0 and t > rec['max']:
@@ -160,8 +170,10 @@ class RaceBook:
                 rec['last'] = ts
                 rec['max'] = t
                 rec['at'] = self.clock()
+                rec.setdefault('splits', []).append(t)
             if not run and rec['ran']:
                 rec['place'] = str(self.s.get('lane_place%d' % i) or '').strip()
+        self._check_near_end(c)
         ran = [r for r in self.lanes.values() if r['ran']]
         # a final touch has a place; a split (every lane stops at the 50 too) doesn't
         if (not self.touched and ran and all(r['max'] > 0 and r['place'] for r in ran)
@@ -175,11 +187,59 @@ class RaceBook:
                 except Exception:
                     pass
 
+    def near_end_estimate(self):
+        """Race clock (s) when the last swimmer still in the water should have near_yards to go, or None when
+        it can't be told. From each lane's splits (pace of its laps after the first 50; the first 50 alone,
+        plus a little for the dive) or, before any split, its seed time."""
+        try:
+            dist = int(float(self.s.get('event_distance') or 0))
+        except (TypeError, ValueError):
+            dist = 0
+        if dist <= self.near_yards:
+            return None
+        target = dist - self.near_yards
+        est = []
+        for i in range(1, 11):
+            if not (str(self.s.get('lane_name%d' % i) or '').strip() or str(self.s.get('lane_team%d' % i) or '').strip()):
+                continue                                   # empty lane
+            rec = self.lanes.get(i) or {}
+            if rec.get('place'):
+                continue                                   # finished
+            sp = rec.get('splits') or []
+            if sp:
+                done = self.split_yards * len(sp)
+                if done >= dist:
+                    continue
+                pace = ((sp[-1] - sp[0]) / (self.split_yards * (len(sp) - 1)) if len(sp) > 1
+                        else sp[0] / self.split_yards * 1.08)   # first 50 has the dive: later laps are slower
+                est.append(sp[-1] + (target - done) * pace)
+            else:
+                seed = secs(self.s.get('lane_seed_time%d' % i))
+                if not seed:
+                    return None                            # a swimmer we can't estimate: wait for the finish
+                est.append(seed * target / dist)
+        return max(est) if est else None
+
+    def _check_near_end(self, clock_s):
+        if not (self.racing and self.near_yards and self.on_near_end and not self.near_fired) or clock_s is None:
+            return
+        e = self.near_end_estimate()
+        if e is None or clock_s < e:
+            return
+        self.near_fired = True
+        self._note('Last swimmer about %d yards out (estimated %.1f s): announce' % (self.near_yards, e))
+        try:
+            self.on_near_end(str(self.s.get('current_event', '')).strip(), str(self.s.get('current_heat', '')).strip())
+        except Exception:
+            pass
+
     def debug(self):
         """The race book's state in plain values, for the Debug page."""
         now = self.clock()
         return {
             'racing': self.racing, 'armed': self.armed, 'rising': self.rising,
+            'near': {'yards': self.near_yards, 'fired': self.near_fired, 'estimate': self.near_end_estimate() if self.racing else None,
+                     'distance': self.s.get('event_distance'), 'seeds': {i: self.s.get('lane_seed_time%d' % i) for i in range(1, 9)}},
             'last_clock': self.last_clock, 'heat': self._key(self.s),
             'hold': {'heat': self.hold.get('heat_key'), 'age': round(now - self.hold_at, 1),
                      'expires_in': round(self.HOLD_S - (now - self.hold_at), 1),

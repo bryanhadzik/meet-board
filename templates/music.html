@@ -150,8 +150,10 @@
     </div>
     <div class="ann-extra" id="annExtras"></div>
     <div class="ann-opts">
-      <label style="font-weight:600"><input type="checkbox" id="annAuto"> Announce the next heat automatically when a race is over</label>
-      <label>after <select id="annDelay"><option value="0">0 s</option><option value="3">3 s</option><option value="5">5 s</option>
+      <label style="font-weight:600"><input type="checkbox" id="annAuto"> Announce the next heat automatically</label>
+      <select id="annWhen" title="Near the finish: from each lane's 50 splits (or seed time before the first split), the board works out when the last swimmer has about 5 yards to go and announces then. Needs the event distance and seed times or splits; otherwise it waits for the race to end.">
+        <option value="end">when the race is over</option><option value="near">when the last swimmer has ~5 yards to go</option></select>
+      <label id="annDelayL">after <select id="annDelay"><option value="0">0 s</option><option value="3">3 s</option><option value="5">5 s</option>
         <option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
       <button class="btn" type="button" id="annCancel" hidden>Cancel the automatic one</button>
       <label class="vol annvol" title="Announcements only - the music volume is separate. Over 100% boosts quiet clips.">Announcement volume <input type="range" id="annVol" min="0" max="150" value="100"> <span id="annVolT">100%</span></label>
@@ -664,6 +666,7 @@ $('up').addEventListener('submit', function (ev) {
     [].forEach.call(ex.children, function (b) { b.disabled = !d.speaker; });
     $('annSay').textContent = t ? '"' + t.text + '"' : '';
     $('annAuto').checked = !!d.auto; $('annDelay').value = String(d.delay);
+    $('annWhen').value = d.when || 'end'; $('annDelayL').style.display = d.when === 'near' ? 'none' : '';
     var v = d.volume == null ? 100 : d.volume;
     if (document.activeElement !== $('annVol')) { $('annVol').value = v; $('annVolT').textContent = v + '%'; }
     window.annVolume = v / 100;
@@ -679,6 +682,7 @@ $('up').addEventListener('submit', function (ev) {
   $('annNext').addEventListener('click', function () { annPost({action: 'next'}); });
   $('annAuto').addEventListener('change', function () { annPost({action: 'settings', auto: this.checked}); });
   $('annDelay').addEventListener('change', function () { annPost({action: 'settings', delay: +this.value}); });
+  $('annWhen').addEventListener('change', function () { annPost({action: 'settings', when: this.value}); });
   $('annCancel').addEventListener('click', function () { annPost({action: 'cancel'}); });
   $('annVol').addEventListener('input', function () {
     $('annVolT').textContent = this.value + '%';

@@ -2338,6 +2338,8 @@ def _ann_settings():
     a.setdefault('auto', False)
     a.setdefault('delay', 5)
     a.setdefault('volume', 100)          # % - announcements have their own level, apart from the music
+    a.setdefault('when', 'end')          # end: when the race is over | near: the last swimmer ~5 yards out (from splits)
+    race_book.near_yards = 5 if (a.get('auto') and a.get('when') == 'near') else 0
     return a
 
 
@@ -2376,7 +2378,7 @@ def _ann_folder():
 def _ann_view():
     a = _ann_settings()
     key = _ann_target()
-    out = {'auto': bool(a.get('auto')), 'delay': a.get('delay', 5), 'volume': a.get('volume', 100), 'target': None, 'last': None,
+    out = {'auto': bool(a.get('auto')), 'delay': a.get('delay', 5), 'when': a.get('when', 'end'), 'volume': a.get('volume', 100), 'target': None, 'last': None,
            'speaker': bool(music_state.speaker_sid), 'clips': len(announce.clips_on_disk(_ann_folder())),
            'clips_total': len(announce.clip_script()), 'pending': bool(_ann['timer'])}
     if key:
@@ -2446,6 +2448,22 @@ def _ann_play(key, why='button'):
     return None
 
 
+def _ann_near_end(event, heat):
+    """The last swimmer is about 5 yards out (estimated from splits): announce the next heat now."""
+    a = _ann_settings()
+    try:
+        k = (int(event), int(heat))
+    except (TypeError, ValueError):
+        return
+    if not a.get('auto') or a.get('when') != 'near' or k in _ann['swum']:
+        return
+    _ann['near_done'] = k
+    err = _ann_play(_ann_target(), 'near the finish')
+    if err:
+        print('Auto announce skipped:', err)
+        _ann_broadcast()
+
+
 def _ann_race_over(event, heat):
     try:
         k = (int(event), int(heat))
@@ -2454,6 +2472,9 @@ def _ann_race_over(event, heat):
     if k in _ann['swum']:          # already handled when everyone touched
         return
     _ann['swum'].add(k)
+    if _ann.get('near_done') == k:  # already announced as the last swimmer came in
+        _ann_broadcast()
+        return
     a = _ann_settings()
     if a.get('auto'):
         if _ann['timer']:
@@ -2483,6 +2504,10 @@ def _race_over(event, heat):
 
 
 def _race_started():
+    try:
+        _ann_settings()                 # near-end announcing: on/off from the saved choice
+    except Exception:
+        pass
     if BREAK['on']:                     # the next session is under way: take the break slide down
         BREAK['on'] = False
         _break_emit()
@@ -2491,6 +2516,8 @@ def _race_started():
 race_book.on_end = _race_over
 race_book.on_all_touched = _race_over          # auto-announce as soon as the last swimmer touches
 race_book.on_start = _race_started
+race_book.on_near_end = _ann_near_end
+_ann_settings()                                 # sets race_book.near_yards from the saved choice
 
 
 @app.route('/api/announce', methods=['GET', 'POST'])
@@ -2523,6 +2550,9 @@ def route_api_announce():
                     a['delay'] = max(0, min(60, int(d['delay'])))
                 except (TypeError, ValueError):
                     pass
+            if d.get('when') in ('end', 'near'):
+                a['when'] = d['when']
+            _ann_settings()                  # near-end estimate on/off follows auto + when
             if 'volume' in d:
                 try:
                     a['volume'] = max(0, min(150, int(round(float(d['volume'])))))
