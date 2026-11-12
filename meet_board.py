@@ -45,7 +45,7 @@ DEFAULT_TEAM_COLORS = {
     'LHS':   {'name': 'Logan',          'color': '#E0405A', 'alt': '#F0B83C'},  # crimson, gold
     'SJCHS': {'name': 'St. Joseph',     'color': '#2FB872', 'alt': '#E0A630'},  # green, gold
     'BLHS':  {'name': 'Ben Lomond',     'color': '#EE4256', 'alt': '#6FB0F0'},  # red, Columbia blue, white
-    'FREM':  {'name': 'Fremont',        'color': '#3D7FE8', 'alt': '#A5ACAF', 'aliases': ['FHS', 'FREMONT']},  # blue, silver
+    'FREM':  {'name': 'Fremont',        'color': '#3D7FE8', 'alt': '#A5ACAF', 'aliases': ['FHS', 'FREMONT', 'FREMT']},  # blue, silver
     # Every other UHSAA 2025-27 3A and 4A school. Colors from MaxPreps (logo when
     # MaxPreps has none), lifted to read on the dark board; codes are guesses at
     # what Meet Manager files use - a school is also matched by its name.

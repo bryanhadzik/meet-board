@@ -145,3 +145,7 @@ def test_blank_saved_name_falls_back_to_school_name():
     assert t['MILL']['name'] == 'Millard' and t['MILL']['color'] == '#ff7f6b'
     assert t['ZZHS']['name'] == 'Zebra Valley'
     assert M.team_colors({}, ['QQQ'], {})['QQQ']['name'] == ''
+
+
+def test_fremont_team_manager_code_finds_its_logo():
+    assert meet_board.canonical_codes({}, ["FREMT"], {}) == {"FREMT": "FREM"}
