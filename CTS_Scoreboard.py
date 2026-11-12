@@ -2162,6 +2162,7 @@ def _ann_settings():
     a = settings.setdefault('announce', {})
     a.setdefault('auto', False)
     a.setdefault('delay', 5)
+    a.setdefault('volume', 100)          # % - announcements have their own level, apart from the music
     return a
 
 
@@ -2200,7 +2201,7 @@ def _ann_folder():
 def _ann_view():
     a = _ann_settings()
     key = _ann_target()
-    out = {'auto': bool(a.get('auto')), 'delay': a.get('delay', 5), 'target': None, 'last': None,
+    out = {'auto': bool(a.get('auto')), 'delay': a.get('delay', 5), 'volume': a.get('volume', 100), 'target': None, 'last': None,
            'speaker': bool(music_state.speaker_sid), 'clips': len(announce.clips_on_disk(_ann_folder())),
            'clips_total': len(announce.clip_script()), 'pending': bool(_ann['timer'])}
     if key:
@@ -2327,6 +2328,11 @@ def route_api_announce():
             if 'delay' in d:
                 try:
                     a['delay'] = max(0, min(60, int(d['delay'])))
+                except (TypeError, ValueError):
+                    pass
+            if 'volume' in d:
+                try:
+                    a['volume'] = max(0, min(150, int(round(float(d['volume'])))))
                 except (TypeError, ValueError):
                     pass
             save_settings()

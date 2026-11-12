@@ -119,3 +119,15 @@ def test_warmup_slide_comes_down_at_start_time(board, monkeypatch):
     assert C.settings['warmup_slide_on'] is False and C.last_event_sent == (1, 1)
     C.settings['warmup_slide_on'] = True                                  # put back up by hand: stays up
     assert not C.warmup_auto_off(dt.datetime(2026, 11, 12, 15, 30))
+
+
+def test_announcement_volume_is_its_own_setting(board):
+    c = C.app.test_client()
+    assert c.get('/api/announce').get_json()['volume'] == 100
+    music_vol = C.settings.get('music', {}).get('volume')
+    v = c.post('/api/announce', json={'action': 'settings', 'volume': 60}).get_json()
+    assert v['volume'] == 60 and C.settings['announce']['volume'] == 60
+    assert C.settings.get('music', {}).get('volume') == music_vol          # the music level is left alone
+    assert c.post('/api/announce', json={'action': 'settings', 'volume': 400}).get_json()['volume'] == 150
+    assert c.post('/api/announce', json={'action': 'settings', 'volume': 'x'}).get_json()['volume'] == 150
+    c.post('/api/announce', json={'action': 'settings', 'volume': 100})

@@ -18,6 +18,7 @@
   .tbtn[disabled] { opacity:.4; cursor:default; }
   .vol { display:flex; align-items:center; gap:8px; margin-left:auto; color:#8fa3a8; font-size:13px; }
   .vol input { width:160px; }
+  .annvol { margin-left:auto; }
   .songs { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
   .song { position:relative; text-align:left; padding:16px 16px 16px 50px; border-radius:10px; border:1px solid var(--line);
           background:#fff; cursor:pointer; font:600 16px "Segoe UI", sans-serif; color:var(--ink); min-height:64px; }
@@ -151,6 +152,7 @@
       <label>after <select id="annDelay"><option value="0">0 s</option><option value="3">3 s</option><option value="5">5 s</option>
         <option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
       <button class="btn" type="button" id="annCancel" hidden>Cancel the automatic one</button>
+      <label class="vol annvol" title="Announcements only - the music volume is separate. Over 100% boosts quiet clips.">Announcement volume <input type="range" id="annVol" min="0" max="150" value="100"> <span id="annVolT">100%</span></label>
       <span class="small" id="annInfo"></span>
     </div>
   </div>
@@ -650,6 +652,10 @@ $('up').addEventListener('submit', function (ev) {
     [].forEach.call(ex.children, function (b) { b.disabled = !d.speaker; });
     $('annSay').textContent = t ? '"' + t.text + '"' : '';
     $('annAuto').checked = !!d.auto; $('annDelay').value = String(d.delay);
+    var v = d.volume == null ? 100 : d.volume;
+    if (document.activeElement !== $('annVol')) { $('annVol').value = v; $('annVolT').textContent = v + '%'; }
+    window.annVolume = v / 100;
+    if (window.annApplyVolume) window.annApplyVolume();
     $('annCancel').hidden = !d.pending;
     var info = [];
     if (!d.speaker) info.push('No speaker tab open - open /music?speaker=1 on the pool PC.');
@@ -662,6 +668,11 @@ $('up').addEventListener('submit', function (ev) {
   $('annAuto').addEventListener('change', function () { annPost({action: 'settings', auto: this.checked}); });
   $('annDelay').addEventListener('change', function () { annPost({action: 'settings', delay: +this.value}); });
   $('annCancel').addEventListener('click', function () { annPost({action: 'cancel'}); });
+  $('annVol').addEventListener('input', function () {
+    $('annVolT').textContent = this.value + '%';
+    window.annVolume = this.value / 100; if (window.annApplyVolume) window.annApplyVolume();   // hear it right away on the speaker tab
+  });
+  $('annVol').addEventListener('change', function () { annPost({action: 'settings', volume: +this.value}); });
   socket.on('announce_state', annShow);
   var annPoll = function () { fetch('/api/announce').then(function (r) { return r.json(); }).then(annShow).catch(function () {}); };
   annPoll(); setInterval(annPoll, 4000);       // follows the board moving to the next heat
@@ -704,13 +715,16 @@ if (SPEAKER) {
       annPlayer.onerror = function () { if (it.say) { annQueue.unshift({say: it.say}); } next(); };
       var p = annPlayer.play(); if (p && p.catch) p.catch(function () { annPlayer.onerror(); });
     } else if (it.say && window.speechSynthesis) {
-      var u = new SpeechSynthesisUtterance(it.say); u.rate = 0.95;
+      var u = new SpeechSynthesisUtterance(it.say); u.rate = 0.95; u.volume = Math.max(0, Math.min(1, annVol()));
       u.onend = function () { setTimeout(annStep, 350); }; u.onerror = u.onend;
       speechSynthesis.speak(u);
     } else { annStep(); }
   }
+  function annVol() { return window.annVolume == null ? 1 : window.annVolume; }
+  window.annApplyVolume = function () { if (ctx && annGain) annGain.gain.setTargetAtTime(annVol(), ctx.currentTime, 0.05); };
   socket.on('announce_play', function (d) {
     if (!ready || !d || !d.items) return;
+    window.annApplyVolume();
     if (ctx && ctx.state === 'suspended') ctx.resume();
     annQueue = d.items.slice(); annBusy = true; annDuck(true);
     setTimeout(annStep, 350);            // let the music dip first
@@ -732,7 +746,7 @@ if (SPEAKER) {
     annDip = ctx.createGain(); annDip.connect(master);
     duckGain = ctx.createGain(); duckGain.connect(annDip);
     ctx.createMediaElementSource(player).connect(duckGain);
-    annGain = ctx.createGain(); annGain.connect(master);
+    annGain = ctx.createGain(); annGain.gain.value = window.annVolume == null ? 1 : window.annVolume; annGain.connect(master);
     ctx.createMediaElementSource(annPlayer).connect(annGain);
     mic.inGain = ctx.createGain();
     mic.lowCut = ctx.createBiquadFilter(); mic.lowCut.type = 'highpass'; mic.lowCut.Q.value = 0.707;
