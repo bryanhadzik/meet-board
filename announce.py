@@ -85,7 +85,7 @@ EXTRAS = [
     ('x_open', 'Pool open for warm-ups', 'The pool is open for warm-ups.'),
     ('x_break15', '15-minute break', 'We will now have a 15 minute break.'),
     ('x_break10', '10-minute break', 'We will now have a 10 minute break.'),
-    ('x_clear', 'Clear the pool', 'Please clear the pool.'),
+    ('x_clear', 'Clear the pool', 'The pool is now closed. Swimmers, please clear the pool.'),
 ]
 
 
