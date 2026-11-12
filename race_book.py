@@ -66,6 +66,7 @@ class RaceBook:
         self.log = collections.deque(maxlen=80)   # what the race book decided, and why (Debug page)
         self.on_end = None         # callback(event, heat) when a race is over (announcements)
         self.on_all_touched = None # callback(event, heat) once every swimmer in the race has a final time
+        self.on_start = None       # callback() when a race starts
         self.touched = False
 
     def _note(self, text):
@@ -79,6 +80,11 @@ class RaceBook:
         self._note('Race started (%s): clock counting up from zero' % self._key(self.s))
         self.racing, self.lanes, self.hold = True, {}, None
         self.touched = False
+        if self.on_start:
+            try:
+                self.on_start()
+            except Exception:
+                pass
 
     def _end(self, heat):
         """The race is over: freeze its results, named from `heat` (the heat as it was)."""

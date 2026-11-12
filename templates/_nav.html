@@ -18,6 +18,8 @@
   .mbnav .wu.on { background:#3ddc84; color:#0b1618; }
   .mbnav .nt { background:#2a3a3d; color:#e6eef0; }
   .mbnav .nt.on { background:#ffd23f; color:#0b1618; }
+  .mbnav .brk { background:#2a3a3d; color:#e6eef0; }
+  .mbnav .brk.on { background:#ffd60a; color:#0b1618; }
   .mbnav a .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#3ddc84; margin-left:6px; vertical-align:2px; }
   .mbnav .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
 </style>
@@ -37,6 +39,7 @@
     onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
   <button class="rl wu" id="mbWarmBtn" type="button" title="Show the warm-up slide (meet, teams, start time) on the meet boards and the stream">Warm-up slide</button>
   <button class="rl nt" id="mbNoticeBtn" type="button" title="Full-screen &quot;We need timers&quot; slide on the meet board TVs (change the words in Settings &gt; Screens)">Need timers</button>
+  <button class="rl brk" id="mbBreakBtn" type="button" title="Break slide on the meet board TVs: team scores, results so far and the events still to come (Settings &gt; Screens: show it automatically after the session's last event)">Break slide</button>
   <button class="rl bk" id="mbBlackBtn" type="button" title="Blank the meet board and scoreboard TVs (the OBS overlay is not affected)">Go black</button>
 </nav>
 <script>
@@ -77,6 +80,18 @@
       .then(function(r){return r.json();}).then(nShow);
   };
   window.ntNavShow = nShow;
+  // break slide toggle
+  var bb = document.getElementById('mbBreakBtn'), bOn = false;
+  function bShow(d){ bOn = !!(d && d.on); bb.classList.toggle('on', bOn);
+    bb.textContent = bOn ? 'Break slide: ON' : (d && d.pending ? 'Break slide soon\u2026' : 'Break slide');
+    if (window.brShow) window.brShow(d); }
+  bb.onclick = function(){
+    fetch('/api/break_slide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!bOn})})
+      .then(function(r){return r.json();}).then(bShow);
+  };
+  window.brNavShow = bShow;
+  function bLoad(){ fetch('/api/break_slide',{cache:'no-store'}).then(function(r){return r.json();}).then(bShow).catch(function(){}); }
+  bLoad(); setInterval(bLoad, 15000);
   function nLoad(){ fetch('/api/notice',{cache:'no-store'}).then(function(r){return r.json();}).then(nShow).catch(function(){}); }
   nLoad(); setInterval(nLoad, 15000);
   wLoad(); setInterval(wLoad, 15000);

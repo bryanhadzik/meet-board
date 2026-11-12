@@ -28,3 +28,27 @@ def test_stream_link():
         d = c.get('/api/stream_link').get_json()
         assert d['url'] == want and d['live'] is False
     cs.settings['youtube_channel'] = ''
+
+
+def test_break_slide_manual_and_auto(monkeypatch):
+    c = cs.app.test_client()
+    cs.settings['break_slide'] = {'after': 8, 'auto': False, 'delay': 120}
+    monkeypatch.setattr(cs, '_break_results', lambda: {'meet': {'name': 'Fremont @ Tooele'}, 'scores': [{'name': 'Tooele', 'total': 66}],
+        'events': [{'no': 1, 'label': 'Girls 200 Medley Relay', 'rows': [{'place': 1, 'name': 'Tooele "A"', 'team': 'TOOEL', 'result': '2:13.18'}]},
+                   {'no': 9, 'label': 'Girls 100 Fly', 'rows': []}]})
+    d = c.get('/api/break_slide').get_json()
+    assert d['on'] is False and d['auto'] is False and d['after'] == 8
+    d = c.post('/api/break_slide', json={'on': True}).get_json()
+    assert d['on'] and d['scores'][0]['total'] == 66 and d['done'][0]['top'][0]['time'] == '2:13.18' and d['coming'][0]['no'] == 9
+    cs._race_started()                                   # the next race takes it down
+    assert c.get('/api/break_slide').get_json()['on'] is False
+    # automatic: only after the last heat of the 'after' event
+    c.post('/api/break_slide', json={'auto': True, 'delay': 0, 'after': 8})
+    monkeypatch.setattr(cs.meet_board, 'heat_count', lambda ei, e: 2)
+    cs._break_race_over('8', '1')
+    assert cs.BREAK['timer'] is None
+    cs._break_race_over('8', '2')
+    import time; time.sleep(0.3)
+    assert cs.BREAK['on'] is True
+    cs._break_set(False)
+    cs.settings['break_slide'] = {'after': 8, 'auto': False, 'delay': 120}

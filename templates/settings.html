@@ -127,6 +127,45 @@
           </div>
         </section>
 
+        <h3 id="break">Break slide</h3>
+        <section class="card">
+          <div style="font-size:13px;color:#5d7379;margin-bottom:8px">Full screen on the meet board TVs during the break between sessions: team scores, the top three of every event swum so far
+            (from the phone results page) and the events still to come. It comes down by itself when the next race starts. Add <code>?nobreak</code> to a TV's URL to keep that screen off it.</div>
+          <div class="btnrow" style="align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="font-weight:600"><input type="radio" name="br_mode" value="manual"> Manually</label>
+            <label style="font-weight:600"><input type="radio" name="br_mode" value="auto"> Automatically</label>
+            <span>&mdash; <input class="form-control" id="br_delay" type="number" min="0" max="30" style="width:64px;display:inline-block"> min after the last heat of event
+              <input class="form-control" id="br_after" type="number" min="1" style="width:70px;display:inline-block"></span>
+          </div>
+          <div class="btnrow">
+            <button class="btn btn-primary" type="button" id="br_toggle">Show break slide</button>
+            <span class="help-inline" id="br_state"></span>
+          </div>
+        </section>
+        <script>
+        (function(){
+          var on = false;
+          function $(id){ return document.getElementById(id); }
+          function post(body){ return fetch('/api/break_slide', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+            .then(function(r){ return r.json(); }).then(function(d){ window.brShow(d); if (window.brNavShow) window.brNavShow(d); }); }
+          window.brShow = function(d){
+            on = !!d.on;
+            document.querySelectorAll('input[name=br_mode]').forEach(function(r){ r.checked = (r.value === 'auto') === !!d.auto; });
+            if (document.activeElement !== $('br_after')) $('br_after').value = d.after;
+            if (document.activeElement !== $('br_delay')) $('br_delay').value = Math.round((d.delay || 0) / 60 * 10) / 10;
+            $('br_toggle').textContent = on ? 'Take the slide down' : 'Show break slide';
+            $('br_toggle').className = 'btn ' + (on ? 'btn-danger' : 'btn-primary');
+            $('br_state').textContent = on ? 'Showing on the meet board TVs now.' : d.pending ? 'Coming up automatically in a moment.'
+              : d.auto ? 'Will show ' + (Math.round(d.delay / 6) / 10) + ' min after event ' + d.after + "'s last heat." : 'Off - show it with the button (or Break slide in the tab bar).';
+          };
+          document.querySelectorAll('input[name=br_mode]').forEach(function(r){ r.addEventListener('change', function(){ post({auto: this.value === 'auto'}); }); });
+          $('br_after').addEventListener('change', function(){ post({after: parseInt(this.value, 10)}); });
+          $('br_delay').addEventListener('change', function(){ post({delay: Math.round(parseFloat(this.value || '0') * 60)}); });
+          $('br_toggle').addEventListener('click', function(){ post({on: !on}); });
+          fetch('/api/break_slide', {cache:'no-store'}).then(function(r){ return r.json(); }).then(window.brShow).catch(function(){});
+        })();
+        </script>
+
         <h3 id="notice">Timers slide</h3>
         <section class="card">
           <div style="font-size:13px;color:#5d7379;margin-bottom:8px">A full-screen message on the meet board TVs, for when you're short on timers.

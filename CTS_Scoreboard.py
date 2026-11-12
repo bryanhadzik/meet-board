@@ -1276,6 +1276,7 @@ def ws_scoreboard():
         flask_socketio.emit('blackout', screens_black.status())
     flask_socketio.emit('warmup_slide', _warmup_slide())
     flask_socketio.emit('notice', _notice())
+    flask_socketio.emit('break_slide', _break_slide())
 
 @socketio.on('next_heat', namespace='/scoreboard')
 def ws_next_heat(d):
@@ -2128,6 +2129,148 @@ def route_api_notice():
     return flask.jsonify(_notice())
 
 
+# ---------------------------------------------------------------- break slide (between sessions)
+# "Break: results so far" on the meet board TVs - team scores, the top three of every event swum, and the events
+# still to come. Shown by hand (tab bar / Settings > Screens), or automatically a couple of minutes after the
+# last heat of the session's last event (Settings: after event N). It comes down by itself when a race starts.
+BREAK = {'on': False, 'timer': None, 'fired_for': None}
+_BREAK_RES = {'at': 0.0, 'url': '', 'data': None}
+
+
+def _break_cfg():
+    b = settings.setdefault('break_slide', {})
+    b.setdefault('after', 8)
+    b.setdefault('auto', False)
+    b.setdefault('delay', 120)
+    return b
+
+
+def _break_results():
+    """The public results page's results.json (team scores, every event's results), cached 30 s."""
+    url = (settings.get('results_url') or '').strip()
+    if not url:
+        return None
+    now = time.time()
+    if _BREAK_RES['data'] is not None and _BREAK_RES['url'] == url and now - _BREAK_RES['at'] < 30:
+        return _BREAK_RES['data']
+    try:
+        import urllib.request as _ur
+        req = _ur.Request(url.rstrip('/') + '/results.json?t=%d' % int(now), headers={'Cache-Control': 'no-cache', 'User-Agent': 'meet-board'})
+        with _ur.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode('utf-8'))
+        _BREAK_RES.update(at=now, url=url, data=data)
+    except Exception as e:
+        print('break slide: results.json:', e)
+        _BREAK_RES['at'] = now - 20            # try again in 10 s
+    return _BREAK_RES['data']
+
+
+def _break_slide():
+    b = _break_cfg()
+    out = {'on': BREAK['on'], 'after': b['after'], 'auto': bool(b['auto']), 'delay': b['delay'], 'pending': bool(BREAK['timer'])}
+    if not BREAK['on']:
+        return out
+    res = _break_results() or {}
+    out['meet'] = (res.get('meet') or {}).get('name') if isinstance(res.get('meet'), dict) else (res.get('meet') or '')
+    out['scores'] = [{'name': x.get('name', ''), 'total': x.get('total', 0)} for x in (res.get('scores') or [])]
+    done, coming = [], []
+    for ev in res.get('events') or []:
+        rows = [r for r in ev.get('rows') or [] if r.get('place') and not r.get('exh')]
+        if rows:
+            top = sorted(rows, key=lambda r: int(r.get('place') or 99))[:3]
+            done.append({'no': ev.get('no'), 'label': ev.get('label', ''),
+                         'top': [{'place': r.get('place'), 'name': r.get('name', ''), 'team': r.get('team', ''), 'time': r.get('result', '')} for r in top]})
+        elif not ev.get('rows'):
+            coming.append({'no': ev.get('no'), 'label': ev.get('label', '')})
+    if not res:                                # no results page: at least list what's left from the start lists
+        try:
+            seen = set()
+            for e, h in meet_board.heat_order(event_info):
+                if e > int(b['after']) and e not in seen:
+                    seen.add(e)
+                    meta = (getattr(event_info, 'event_meta', {}) or {}).get(e) or {}
+                    coming.append({'no': e, 'label': announce.event_label(meta) if meta else event_info.get_event_name(e)})
+        except Exception:
+            pass
+    out.update(done=done, coming=coming)
+    return out
+
+
+def _break_emit():
+    _socketio_emit('break_slide', _break_slide(), namespace='/scoreboard')
+
+
+def _break_set(on):
+    if BREAK['timer']:
+        try:
+            BREAK['timer'].cancel()
+        except Exception:
+            pass
+        BREAK['timer'] = None
+    BREAK['on'] = bool(on)
+    _break_emit()
+
+
+def _break_race_over(event, heat):
+    """Arm the automatic break slide after the last heat of the 'after' event."""
+    b = _break_cfg()
+    try:
+        e, h = int(event), int(heat)
+    except (TypeError, ValueError):
+        return
+    if not b.get('auto') or e != int(b.get('after') or 0) or BREAK['on'] or BREAK['fired_for'] == (e, h):
+        return
+    try:
+        last = meet_board.heat_count(event_info, e) or h
+    except Exception:
+        last = h
+    if h < last:
+        return
+    BREAK['fired_for'] = (e, h)
+
+    def fire():
+        BREAK['timer'] = None
+        BREAK['on'] = True
+        print('Break slide: on (after event %d heat %d)' % (e, h))
+        _break_emit()
+    BREAK['timer'] = threading.Timer(max(0, int(b['delay'] if b.get('delay') is not None else 120)), fire)
+    BREAK['timer'].daemon = True
+    BREAK['timer'].start()
+    _break_emit()
+
+
+@app.route('/api/break_slide', methods=['GET', 'POST'])
+def route_api_break_slide():
+    """GET: the break slide. POST any of {on, after, auto, delay} (admin only)."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        b = _break_cfg()
+        if 'after' in d:
+            try:
+                b['after'] = max(1, min(999, int(d['after'])))
+            except (TypeError, ValueError):
+                return flask.jsonify({'error': 'after must be an event number'}), 400
+            BREAK['fired_for'] = None
+        if 'auto' in d:
+            b['auto'] = bool(d['auto'])
+            if not b['auto'] and BREAK['timer']:
+                BREAK['timer'].cancel()
+                BREAK['timer'] = None
+        if 'delay' in d:
+            try:
+                b['delay'] = max(0, min(1800, int(d['delay'])))
+            except (TypeError, ValueError):
+                return flask.jsonify({'error': 'delay must be seconds'}), 400
+        save_settings()
+        if 'on' in d:
+            _break_set(d['on'])
+        else:
+            _break_emit()
+    return flask.jsonify(_break_slide())
+
+
 @app.route('/api/blackout', methods=['GET', 'POST'])
 def route_api_blackout():
     """GET: go-black state. POST {black} or {auto, hours} (admin only)."""
@@ -2331,8 +2474,23 @@ def _ann_race_over(event, heat):
     _ann_broadcast()
 
 
-race_book.on_end = _ann_race_over
-race_book.on_all_touched = _ann_race_over      # auto-announce as soon as the last swimmer touches
+def _race_over(event, heat):
+    _ann_race_over(event, heat)
+    try:
+        _break_race_over(event, heat)
+    except Exception as e:
+        print('break slide:', e)
+
+
+def _race_started():
+    if BREAK['on']:                     # the next session is under way: take the break slide down
+        BREAK['on'] = False
+        _break_emit()
+
+
+race_book.on_end = _race_over
+race_book.on_all_touched = _race_over          # auto-announce as soon as the last swimmer touches
+race_book.on_start = _race_started
 
 
 @app.route('/api/announce', methods=['GET', 'POST'])
