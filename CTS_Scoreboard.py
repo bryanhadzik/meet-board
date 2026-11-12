@@ -3428,6 +3428,8 @@ def route_api_startlists():
             src, (' - ' + meet_name) if meet_name else '', n_events, n_heats,
             ', relay swimmers for %d relays' % n_legs if n_legs else '',
             time.strftime('%a %H:%M'))
+        if meet_name:
+            settings['meet_title'] = meet_name[:120]      # the boards' and overlay's meet name follows MeetDeck
         save_settings()
         send_event_info()
         return _cors(flask.jsonify({'ok': True, 'events': n_events, 'heats': n_heats, 'lanes': n_lanes,

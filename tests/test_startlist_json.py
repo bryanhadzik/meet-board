@@ -69,6 +69,7 @@ def test_bad_documents_are_refused():
 def test_endpoint_loads_and_answers_cors(monkeypatch):
     monkeypatch.setattr(C, 'save_settings', lambda: None)
     monkeypatch.setattr(C, 'send_event_info', lambda: None)
+    monkeypatch.setitem(C.settings, 'meet_title', 'old meet')
     client = C.app.test_client()
     pre = client.open('/api/startlists', method='OPTIONS',
                       headers={'Origin': 'http://localhost:8001', 'Access-Control-Request-Method': 'POST'})
@@ -80,6 +81,7 @@ def test_endpoint_loads_and_answers_cors(monkeypatch):
     assert r.headers['Access-Control-Allow-Origin'] == '*'
     assert C.event_info.get_relay_legs(1, 1, 4) == ['Klay', 'Cox', 'Thayn']
     assert 'MeetDeck test - Stansbury @ Tooele' in C.settings['schedule_filename']
+    assert C.settings['meet_title'] == 'Stansbury @ Tooele'          # the meet name comes along
     assert C.settings['hy3_source'] == C.settings['event_info']
     g = client.get('/api/startlists').get_json()
     assert g['schedule_events'] == 3 and 'meetdeck-startlist' in g['accepts']

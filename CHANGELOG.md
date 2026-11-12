@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- Start lists sent from MeetDeck also set the meet name shown on the boards and
+  the stream overlay.
+
 ### Added
 - Announcements: one-off buttons for "Please stand for the national anthem",
   "Coaches and captains meeting under the scoreboard" and "Welcome to our meet"
