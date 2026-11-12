@@ -944,6 +944,7 @@
     var socket = io.connect('http://' + document.domain + ':' + location.port + '/scoreboard');
     if (window.mbAutoReload) window.mbAutoReload(socket);
     if (window.mbBlackout) window.mbBlackout(socket);
+    if (window.mbNotice) window.mbNotice(socket);
     if (window.mbWarmupSlide) window.mbWarmupSlide(socket, {mode: 'full'});
     socket.on('connect', function () {
         {% if test_event %}

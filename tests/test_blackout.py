@@ -74,3 +74,20 @@ def test_configure_hours():
     assert b.is_black()
     b.configure(hours=100)
     assert b.after_hours == 24.0
+
+
+def test_notice_slide_on_off_and_wording(monkeypatch):
+    import CTS_Scoreboard as C
+    monkeypatch.setattr(C, 'main_thread', object())       # don't start the serial worker
+    c = C.app.test_client()
+    d = c.get('/api/notice').get_json()
+    assert d['on'] is False and d['title'] == 'We need timers!'
+    d = c.post('/api/notice', json={'on': True}).get_json()
+    assert d['on'] is True and C.settings['notice']['on'] is True
+    d = c.post('/api/notice', json={'title': 'Timers wanted', 'text': ''}).get_json()
+    assert d['title'] == 'Timers wanted' and d['text'] == ''
+    d = c.post('/api/notice', json={'title': '', 'on': False}).get_json()
+    assert d['title'] == 'We need timers!' and d['on'] is False
+    c.post('/api/notice', json={'text': d['defaults']['text']})
+    client = C.socketio.test_client(C.app, namespace='/scoreboard')
+    assert any(m['name'] == 'notice' for m in client.get_received('/scoreboard'))

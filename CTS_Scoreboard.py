@@ -1275,6 +1275,7 @@ def ws_scoreboard():
     if screens_black:
         flask_socketio.emit('blackout', screens_black.status())
     flask_socketio.emit('warmup_slide', _warmup_slide())
+    flask_socketio.emit('notice', _notice())
 
 @socketio.on('next_heat', namespace='/scoreboard')
 def ws_next_heat(d):
@@ -2094,6 +2095,37 @@ def route_api_state_cuts():
         save_settings()
         send_event_info()
     return flask.jsonify(_state_cuts_view())
+
+
+# ---------------------------------------------------------------- notice slide ("We need timers")
+NOTICE_DEFAULT = {'title': 'We need timers!', 'text': 'Can you help? Please come to the timing table. Thank you!'}
+
+
+def _notice():
+    n = settings.get('notice') or {}
+    return {'on': bool(n.get('on')), 'title': (n.get('title') or NOTICE_DEFAULT['title'])[:80],
+            'text': (n.get('text') if n.get('text') is not None else NOTICE_DEFAULT['text'])[:240],
+            'defaults': NOTICE_DEFAULT}
+
+
+@app.route('/api/notice', methods=['GET', 'POST'])
+def route_api_notice():
+    """GET: the notice slide. POST any of {on, title, text} (admin only). Full screen on the meet board TVs."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        n = settings.setdefault('notice', {})
+        if 'on' in d:
+            n['on'] = bool(d['on'])
+        for k in ('title', 'text'):
+            if k in d:
+                n[k] = str(d.get(k) or '').strip()
+        if 'title' in d and not n['title']:
+            n.pop('title')                     # blank title: back to "We need timers!"
+        save_settings()
+        _socketio_emit('notice', _notice(), namespace='/scoreboard')
+    return flask.jsonify(_notice())
 
 
 @app.route('/api/blackout', methods=['GET', 'POST'])

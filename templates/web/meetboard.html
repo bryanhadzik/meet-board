@@ -653,6 +653,7 @@ var connected = false;
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
     if (window.mbAutoReload) window.mbAutoReload(socket);
     if (window.mbBlackout) window.mbBlackout(socket);
+    if (window.mbNotice) window.mbNotice(socket);
     if (window.mbWarmupSlide) window.mbWarmupSlide(socket, {mode: 'full'});
     if (window.mbResultsQr) window.mbResultsQr({busy: function () { return B.racing || s.race_state === 'Running' || holding; }, dock: document.getElementById('colR')});
 socket.on('connect', function(){ connected = true; render(); });

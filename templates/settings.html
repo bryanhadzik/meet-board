@@ -127,6 +127,43 @@
           </div>
         </section>
 
+        <h3 id="notice">Timers slide</h3>
+        <section class="card">
+          <div style="font-size:13px;color:#5d7379;margin-bottom:8px">A full-screen message on the meet board TVs, for when you're short on timers.
+            Turn it on and off with <b>Need timers</b> in the tab bar or the button here. The stream overlay isn't affected; add <code>?nonotice</code> to a TV's URL to keep that screen off it.</div>
+          <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+            <div><label for="nt_title">Headline</label><input class="form-control" id="nt_title" style="width:100%" maxlength="80"></div>
+            <div><label for="nt_text">Second line</label><input class="form-control" id="nt_text" style="width:100%" maxlength="240"></div>
+          </div>
+          <div class="btnrow">
+            <button class="btn btn-primary" type="button" id="nt_toggle">Show timers slide</button>
+            <button class="btn btn-default" type="button" id="nt_reset">Back to the standard wording</button>
+            <span class="help-inline" id="nt_state"></span>
+          </div>
+        </section>
+        <script>
+        (function(){
+          var on = false;
+          function $(id){ return document.getElementById(id); }
+          function post(body){ return fetch('/api/notice', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+            .then(function(r){ return r.json(); }).then(function(d){ window.ntShow(d); if (window.ntNavShow) window.ntNavShow(d); }); }
+          window.ntShow = function(d){
+            on = !!d.on;
+            if (document.activeElement !== $('nt_title')) $('nt_title').value = d.title || '';
+            if (document.activeElement !== $('nt_text')) $('nt_text').value = d.text || '';
+            $('nt_toggle').textContent = on ? 'Take the slide down' : 'Show timers slide';
+            $('nt_toggle').className = 'btn ' + (on ? 'btn-danger' : 'btn-primary');
+            $('nt_state').textContent = on ? 'Showing on the meet board TVs now.' : 'Off.';
+          };
+          $('nt_title').addEventListener('change', function(){ post({title: this.value}); });
+          $('nt_text').addEventListener('change', function(){ post({text: this.value}); });
+          $('nt_toggle').addEventListener('click', function(){ post({on: !on, title: $('nt_title').value, text: $('nt_text').value}); });
+          $('nt_reset').addEventListener('click', function(){ fetch('/api/notice',{cache:'no-store'}).then(function(r){return r.json();})
+            .then(function(d){ post({title: d.defaults.title, text: d.defaults.text}); }); });
+          fetch('/api/notice', {cache:'no-store'}).then(function(r){ return r.json(); }).then(window.ntShow).catch(function(){});
+        })();
+        </script>
+
                 <h3 id="warmup">Warm-up slide</h3>
         <section class="card">
           <style>

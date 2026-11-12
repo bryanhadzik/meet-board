@@ -16,6 +16,8 @@
   .mbnav .bk { background:#2a3a3d; color:#e6eef0; }
   .mbnav .wu { background:#2a3a3d; color:#e6eef0; }
   .mbnav .wu.on { background:#3ddc84; color:#0b1618; }
+  .mbnav .nt { background:#2a3a3d; color:#e6eef0; }
+  .mbnav .nt.on { background:#ffd23f; color:#0b1618; }
   .mbnav a .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#3ddc84; margin-left:6px; vertical-align:2px; }
   .mbnav .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
 </style>
@@ -34,6 +36,7 @@
   <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
     onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
   <button class="rl wu" id="mbWarmBtn" type="button" title="Show the warm-up slide (meet, teams, start time) on the meet boards and the stream">Warm-up slide</button>
+  <button class="rl nt" id="mbNoticeBtn" type="button" title="Full-screen &quot;We need timers&quot; slide on the meet board TVs (change the words in Settings &gt; Screens)">Need timers</button>
   <button class="rl bk" id="mbBlackBtn" type="button" title="Blank the meet board and scoreboard TVs (the OBS overlay is not affected)">Go black</button>
 </nav>
 <script>
@@ -64,6 +67,18 @@
       .then(function(r){return r.json();}).then(wShow);
   };
   window.wuNavShow = wShow;
+  // notice slide ("We need timers") toggle
+  var nb = document.getElementById('mbNoticeBtn'), nOn = false;
+  function nShow(d){ nOn = !!(d && d.on); nb.classList.toggle('on', nOn);
+    nb.textContent = nOn ? 'Timers slide: ON' : 'Need timers';
+    if (window.ntShow) window.ntShow(d); }
+  nb.onclick = function(){
+    fetch('/api/notice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!nOn})})
+      .then(function(r){return r.json();}).then(nShow);
+  };
+  window.ntNavShow = nShow;
+  function nLoad(){ fetch('/api/notice',{cache:'no-store'}).then(function(r){return r.json();}).then(nShow).catch(function(){}); }
+  nLoad(); setInterval(nLoad, 15000);
   wLoad(); setInterval(wLoad, 15000);
   // flag the Software Update tab when a newer release is out
   fetch('/update_check').then(function(r){ return r.json(); }).then(function(d){
