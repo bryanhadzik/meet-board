@@ -73,6 +73,8 @@ def event_name(ev):
     dist = str(ev.get("distance") or "")
     course = _COURSE.get(_s(ev.get("course")).upper() or "Y", "")
     stroke = _STROKE.get(_s(ev.get("stroke")).upper(), (None, ""))[1]
+    if stroke == "Medley" and not ev.get("relay"):
+        stroke = "Individual Medley"          # 'Medley' alone reads like the medley relay
     parts = [g, age, dist, course, stroke, "Relay" if ev.get("relay") else ""]
     return " ".join(p for p in parts if p)
 

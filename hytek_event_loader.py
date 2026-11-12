@@ -128,6 +128,8 @@ def _build_event_name(event):
     distance = str(event.distance)
     course = COURSE_NAMES.get(event.course, "")
     stroke = STROKE_NAMES.get(event.stroke, "")
+    if event.stroke == Stroke.MEDLEY and not event.relay:
+        stroke = "Individual Medley"          # 'Medley' alone reads like the medley relay
     relay = "Relay" if event.relay else ""
 
     parts = [p for p in [gender, age, distance, course, stroke, relay] if p]
