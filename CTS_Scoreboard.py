@@ -1917,6 +1917,40 @@ def blackout_worker():
             _blackout_broadcast()
         except Exception:
             traceback.print_exc()
+        try:
+            warmup_auto_off()
+        except Exception:
+            traceback.print_exc()
+
+
+def warmup_auto_off(now=None):
+    """At the meet's start time the warm-up slide comes down and the boards show the first heat.
+    Once per meet day: turning the slide back on afterwards keeps it up. Returns True when it fired."""
+    global last_event_sent
+    if not settings.get('warmup_slide_on'):
+        return False
+    m = _HHMM.match(settings.get('warmup_start') or '')
+    if not m:
+        return False
+    now = now or datetime.datetime.now()
+    day = now.strftime('%Y-%m-%d')
+    meet_day = str((settings.get('schedule_meet') or {}).get('date') or '')[:10]
+    if meet_day and meet_day != day:
+        return False
+    start = now.replace(hour=int(m.group(1)), minute=int(m.group(2)), second=0, microsecond=0)
+    key = '%s %s' % (day, settings['warmup_start'])
+    if now < start or settings.get('warmup_auto_done') == key:
+        return False
+    settings['warmup_slide_on'] = False
+    settings['warmup_auto_done'] = key
+    save_settings()
+    order = meet_board.heat_order(event_info)
+    if order and not race_book.racing:
+        last_event_sent = order[0]           # the console takes over as soon as it sends a heat
+        send_event_info()
+    _warmup_broadcast()
+    print('Meet start time %s: warm-up slide off, showing event %s heat %s' % (settings['warmup_start'], *(order[0] if order else ('-', '-'))))
+    return True
 
 
 def _warmup_slide():

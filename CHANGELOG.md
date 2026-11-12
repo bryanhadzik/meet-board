@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Changed
+- At the meet start time set for the warm-up slide, the slide comes down by itself
+  and the boards show the first heat (the console takes over once it sends a heat).
+  It fires once per meet day, so putting the slide back up by hand keeps it up.
+
+### Changed
 - Fremont's Team Manager code FREMT now gets the Fremont logo and colors. Aliases
   saved on the Team Colors page now add to the built-in ones instead of replacing them.
 - Start lists sent from MeetDeck also set the meet name shown on the boards and

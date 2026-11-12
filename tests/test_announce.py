@@ -102,3 +102,20 @@ def test_extra_announcement_buttons(board):
     assert r['target']['event'] == 1 and r['last'] is None          # the heat queue doesn't move
     assert c.post('/api/announce', json={'action': 'extra', 'clip': 'nope'}).status_code == 400
     assert 'x_welcome' in dict(A.clip_script())
+
+
+def test_warmup_slide_comes_down_at_start_time(board, monkeypatch):
+    import datetime as dt
+    monkeypatch.setattr(C, 'send_event_info', lambda: None)
+    monkeypatch.setattr(C, '_warmup_broadcast', lambda: None)
+    monkeypatch.setitem(C.settings, 'warmup_slide_on', True)
+    monkeypatch.setitem(C.settings, 'warmup_start', '15:00')
+    monkeypatch.setitem(C.settings, 'warmup_auto_done', '')
+    monkeypatch.setitem(C.settings, 'schedule_meet', {'date': '2026-11-12'})
+    monkeypatch.setattr(C, 'last_event_sent', (9, 9))
+    assert not C.warmup_auto_off(dt.datetime(2026, 11, 12, 14, 59))       # not yet
+    assert not C.warmup_auto_off(dt.datetime(2026, 11, 13, 15, 1))        # another day's meet
+    assert C.warmup_auto_off(dt.datetime(2026, 11, 12, 15, 0, 5))
+    assert C.settings['warmup_slide_on'] is False and C.last_event_sent == (1, 1)
+    C.settings['warmup_slide_on'] = True                                  # put back up by hand: stays up
+    assert not C.warmup_auto_off(dt.datetime(2026, 11, 12, 15, 30))
