@@ -149,3 +149,8 @@ def test_blank_saved_name_falls_back_to_school_name():
 
 def test_fremont_team_manager_code_finds_its_logo():
     assert meet_board.canonical_codes({}, ["FREMT"], {}) == {"FREMT": "FREM"}
+
+
+def test_saved_alias_list_keeps_new_builtin_aliases():
+    saved = {'team_colors': {'FREM': {'name': 'Fremont', 'color': '#3D7FE8', 'aliases': ['FHS', 'FREMONT']}}}
+    assert meet_board.canonical_codes(saved, ["FREMT"], {}) == {"FREMT": "FREM"}

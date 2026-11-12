@@ -117,7 +117,8 @@ def _base_table(settings):
             'name': v.get('name', base['name']),
             'color': v.get('color') or base['color'],
             'alt': v.get('alt') or base.get('alt', ''),
-            'aliases': list(aliases) if aliases is not None else list(base.get('aliases', [])),
+            # saved aliases add to the built-in ones, so a code added in an update still works
+            'aliases': list(dict.fromkeys(list(base.get('aliases', [])) + list(aliases or []))),
             'auto': False,
         }
     return merged

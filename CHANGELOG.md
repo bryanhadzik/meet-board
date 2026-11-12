@@ -3,7 +3,8 @@
 ## Unreleased
 
 ### Changed
-- Fremont's Team Manager code FREMT now gets the Fremont logo and colors.
+- Fremont's Team Manager code FREMT now gets the Fremont logo and colors. Aliases
+  saved on the Team Colors page now add to the built-in ones instead of replacing them.
 - Start lists sent from MeetDeck also set the meet name shown on the boards and
   the stream overlay.
 
