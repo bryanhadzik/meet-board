@@ -1964,6 +1964,10 @@ def _warmup_slide():
         out['events'] = meet_board.slide_events(event_info, int(settings.get('num_lanes', 8) or 8))
         out['colors'] = {c: (v.get('color') or '') for c, v in
                          meet_board.team_colors(settings, meet_teams, _team_names()).items()}
+        # phone results QR (the page also has the YouTube live link to pass on)
+        if settings.get('results_qr') != 'off':
+            out['results_url'] = (settings.get('results_url') or '').strip()
+            out['stream'] = bool((settings.get('youtube_channel') or '').strip())
     return out
 
 

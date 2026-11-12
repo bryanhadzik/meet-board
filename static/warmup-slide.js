@@ -83,6 +83,21 @@ window.mbWarmupSlide = function (socket, opts) {
     '.wus.full .wus-legs{font-size:calc(16*var(--u))}',
     '.wus.full .wus-tm{font-size:calc(15*var(--u))}',
     '.wus.full .wus-empty{font-size:calc(34*var(--u));color:#bfe6ec;margin-top:calc(60*var(--u))}',
+    /* phone results QR (both modes) */
+    '.wus-qr{display:flex;align-items:center;gap:calc(18*var(--u));flex:0 1 auto;min-width:0}',
+    '.wus-qr .wus-qrimg{background:#fff;border-radius:calc(10*var(--u));flex:0 0 auto;display:flex}',
+    '.wus-qr .wus-qrimg img{display:block;width:100%;height:100%}',
+    '.wus-qr .wus-qrt{display:flex;flex-direction:column;min-width:0}',
+    '.wus-qr .wus-qk{font-weight:800;letter-spacing:.14em;color:#3ddc84}',
+    '.wus-qr .wus-qu{font-weight:800;font-family:Consolas,"Cascadia Mono",monospace;color:#fff;white-space:nowrap}',
+    '.wus-qr .wus-qs{color:#bfe6ec;font-weight:500;line-height:1.25}',
+    '.wus.full .wus-qrimg{width:calc(170*var(--u));height:calc(170*var(--u));padding:calc(10*var(--u))}',
+    '.wus.full .wus-qk{font-size:calc(22*var(--u))} .wus.full .wus-qu{font-size:calc(34*var(--u));margin-top:calc(4*var(--u))}',
+    '.wus.full .wus-qs{font-size:calc(21*var(--u));margin-top:calc(6*var(--u));max-width:calc(430*var(--u))}',
+    '.wus.band .wus-qr{flex:0 0 auto;align-self:center;gap:calc(12*var(--u))}',
+    '.wus.band .wus-qrimg{width:calc(150*var(--u));height:calc(150*var(--u));padding:calc(8*var(--u))}',
+    '.wus.band .wus-qk{font-size:calc(15*var(--u))} .wus.band .wus-qu{font-size:calc(20*var(--u));margin-top:calc(3*var(--u))}',
+    '.wus.band .wus-qs{font-size:calc(15*var(--u));margin-top:calc(4*var(--u));max-width:calc(230*var(--u))}',
 
     /* ---- band (stream): one heat at a time, clear of the player controls ---- */
     '.wus.band{left:0;right:0;bottom:0;height:calc(var(--bh)*var(--u));background:#091113;align-items:stretch;',
@@ -170,6 +185,21 @@ window.mbWarmupSlide = function (socket, opts) {
     when.appendChild(el('span', 'wus-c', countdown()));
     return when;
   }
+  function qrBlock() {
+    var url = data && data.results_url; if (!url) return null;
+    var box = el('div', 'wus-qr');
+    var img = el('div', 'wus-qrimg'), im = el('img'); im.alt = ''; im.src = '/results_qr.svg?u=' + encodeURIComponent(url);
+    img.appendChild(im); box.appendChild(img);
+    var t = el('div', 'wus-qrt');
+    t.appendChild(el('span', 'wus-qk', data.stream ? 'RESULTS & LIVE STREAM' : 'LIVE RESULTS'));
+    t.appendChild(el('span', 'wus-qu', url.replace(/^https?:\/\//, '').replace(/\/$/, '')));
+    t.appendChild(el('span', 'wus-qs', data.stream
+      ? (MODE === 'full' ? 'Scan for heats, lanes and results. Family can\u2019t make it? The YouTube live stream link is on that page \u2014 send it to them.'
+                         : 'Heats and results on your phone. Share the live stream link from that page.')
+      : 'Scan for heats, lanes and results on your phone.'));
+    box.appendChild(t);
+    return box;
+  }
   function laneRow(l) {
     var row = el('div', 'wus-lane');
     var c = colorOf(l.team);
@@ -195,6 +225,7 @@ window.mbWarmupSlide = function (socket, opts) {
     root.textContent = '';
     var head = el('div', 'wus-head');
     head.appendChild(titleBlock());
+    var qr = qrBlock(); if (qr) head.appendChild(qr);
     var w = whenBlock(); if (w) head.appendChild(w);
     root.appendChild(head);
     var teams = el('div', 'wus-teams');
@@ -237,6 +268,7 @@ window.mbWarmupSlide = function (socket, opts) {
     root.appendChild(titleBlock());
     var stage = el('div', 'wus-stage');
     root.appendChild(stage);
+    var qr = qrBlock(); if (qr) root.appendChild(qr);
     var w = whenBlock(); if (w) root.appendChild(w);
     var list = heats(), i = 0;
     function show() {
@@ -281,7 +313,7 @@ window.mbWarmupSlide = function (socket, opts) {
       // the server re-sends on every heat change; only redraw (and restart the
       // scroll) when what's on the slide actually changed
       // (speed is read live by the scroll; the band's hold time needs a restart)
-      var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events,
+      var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events, data.results_url, data.stream,
                                 MODE === 'band' ? hold() : 0]);
       if (sig !== sigShown || !root.classList.contains('on')) { sigShown = sig; draw(); }
     } else sigShown = '';
