@@ -1171,7 +1171,7 @@ def _state_cut_now(cuts):
     name = event_info.get_event_name(ev) if ev else ''
     head = ('Event %s %s' % (ev, name)).strip() if ev else 'No event'
     if not cuts.get('on'):
-        return {'ok': False, 'text': 'Off - tick "Show on the meet board".'}
+        return {'ok': False, 'text': 'Off - check "Show on the meet board".'}
     meta = (getattr(event_info, 'event_meta', {}) or {}).get(ev)
     if not ev or not meta:
         return {'ok': False, 'text': head + ': not in the loaded start lists - load the meet (.hy3 or .scb) above.'}
