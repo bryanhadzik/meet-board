@@ -2357,8 +2357,8 @@ def _ann_pieces(key):
     e, h = key
     meta = (getattr(event_info, 'event_meta', {}) or {}).get(e) or {}
     last = _ann['last']
-    new_event = h == 1 or not (last and last[0] == e)     # same event as the last announcement: just the heat
-    pieces = announce.build(e, h, meta_heats(e), meta, new_event=new_event)
+    # every heat says the event number and name, then the heat ("Event three. Girls 200 free. Heat two. ...")
+    pieces = announce.build(e, h, meta_heats(e), meta, new_event=True)
     return announce.resolve(pieces, announce.clips_on_disk(_ann_folder()), meta), meta
 
 

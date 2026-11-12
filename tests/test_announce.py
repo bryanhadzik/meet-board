@@ -71,7 +71,7 @@ def test_api_play_advances(board):
     play = [d for ev, d, k in board if ev == 'announce_play'][0]
     assert all('say' in it and 'url' not in it for it in play['items'])     # no clips yet: PC voice
     v = c.get('/api/announce').get_json()
-    assert (v['target']['event'], v['target']['heat']) == (1, 2) and v['target']['text'] == 'Heat two. Please report to the blocks.'
+    assert (v['target']['event'], v['target']['heat']) == (1, 2) and v['target']['text'] == "Event one. Women's 200 freestyle relay. Heat two. Please report to the blocks."
 
 
 def test_clip_upload_zip_and_auto(board):
