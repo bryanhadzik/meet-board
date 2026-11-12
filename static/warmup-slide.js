@@ -91,8 +91,15 @@ window.mbWarmupSlide = function (socket, opts) {
     '.wus-qr .wus-qk{font-weight:800;letter-spacing:.14em;color:#3ddc84}',
     '.wus-qr .wus-qu{font-weight:800;font-family:Consolas,"Cascadia Mono",monospace;color:#fff;white-space:nowrap}',
     '.wus-qr .wus-qs{color:#bfe6ec;font-weight:500;line-height:1.25}',
-    '.wus.full .wus-qr{gap:calc(26*var(--u))}',
-    '.wus.full .wus-qrimg{width:calc(270*var(--u));height:calc(270*var(--u));padding:calc(14*var(--u))}',
+    /* full: the QR sits at the far right of the top area and runs from the top of the screen down to the scrolling heats */
+    '.wus.full .wus-top{display:flex;align-items:stretch;gap:calc(40*var(--u));flex:0 0 auto;margin-top:calc(-26*var(--u))}',
+    '.wus.full .wus-top .wus-head{margin-top:calc(26*var(--u))}',
+    '.wus.full .wus-topl{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}',
+    '.wus.full .wus-top .wus-teams{margin-bottom:calc(18*var(--u))}',
+    '.wus.full .wus-qr{gap:calc(30*var(--u));align-self:stretch;align-items:center;flex:0 1 auto;min-width:0}',
+    '.wus.full .wus-qrt .wus-when{align-items:flex-start;text-align:left;margin-bottom:calc(22*var(--u))}',
+    '.wus.full .wus-qrt .wus-t{font-size:calc(66*var(--u))}',
+    '.wus.full .wus-qrimg{align-self:stretch;box-sizing:border-box;aspect-ratio:1/1;min-height:calc(350*var(--u));padding:calc(18*var(--u))}',
     '.wus.full .wus-qk{font-size:calc(26*var(--u))} .wus.full .wus-qu{font-size:calc(46*var(--u));margin-top:calc(6*var(--u))}',
     '.wus.full .wus-qs{font-size:calc(25*var(--u));margin-top:calc(10*var(--u));max-width:calc(500*var(--u))}',
     '.wus.band .wus-qr{flex:0 0 auto;align-self:center;gap:calc(12*var(--u))}',
@@ -186,11 +193,11 @@ window.mbWarmupSlide = function (socket, opts) {
     when.appendChild(el('span', 'wus-c', countdown()));
     return when;
   }
-  function qrBlock() {
+  function qrBlock(imageRight) {
     var url = data && data.results_url; if (!url) return null;
     var box = el('div', 'wus-qr');
     var img = el('div', 'wus-qrimg'), im = el('img'); im.alt = ''; im.src = '/results_qr.svg?u=' + encodeURIComponent(url);
-    img.appendChild(im); box.appendChild(img);
+    img.appendChild(im); if (!imageRight) box.appendChild(img);
     var t = el('div', 'wus-qrt');
     t.appendChild(el('span', 'wus-qk', data.stream ? 'RESULTS & LIVE STREAM' : 'LIVE RESULTS'));
     t.appendChild(el('span', 'wus-qu', url.replace(/^https?:\/\//, '').replace(/\/$/, '')));
@@ -199,6 +206,7 @@ window.mbWarmupSlide = function (socket, opts) {
                          : 'Heats and results on your phone. Share the live stream link from that page.')
       : 'Scan for heats, lanes and results on your phone.'));
     box.appendChild(t);
+    if (imageRight) box.appendChild(img);
     return box;
   }
   function laneRow(l) {
@@ -224,11 +232,18 @@ window.mbWarmupSlide = function (socket, opts) {
   // ---- full screen: header + team chips + heats scrolling up, looping ----
   function drawFull() {
     root.textContent = '';
+    var top = el('div', 'wus-top'), left = el('div', 'wus-topl');
     var head = el('div', 'wus-head');
     head.appendChild(titleBlock());
-    var qr = qrBlock(); if (qr) head.appendChild(qr);
-    var w = whenBlock(); if (w) head.appendChild(w);
-    root.appendChild(head);
+    var w = whenBlock();
+    left.appendChild(head);
+    top.appendChild(left);
+    var qr = qrBlock(true);
+    if (qr) {                       // start time sits above the results caption, beside the big QR
+      top.appendChild(qr);
+      if (w) qr.querySelector('.wus-qrt').insertBefore(w, qr.querySelector('.wus-qrt').firstChild);
+    } else if (w) head.appendChild(w);
+    root.appendChild(top);
     var teams = el('div', 'wus-teams');
     (data.teams || []).forEach(function (t) {
       var chip = el('div', 'wus-chip');
@@ -239,7 +254,10 @@ window.mbWarmupSlide = function (socket, opts) {
       chip.appendChild(lg); chip.appendChild(el('span', '', t.name));
       teams.appendChild(chip);
     });
-    if ((data.teams || []).length) root.appendChild(teams);
+    if ((data.teams || []).length) left.appendChild(teams);
+    if (qr) requestAnimationFrame(function () {         // square: as wide as the top area is tall
+      var im = qr.querySelector('.wus-qrimg'); if (im && im.offsetHeight) im.style.width = im.offsetHeight + 'px';
+    });
     var view = el('div', 'wus-view'), track = el('div', 'wus-track');
     view.appendChild(track); root.appendChild(view);
     var list = heats();
