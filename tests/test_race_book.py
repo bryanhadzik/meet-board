@@ -52,7 +52,8 @@ def test_e13_100_breast_splits_laps_and_lane_flips():
     go(book, '57', {3: 'R', 4: 'R', 5: 'R', 6: 'R'}, race_state='Clear')
     assert book.payload()['last']['4'] == '34.96'            # last touch stays up
     go(book, '1:16.8', {4: '1:16.80'}); go(book, '1:17.5', {4: '41.84'})
-    assert book.payload()['last']['4'] == '1:16.80'          # the total, not the lap time flashed after it
+    assert book.payload()['last']['4'] == '41.84'            # mid-race: what the scoreboard shows (the lap time it flashes)
+    assert book.lanes[4]['max'] == 76.8                      # ... while the total is kept for the results
     go(book, '1:18', {4: 'R'})
     go(book, '1:16.8', {4: '1:16.80'}); go(book, '1:17.5', {4: '41.84'})   # finish, then the lap time
     go(book, '1:20', {6: '1:20.00'}); go(book, '1:25.1', {5: '1:25.10'}); go(book, '1:40', {3: '1:40.00'})

@@ -165,7 +165,12 @@ class RaceBook:
             rec = self.lanes.setdefault(i, {'ran': False, 'last': '', 'max': 0.0, 'at': 0.0, 'place': '', 'splits': []})
             if run:
                 rec['ran'] = True
-            elif rec['ran'] and t and t > 0 and t > rec['max']:
+            elif rec['ran'] and t and t > 0 and ts != rec.get('disp'):
+                # what the console (and so the scoreboard) is showing for the lane right now - a split, or the
+                # lap time it flashes after one; the boards show the same mid-race
+                rec['disp'] = ts
+                rec['disp_at'] = self.clock()
+            if not run and rec['ran'] and t and t > 0 and t > rec['max']:
                 # the largest time so far: the running total (a lap time shown after it is smaller)
                 rec['last'] = ts
                 rec['max'] = t
@@ -256,8 +261,15 @@ class RaceBook:
         now = self.clock()
         # mid-race a touch shows for SPLIT_S, then the lane goes blank again -
         # unless the console gave it a place (that's a finish: it stays)
-        last = {str(i): r['last'] for i, r in self.lanes.items()
-                if self.racing and r['ran'] and r['last'] and (r.get('place') or now - r.get('at', 0) <= self.SPLIT_S)}
+        # finished (placed) lanes show their final total; mid-race the lane shows what the scoreboard shows
+        last = {}
+        for i, r in self.lanes.items():
+            if not (self.racing and r['ran'] and r['last']):
+                continue
+            if r.get('place'):
+                last[str(i)] = r['last']
+            elif now - r.get('disp_at', r.get('at', 0)) <= self.SPLIT_S:
+                last[str(i)] = r.get('disp') or r['last']
         # the console gives a lane its place as it finishes: show it straight away, not only when the heat is over
         place = {str(i): r['place'] for i, r in self.lanes.items()
                  if self.racing and r['ran'] and r['last'] and r.get('place')}

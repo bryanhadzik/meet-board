@@ -131,7 +131,10 @@ def write_tags(path, title, artist):
         return False
 
 
-def update_meta(folder, name, title=None, artist=None, stream_ok=None, duration=None):
+_UNSET = object()
+
+
+def update_meta(folder, name, title=None, artist=None, stream_ok=None, duration=None, level_db=_UNSET, auto_db=None):
     """Edit one song's details. title/artist also go into the file's tags."""
     with _meta_lock:
         meta = load_meta(folder)
@@ -144,6 +147,10 @@ def update_meta(folder, name, title=None, artist=None, stream_ok=None, duration=
             m['stream_ok'] = bool(stream_ok)
         if duration is not None:
             m['duration'] = round(float(duration), 1)
+        if level_db is not _UNSET:       # this song's level, set by hand (None = back to automatic)
+            m['level_db'] = None if level_db is None else max(-15.0, min(15.0, round(float(level_db), 1)))
+        if auto_db is not None:          # the level the speaker tab measured to match the other songs
+            m['auto_db'] = max(-15.0, min(15.0, round(float(auto_db), 1)))
         meta[name] = {k: v for k, v in m.items() if v not in ('', None)}
         save_meta(folder, meta)
     if title is not None or artist is not None:
@@ -179,6 +186,8 @@ def list_songs(folder, limit=MAX_SONGS, anthem_first=True):
             'duration': tags['duration'] or m.get('duration'),
             'anthem': is_anthem(n) or is_anthem(m.get('title', '')),
             'stream_ok': bool(m.get('stream_ok')),
+            'level_db': m.get('level_db'),
+            'auto_db': m.get('auto_db'),
         })
     return out
 

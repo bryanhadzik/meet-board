@@ -2133,7 +2133,7 @@ def route_api_notice():
 # "Break: results so far" on the meet board TVs - team scores, the top three of every event swum, and the events
 # still to come. Shown by hand (tab bar / Settings > Screens), or automatically a couple of minutes after the
 # last heat of the session's last event (Settings: after event N). It comes down by itself when a race starts.
-BREAK = {'on': False, 'timer': None, 'fired_for': None}
+BREAK = {'on': False, 'timer': None, 'fired_for': None, 'final': False}
 _BREAK_RES = {'at': 0.0, 'url': '', 'data': None}
 
 
@@ -2167,7 +2167,8 @@ def _break_results():
 
 def _break_slide():
     b = _break_cfg()
-    out = {'on': BREAK['on'], 'after': b['after'], 'auto': bool(b['auto']), 'delay': b['delay'], 'pending': bool(BREAK['timer'])}
+    out = {'on': BREAK['on'], 'final': BREAK['final'], 'after': b['after'], 'auto': bool(b['auto']), 'delay': b['delay'],
+           'final_auto': bool(b.get('final_auto', True)), 'pending': bool(BREAK['timer'])}
     if not BREAK['on']:
         return out
     res = _break_results() or {}
@@ -2200,7 +2201,7 @@ def _break_emit():
     _socketio_emit('break_slide', _break_slide(), namespace='/scoreboard')
 
 
-def _break_set(on):
+def _break_set(on, final=False):
     if BREAK['timer']:
         try:
             BREAK['timer'].cancel()
@@ -2208,7 +2209,31 @@ def _break_set(on):
             pass
         BREAK['timer'] = None
     BREAK['on'] = bool(on)
+    BREAK['final'] = bool(on and final)
     _break_emit()
+
+
+def _final_race_over(e, h):
+    """After the last heat of the meet's last event: final results scrolling on the meet boards."""
+    b = _break_cfg()
+    if not b.get('final_auto', True) or BREAK['on'] or BREAK['fired_for'] == ('final', e, h):
+        return False
+    order = meet_board.heat_order(event_info)
+    if not order or (e, h) != tuple(order[-1]):
+        return False
+    BREAK['fired_for'] = ('final', e, h)
+
+    def fire():
+        BREAK['timer'] = None
+        BREAK['on'], BREAK['final'] = True, True
+        _BREAK_RES['at'] = 0                     # fresh results
+        print('Final results slide: on (after event %d heat %d)' % (e, h))
+        _break_emit()
+    BREAK['timer'] = threading.Timer(30, fire)  # give MeetDeck a moment to score and publish the last event
+    BREAK['timer'].daemon = True
+    BREAK['timer'].start()
+    _break_emit()
+    return True
 
 
 def _break_race_over(event, heat):
@@ -2218,6 +2243,11 @@ def _break_race_over(event, heat):
         e, h = int(event), int(heat)
     except (TypeError, ValueError):
         return
+    try:
+        if _final_race_over(e, h):
+            return
+    except Exception as x:
+        print('final results slide:', x)
     if not b.get('auto') or e != int(b.get('after') or 0) or BREAK['on'] or BREAK['fired_for'] == (e, h):
         return
     try:
@@ -2263,9 +2293,12 @@ def route_api_break_slide():
                 b['delay'] = max(0, min(1800, int(d['delay'])))
             except (TypeError, ValueError):
                 return flask.jsonify({'error': 'delay must be seconds'}), 400
+        if 'final_auto' in d:
+            b['final_auto'] = bool(d['final_auto'])
         save_settings()
         if 'on' in d:
-            _break_set(d['on'])
+            _BREAK_RES['at'] = 0
+            _break_set(d['on'], final=bool(d.get('final')))
         else:
             _break_emit()
     return flask.jsonify(_break_slide())
@@ -2640,10 +2673,17 @@ def route_music_meta():
     d = flask.request.get_json(silent=True) or {}
     name = d.get('file', '')
     safe = music.safe_filename(name)
-    if not safe or safe != name or not os.path.isfile(os.path.join(_music_folder(), safe)):
+    folder = _warmup_folder() if d.get('mode') == 'warmup' else _music_folder()
+    if not safe or safe != name or not os.path.isfile(os.path.join(folder, safe)):
         return flask.jsonify({'error': 'not found'}), 404
-    music.update_meta(_music_folder(), safe, title=d.get('title'), artist=d.get('artist'),
-                      stream_ok=d.get('stream_ok'))
+    kw = {}
+    if 'level_db' in d:
+        lv = d.get('level_db')
+        kw['level_db'] = None if lv in (None, '', 'auto') else float(lv)
+    if d.get('auto_db') is not None:
+        kw['auto_db'] = float(d['auto_db'])
+    music.update_meta(folder, safe, title=d.get('title'), artist=d.get('artist'),
+                      stream_ok=d.get('stream_ok'), **kw)
     _music_last_status[0] = None                 # re-evaluate the stream mute for the playing song
     _music_broadcast(include_songs=True)
     return flask.jsonify({'ok': True, 'songs': _music_songs()})

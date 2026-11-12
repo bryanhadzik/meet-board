@@ -285,6 +285,8 @@
       <span>OK on stream &mdash; don't mute the stream for this song<br>
         <span class="small" style="font-weight:400">Only for recordings you know are public domain or licensed, such as a
         U.S. military band recording of the national anthem. Commercial recordings get flagged by YouTube.</span></span></label>
+    <label style="margin-top:10px">Level <select id="edLevel"></select></label>
+    <div class="small" id="edLevelNote">Songs are evened out automatically so none is much quieter or louder than the rest. Pick a level here to override it for this song.</div>
     <div class="small" id="edLen" style="margin-top:10px"></div>
     <div class="row">
       <button class="btn" value="cancel" type="submit">Cancel</button>
@@ -405,13 +407,18 @@ function openEditor(s) {
   $('edTitle').value = s.title || '';
   $('edArtist').value = s.artist || '';
   $('edOk').checked = !!s.stream_ok;
+  var lv = $('edLevel'), auto = s.auto_db == null ? 'not measured yet' : (s.auto_db > 0 ? '+' : '') + s.auto_db + ' dB';
+  lv.innerHTML = '<option value="auto">Automatic (' + auto + ')</option>' +
+    [-9, -6, -3, 0, 3, 6, 9, 12].map(function (v) { return '<option value="' + v + '">' + (v > 0 ? '+' : '') + v + ' dB' + (v === 0 ? ' (as recorded)' : v > 0 ? ' louder' : ' quieter') + '</option>'; }).join('');
+  lv.value = s.level_db == null ? 'auto' : String(Math.round(s.level_db / 3) * 3);
   $('edLen').textContent = s.duration ? 'Length: ' + fmt(s.duration) : 'Length: not known yet (filled in the first time it plays)';
   $('ed').showModal();
 }
 $('ed').addEventListener('close', function () {
   if ($('ed').returnValue !== 'save' || !editing) return;
   fetch('/music/meta', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({file: editing.file, title: $('edTitle').value, artist: $('edArtist').value, stream_ok: $('edOk').checked})})
+    body: JSON.stringify({file: editing.file, title: $('edTitle').value, artist: $('edArtist').value, stream_ok: $('edOk').checked,
+                          level_db: $('edLevel').value === 'auto' ? null : +$('edLevel').value})})
     .then(function (r) { return r.json(); }).then(function (d) { if (d.songs) { songs = d.songs; renderSongs(); } });
 });
 
@@ -753,6 +760,48 @@ if (SPEAKER) {
       micBusy = false, lastVoice = 0, ducking = false, lastSent = 0,
       auto = new MicAuto(), autoOut = null, autoWas = false, specBuf = null, appliedGain = 0;
   function dbToGain(db) { return Math.pow(10, db / 20); }
+  // ---- even out song levels: each song's loudness is measured once (decoded here in the speaker tab, in the
+  // background) and stored; the song then plays at TARGET. A level set by hand in Edit details wins.
+  var songGain = null, limiter = null, TARGET_DB = -20, measuring = false, measureFailed = {};
+  function songOf(track, mode) { return ((mode === 'warmup' ? warmup : songs) || []).filter(function (x) { return x.file === track; })[0]; }
+  function songLevel() {
+    if (!songGain || !st.track) return;
+    var sg = songOf(st.track, st.mode) || {}, db = sg.level_db != null ? sg.level_db : (sg.auto_db != null ? sg.auto_db : 0);
+    songGain.gain.setTargetAtTime(dbToGain(db), ctx.currentTime, 0.2);
+    if (sg.file && sg.auto_db == null && sg.level_db == null) measureSong(sg.file, st.mode);
+  }
+  window.mbSongLevel = songLevel;
+  function measureSong(file, mode) {
+    var key = (mode || '') + '|' + file;
+    if (measuring || measureFailed[key] || !ctx) return;
+    measuring = true;
+    fetch(trackUrl(file, mode)).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(function (buf) { return new Promise(function (ok, bad) { ctx.decodeAudioData(buf, ok, bad); }); })
+      .then(function (ab) {
+        // gated loudness: mean power of the 0.4 s blocks above -50 dBFS (silence and fades don't count)
+        var n = ab.length, ch = ab.numberOfChannels, blk = Math.max(1, Math.round(ab.sampleRate * 0.4)), sum = 0, cnt = 0;
+        var data = []; for (var c = 0; c < ch; c++) data.push(ab.getChannelData(c));
+        for (var i = 0; i + blk <= n; i += blk) {
+          var p = 0; for (var c2 = 0; c2 < ch; c2++) { var d = data[c2]; for (var j = i; j < i + blk; j += 4) p += d[j] * d[j]; }
+          p /= (blk / 4) * ch;
+          if (p > 1e-5) { sum += p; cnt++; }
+        }
+        if (!cnt) throw new Error('silent');
+        var loud = 10 * Math.log10(sum / cnt), adj = Math.max(-12, Math.min(12, Math.round((TARGET_DB - loud) * 10) / 10));
+        console.log('level', file, loud.toFixed(1), 'dBFS ->', adj, 'dB');
+        return fetch('/music/meta', {method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({file: file, mode: mode === 'warmup' ? 'warmup' : '', auto_db: adj})})
+          .then(function () { var sg = songOf(file, mode); if (sg) sg.auto_db = adj; if (st.track === file) songLevel(); });
+      })
+      .catch(function (e) { console.log('level measure failed', file, e); measureFailed[key] = 1; })
+      .then(function () { measuring = false; });
+  }
+  function levelSweep() {                  // measure the rest a song at a time while things are quiet
+    var todo = (songs || []).map(function (x) { return [x, 'manual']; }).concat((warmup || []).map(function (x) { return [x, 'warmup']; }))
+      .filter(function (p) { return p[0].auto_db == null && p[0].level_db == null && !measureFailed[(p[1] === 'warmup' ? 'warmup' : 'manual') + '|' + p[0].file]; });
+    if (todo.length && !measuring) measureSong(todo[0][0].file, todo[0][1]);
+    setTimeout(levelSweep, todo.length ? 8000 : 60000);
+  }
   function audioInit() {
     if (ctx) return;
     try {
@@ -761,7 +810,13 @@ if (SPEAKER) {
     master = ctx.createGain(); master.connect(ctx.destination);
     annDip = ctx.createGain(); annDip.connect(master);
     duckGain = ctx.createGain(); duckGain.connect(annDip);
-    ctx.createMediaElementSource(player).connect(duckGain);
+    // each song's level (evened out, or set by hand), then a limiter so a boosted song can't clip
+    limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.003; limiter.release.value = 0.25;
+    limiter.connect(duckGain);
+    songGain = ctx.createGain(); songGain.connect(limiter);
+    ctx.createMediaElementSource(player).connect(songGain);
+    setTimeout(levelSweep, 5000);
     annGain = ctx.createGain(); annGain.gain.value = window.annVolume == null ? 1 : window.annVolume; annGain.connect(master);
     ctx.createMediaElementSource(annPlayer).connect(annGain);
     mic.inGain = ctx.createGain();
@@ -921,6 +976,7 @@ if (SPEAKER) {
     player.setAttribute('data-track', st.track);
     player.src = trackUrl(st.track, st.mode);
     player.currentTime = 0;
+    songLevel();
     if (st.status === 'playing') playFromZeroGain();
   }
   var audible = function () { return !player.paused && !!player.getAttribute('src') && gain > 0; };

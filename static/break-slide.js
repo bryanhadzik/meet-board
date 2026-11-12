@@ -21,7 +21,9 @@ window.mbBreakSlide = function (socket) {
     '#mbBreak .bs-sci .bs-n{font-size:calc(22*var(--u));color:#bfe6ec;font-weight:600;max-width:calc(320*var(--u));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '#mbBreak .bs-sci .bs-p{font-size:calc(64*var(--u));font-weight:800;font-family:Consolas,"Cascadia Mono",monospace;color:#ffd60a;line-height:1.05}',
     '#mbBreak .bs-body{flex:1;min-height:0;display:flex;gap:calc(30*var(--u));margin-top:calc(24*var(--u))}',
-    '#mbBreak .bs-done{flex:1;min-width:0;display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:calc(14*var(--u));align-content:start;overflow:hidden}',
+    '#mbBreak .bs-view{flex:1;min-width:0;overflow:hidden;position:relative;',
+    '  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 60*var(--u)),transparent 100%);mask-image:linear-gradient(180deg,#000 calc(100% - 60*var(--u)),transparent 100%)}',
+    '#mbBreak .bs-done{min-width:0;display:grid;will-change:transform;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:calc(14*var(--u));align-content:start;overflow:hidden}',
     '#mbBreak .bs-ev{background:rgba(4,20,24,.55);border:1px solid rgba(255,255,255,.08);border-radius:calc(12*var(--u));padding:calc(10*var(--u)) calc(14*var(--u))}',
     '#mbBreak .bs-ev .bs-h{font-weight:700;font-size:calc(25*var(--u));margin-bottom:calc(4*var(--u));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '#mbBreak .bs-ev .bs-h b{color:#3ddc84;margin-right:calc(8*var(--u))}',
@@ -46,9 +48,9 @@ window.mbBreakSlide = function (socket) {
   function draw(d) {
     root.textContent = '';
     var hd = el('div', 'bs-hd'), left = el('div');
-    left.appendChild(el('span', 'bs-kick', 'BREAK'));
-    left.appendChild(el('div', 'bs-ttl', 'Results so far'));
-    left.appendChild(el('div', 'bs-sub', (d.meet ? d.meet + ' · ' : '') + 'the meet picks up after the break'));
+    left.appendChild(el('span', 'bs-kick', d.final ? 'FINAL' : 'BREAK'));
+    left.appendChild(el('div', 'bs-ttl', d.final ? 'Final results' : 'Results so far'));
+    left.appendChild(el('div', 'bs-sub', d.final ? (d.meet ? d.meet + ' · ' : '') + 'thanks for coming!' : (d.meet ? d.meet + ' · ' : '') + 'the meet picks up after the break'));
     hd.appendChild(left);
     var sc = el('div', 'bs-sc');
     (d.scores || []).forEach(function (t) {
@@ -56,9 +58,10 @@ window.mbBreakSlide = function (socket) {
     });
     hd.appendChild(sc);
     root.appendChild(hd);
-    var body = el('div', 'bs-body'), done = el('div', 'bs-done');
+    var body = el('div', 'bs-body'), view = el('div', 'bs-view'), done = el('div', 'bs-done');
+    view.appendChild(done);
     var evs = d.done || [];
-    done.style.setProperty('--cols', evs.length > 12 ? 4 : 3);
+    done.style.setProperty('--cols', d.final ? 4 : evs.length > 12 ? 4 : 3);
     evs.forEach(function (ev) {
       var c = el('div', 'bs-ev'), h = el('div', 'bs-h');
       h.appendChild(el('b', '', 'E' + ev.no)); h.appendChild(document.createTextNode(ev.label || ''));
@@ -74,8 +77,8 @@ window.mbBreakSlide = function (socket) {
       done.appendChild(c);
     });
     if (!evs.length) done.appendChild(el('div', 'bs-sub', 'Results will show here once the results page has them.'));
-    body.appendChild(done);
-    if ((d.coming || []).length) {
+    body.appendChild(view);
+    if (!d.final && (d.coming || []).length) {
       var come = el('div', 'bs-come');
       come.appendChild(el('div', 'bs-k', 'STILL TO COME'));
       d.coming.forEach(function (ev) {
@@ -84,20 +87,37 @@ window.mbBreakSlide = function (socket) {
       body.appendChild(come);
     }
     root.appendChild(body);
+    // more events than fit: scroll them slowly upward, round and round (like the warm-up credits)
+    cancelAnimationFrame(raf);
+    requestAnimationFrame(function () {
+      if (done.offsetHeight <= view.clientHeight + 4) return;
+      var gap = parseFloat(getComputedStyle(done).rowGap) || 0;
+      var copy = done.cloneNode(true); copy.style.marginTop = gap + 'px'; view.appendChild(copy);
+      var loop = done.offsetHeight + gap, y = 0, last = null;
+      function step(t) {
+        if (last !== null) { y += (t - last) / 1000 * 30 * window.innerWidth / 1920; if (y >= loop) y -= loop; }
+        last = t; done.style.transform = copy.style.transform = 'translateY(' + (-y).toFixed(1) + 'px)';
+        raf = requestAnimationFrame(step);
+      }
+      raf = requestAnimationFrame(step);
+    });
   }
+  var raf = null;
 
-  var last = null;
+  var last = null, lastSig = '';
   socket.on('break_slide', function (d) {
     last = d;
     var on = !!(d && d.on);
-    if (on) draw(d);
+    if (on) { lastSig = JSON.stringify([d.done, d.scores, d.coming, d.final]); draw(d); }
     root.classList.toggle('on', on);
   });
   // results keep coming in during the break (late scoring): refresh every 30 s while it's up
   setInterval(function () {
     if (!last || !last.on) return;
     fetch('/api/break_slide', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
-      last = d; if (d.on) draw(d); root.classList.toggle('on', !!d.on);
+      var sig = JSON.stringify([d.done, d.scores, d.coming, d.final]);
+      if (d.on && sig !== lastSig) { lastSig = sig; draw(d); }
+      last = d; root.classList.toggle('on', !!d.on);
     }).catch(function () {});
   }, 30000);
 };

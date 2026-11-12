@@ -83,7 +83,7 @@
   // break slide toggle
   var bb = document.getElementById('mbBreakBtn'), bOn = false;
   function bShow(d){ bOn = !!(d && d.on); bb.classList.toggle('on', bOn);
-    bb.textContent = bOn ? 'Break slide: ON' : (d && d.pending ? 'Break slide soon\u2026' : 'Break slide');
+    bb.textContent = bOn ? (d.final ? 'Final results: ON' : 'Break slide: ON') : (d && d.pending ? 'Results slide soon\u2026' : 'Break slide');
     if (window.brShow) window.brShow(d); }
   bb.onclick = function(){
     fetch('/api/break_slide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!bOn})})
