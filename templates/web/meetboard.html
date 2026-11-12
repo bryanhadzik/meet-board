@@ -422,7 +422,7 @@ function renderCut(){
   var c = stateCut(), box = document.getElementById('cutL'); box.textContent = '';
   var now = (s.state_now || []).filter(function(x){ return x && x.line; });
   if (!c && now.length){            // no last-season cut configured: this season's line alone
-    box.appendChild(document.createTextNode('STATE LINE THIS SEASON'));
+    box.appendChild(document.createTextNode('EST. STATE QUALIFYING TIME'));   // this season's 32nd (relays 20th) in the class, utahswimcoach.com
     now.forEach(function(x){ if (now.length > 1) box.appendChild(el('i', '', x.cls)); box.appendChild(el('b', '', fmtSecs(x.line))); });
     return;
   }
