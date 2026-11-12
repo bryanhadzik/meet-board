@@ -174,3 +174,17 @@ def test_all_touched_fires_once_when_every_swimmer_has_a_time():
     assert got == [('7', '1')]
     go(b, '32.0')
     assert got == [('7', '1')]
+
+
+def test_places_show_as_each_lane_finishes():
+    """The console places a lane when it finishes; the boards show it then, not when the whole heat is done."""
+    book = RaceBook()
+    book.feed(heat(2, {3: 'Ava', 4: 'Mia', 5: 'Ivy', 6: 'Bea'}, dist=200))
+    start(book, [3, 4, 5, 6])
+    go(book, '50.5', {6: '46.74'})                                 # a split: no place
+    assert book.payload()['place'] == {}
+    go(book, '1:56', {5: '1:55.98'}, lane_place5='1')
+    go(book, '2:09', {4: '2:08.91'}, lane_place4='2')
+    p = book.payload()
+    assert p['racing'] and p['place'] == {'5': '1', '4': '2'}
+    assert p['last']['5'] == '1:55.98'

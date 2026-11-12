@@ -192,4 +192,7 @@ class RaceBook:
         # unless the console gave it a place (that's a finish: it stays)
         last = {str(i): r['last'] for i, r in self.lanes.items()
                 if self.racing and r['ran'] and r['last'] and (r.get('place') or now - r.get('at', 0) <= self.SPLIT_S)}
-        return {'racing': self.racing, 'last': last, 'hold': hold}
+        # the console gives a lane its place as it finishes: show it straight away, not only when the heat is over
+        place = {str(i): r['place'] for i, r in self.lanes.items()
+                 if self.racing and r['ran'] and r['last'] and r.get('place')}
+        return {'racing': self.racing, 'last': last, 'place': place, 'hold': hold}

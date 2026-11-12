@@ -10,6 +10,7 @@ def test_results_qr_info_and_svg():
     assert c.get('/results_qr.svg').status_code == 404
     cs.settings.update(results_url='https://bryanhadzik.github.io/swim-results/', results_qr='corner', results_every='abc', results_secs='500')
     d = c.get('/api/results_qr').get_json()
+    d.pop('stream')
     assert d == {'url': 'https://bryanhadzik.github.io/swim-results/', 'mode': 'corner', 'every': 4, 'secs': 120}
     r = c.get('/results_qr.svg')
     assert r.status_code == 200 and r.mimetype == 'image/svg+xml' and b'<svg' in r.data and b'viewBox' in r.data and b'width=' not in r.data.split(b'>')[0]

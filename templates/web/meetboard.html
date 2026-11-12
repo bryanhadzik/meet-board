@@ -596,9 +596,11 @@ function laneView(){
     return out;
   }
   for (i = 1; i <= 10; i++){
-    // racing: each lane's last touch (it stays up when the lane flips back to running)
-    out.push({i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: !!s['lane_running'+i],
-              t: B.racing ? (B.last[String(i)] || '') : '', fin: false, place: ''});
+    // racing: each lane's last touch (it stays up when the lane flips back to running);
+    // a lane the console has placed has finished - its place shows right away
+    var pl = B.racing && B.place ? (B.place[String(i)] || '') : '', lt = B.racing ? (B.last[String(i)] || '') : '';
+    out.push({i: i, name: trim(s['lane_name'+i]), team: trim(s['lane_team'+i]), running: !!s['lane_running'+i] && !pl,
+              t: lt, fin: !!(pl && lt), place: pl && lt ? pl : ''});
   }
   return out;
 }
@@ -663,8 +665,9 @@ socket.on('update_scoreboard', function(u){
   render();
 });
 socket.on('board_race', function(d){
-  B = d || {racing: false, last: {}, hold: null};
+  B = d || {racing: false, last: {}, place: {}, hold: null};
   if (!B.last) B.last = {};
+  if (!B.place) B.place = {};
   holdUntil = B.hold ? Date.now() + 1000 * (B.expires_in == null ? 1200 : B.expires_in) : 0;
   render();
 });

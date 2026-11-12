@@ -3428,7 +3428,8 @@ def results_qr_info():
             return d
     mode = settings.get('results_qr') if settings.get('results_qr') in ('off', 'corner', 'slide') else 'slide'
     return flask.jsonify(url=(settings.get('results_url') or '').strip(), mode=mode,
-                         every=num('results_every', 4, 1, 60), secs=num('results_secs', 15, 5, 120))
+                         every=num('results_every', 4, 1, 60), secs=num('results_secs', 15, 5, 120),
+                         stream=bool((settings.get('youtube_channel') or '').strip()))
 
 
 def youtube_live_url(chan):
