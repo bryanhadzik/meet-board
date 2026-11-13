@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+- Three more one-touch announcements on the Music page: "Clear the pool" (Swimmers, please clear
+  the pool), "Quiet for the start", and "Need more timers".
+
 ### Changed
 - Warm-up slide: after going through every heat it now shows each school's swimmers and the
   events each one is swimming (relays included), then loops back to the first event. On the
