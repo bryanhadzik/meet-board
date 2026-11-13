@@ -3,6 +3,13 @@
 ## Unreleased
 
 ### Added
+- Announcements on the stream: with "Play announcements on the stream" on (Music page > Stream
+  audio), the race overlay in OBS plays every announcement into the stream, and the checked OBS
+  sources (the camera) are muted while it plays and turned back on a moment after. Shares the music
+  mute's bookkeeping, so an announcement ending mid-song never unmutes the camera. In OBS the overlay's
+  browser source needs "Control audio via OBS". `?annaudio=0` keeps an overlay silent.
+
+### Added
 - Three more one-touch announcements on the Music page: "Clear the pool" (Swimmers, please clear
   the pool), "Quiet for the start", and "Need more timers".
 

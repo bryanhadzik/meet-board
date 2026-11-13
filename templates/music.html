@@ -245,6 +245,12 @@
       <span>Mute the stream while music plays<br><span class="small" style="font-weight:400">Keeps copyrighted songs off
         YouTube: the OBS audio sources checked below are muted when a song starts and turned back on when it stops or
         pauses. Sources you already had muted are left alone.</span></span></label>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:600;margin-top:10px">
+      <input type="checkbox" id="smAnn" style="margin-top:3px">
+      <span>Play announcements on the stream<br><span class="small" style="font-weight:400">The race overlay in OBS
+        (overlay/race) plays each announcement on the stream, and the sources checked below are muted while it plays, so
+        viewers hear the clean recording instead of the PA through the camera. In OBS, that browser source needs
+        <em>Control audio via OBS</em> turned on.</span></span></label>
     <div class="srcs" id="smList" style="margin:10px 0 6px 26px"><span class="small">Loading OBS audio sources&hellip;</span></div>
     <div style="margin-left:26px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <label class="small">Unmute <select id="smDelay">
@@ -585,6 +591,7 @@ if ($('smCard')) {
   };
   var smShow = function (d) {
     $('smOn').checked = !!d.enabled;
+    $('smAnn').checked = !!d.ann_on_stream;
     $('smDelay').value = String(Math.round(d.delay || 0));
     var chosen = d.chosen || [];
     if (d.obs_error) {
@@ -603,7 +610,7 @@ if ($('smCard')) {
   $('smSave').addEventListener('click', function () {
     var inputs = [].map.call(document.querySelectorAll('#smList input:checked'), function (x) { return x.value; });
     fetch('/api/music/stream_mute', {method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({enabled: $('smOn').checked, inputs: inputs, delay: parseFloat($('smDelay').value)})})
+      body: JSON.stringify({enabled: $('smOn').checked, ann_on_stream: $('smAnn').checked, inputs: inputs, delay: parseFloat($('smDelay').value)})})
       .then(function (r) { return r.json(); }).then(function (d) {
         smShow(d); $('smMsg').textContent = 'Saved.';
         setTimeout(function () { $('smMsg').textContent = ''; }, 3000);

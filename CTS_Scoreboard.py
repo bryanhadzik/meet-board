@@ -53,6 +53,7 @@ settings = {
     'serial_format': '9600-8N1',   # baud-databits/parity/stopbits; Debug -> Serial input -> Find the right format
     'update_interval': 1.0,        # seconds between board updates from the console
     'music_obs_mute': False,       # mute chosen OBS audio sources while music plays
+    'ann_on_stream': False,        # the race overlay in OBS plays announcements; the same sources are muted meanwhile
     'music_obs_inputs': [],
     'music_unmute_delay': 2.0,
     'blackout_auto': True,
@@ -2331,6 +2332,7 @@ def stream_mute_worker():
         socketio.sleep(1.0)
         before = stream_mute.muted_by_us
         try:
+            stream_mute._music_on = _music_mute_status() == 'playing'
             stream_mute.tick(_music_mute_status())
         except Exception:
             traceback.print_exc()
@@ -2345,6 +2347,8 @@ def route_music_stream_mute():
     if flask.request.method == 'POST':
         d = flask.request.get_json(silent=True) or {}
         settings['music_obs_mute'] = bool(d.get('enabled'))
+        if 'ann_on_stream' in d:
+            settings['ann_on_stream'] = bool(d.get('ann_on_stream'))
         settings['music_obs_inputs'] = [str(x) for x in (d.get('inputs') or [])][:20]
         try:
             settings['music_unmute_delay'] = max(0.0, min(30.0, float(d.get('delay', 2))))
@@ -2443,6 +2447,19 @@ def _ann_broadcast():
     socketio.emit('announce_state', _ann_view(), namespace='/music')
 
 
+def _ann_to_stream(items):
+    """Send an announcement to the race overlay in OBS, which plays it on the stream."""
+    if settings.get('ann_on_stream'):
+        socketio.emit('announce_stream', {'id': _ann['seq'], 'items': items}, namespace='/scoreboard')
+
+
+@socketio.on('announce_stream_state', namespace='/scoreboard')
+def on_announce_stream_state(d):
+    """The overlay in OBS started or finished playing an announcement: mute / unmute the camera."""
+    playing = bool((d or {}).get('playing'))
+    socketio.start_background_task(stream_mute.announce_changed, playing)
+
+
 def _ann_play_extra(clip):
     x = next((x for x in announce.EXTRAS if x[0] == clip), None)
     if not x:
@@ -2454,6 +2471,7 @@ def _ann_play_extra(clip):
     item = {'url': '/announce/clip/%s.mp3' % k, 'say': text} if k in announce.clips_on_disk(_ann_folder()) else {'say': text}
     socketio.emit('announce_play', {'id': _ann['seq'], 'items': [item], 'text': text},
                   namespace='/music', to=music_state.speaker_sid)
+    _ann_to_stream([item])
     _ann['now'] = {'title': label, 'text': text}
     _ann['at'] = time.time()
     print('Announced %s: %s' % (label, text))
@@ -2473,6 +2491,7 @@ def _ann_play(key, why='button'):
              for p in pieces]
     socketio.emit('announce_play', {'id': _ann['seq'], 'items': items, 'text': announce.text_of(pieces)},
                   namespace='/music', to=music_state.speaker_sid)
+    _ann_to_stream(items)
     _ann['announced'].add(key)
     _ann['last'] = key
     _ann['last_text'] = announce.text_of(pieces)
