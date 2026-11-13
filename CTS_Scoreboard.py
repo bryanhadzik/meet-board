@@ -2529,6 +2529,7 @@ def _ann_race_over(event, heat):
 
 
 def _race_over(event, heat):
+    _stream_activity()
     _ann_race_over(event, heat)
     try:
         _break_race_over(event, heat)
@@ -2537,6 +2538,7 @@ def _race_over(event, heat):
 
 
 def _race_started():
+    _stream_activity()
     try:
         _ann_settings()                 # near-end announcing: on/off from the saved choice
     except Exception:
@@ -3909,6 +3911,60 @@ def route_obs_stream():
         return flask.jsonify({'error': str(e)}), 502
     time.sleep(0.4)          # let StreamStateChanged land so the reply is truthful
     return flask.jsonify(obs.status())
+
+# ---------------------------------------------------------------- stream auto-stop
+# A stream left running after the meet: stop it once there's been no race (start, finish or touch) for
+# stream_autostop_min minutes. The warm-up and break slides count as activity, and so does the stream having
+# just started (warm-ups), so it never stops before the meet gets going.
+STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
+
+
+def _stream_activity():
+    STREAM_WATCH['activity'] = time.time()
+
+
+def _stream_watchdog():
+    while True:
+        time.sleep(60)
+        try:
+            mins = int(settings.get('stream_autostop_min', 60) or 0)
+            if race_book.racing or settings.get('warmup_slide_on') or BREAK.get('on'):
+                _stream_activity()
+            if mins <= 0:
+                continue
+            st = obs.status()
+            if not st.get('streaming'):
+                continue
+            started = time.time() - float(st.get('seconds') or 0)
+            quiet = time.time() - max(STREAM_WATCH['activity'], started)
+            if quiet >= mins * 60:
+                obs.stop_stream()
+                STREAM_WATCH['stopped_at'] = time.strftime('%H:%M')
+                STREAM_WATCH['last'] = 'Stopped the stream at %s: no races for %d min' % (STREAM_WATCH['stopped_at'], mins)
+                obs.note(STREAM_WATCH['last'])
+                print(STREAM_WATCH['last'])
+        except Exception as e:
+            print('stream auto-stop:', e)
+
+
+threading.Thread(target=_stream_watchdog, daemon=True).start()
+
+
+@app.route('/api/obs/autostop', methods=['GET', 'POST'])
+def route_obs_autostop():
+    """GET/POST {minutes}: stop the stream after this many minutes with no races (0 = never)."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        try:
+            settings['stream_autostop_min'] = max(0, min(600, int(d.get('minutes'))))
+        except (TypeError, ValueError):
+            return flask.jsonify({'error': 'minutes must be a number'}), 400
+        save_settings()
+    quiet = int((time.time() - STREAM_WATCH['activity']) / 60)
+    return flask.jsonify({'minutes': int(settings.get('stream_autostop_min', 60) or 0), 'quiet_min': quiet, 'last': STREAM_WATCH['last']})
+
 
 @app.route('/favicon.ico')
 def route_favicon():

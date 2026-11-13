@@ -52,3 +52,12 @@ def test_break_slide_manual_and_auto(monkeypatch):
     assert cs.BREAK['on'] is True
     cs._break_set(False)
     cs.settings['break_slide'] = {'after': 8, 'auto': False, 'delay': 120}
+
+
+def test_stream_autostop_setting():
+    c = cs.app.test_client()
+    d = c.post('/api/obs/autostop', json={'minutes': 90}).get_json()
+    assert d['minutes'] == 90
+    assert c.post('/api/obs/autostop', json={'minutes': 'x'}).status_code == 400
+    assert c.post('/api/obs/autostop', json={'minutes': 0}).get_json()['minutes'] == 0
+    cs.settings['stream_autostop_min'] = 60

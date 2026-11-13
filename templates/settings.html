@@ -373,6 +373,20 @@
                         <button class="obsc-sm" id="obsc-logbtn" type="button">Connection log</button>
                         <span class="obsc-meta" id="obsc-meta"></span>
                     </div>
+                    <div style="margin:10px 0 4px;font-size:13px">Stop the stream by itself after
+                        <input type="number" id="obs_autostop" min="0" max="600" style="width:64px"> minutes with no races
+                        <span style="color:#5d7379">(0 = never; the warm-up and break slides count as activity, and a newly started stream gets this long before any race)</span>
+                        <span id="obs_autostop_msg" style="color:#5d7379"></span></div>
+                    <script>
+                    (function(){
+                      var box = document.getElementById('obs_autostop'), msg = document.getElementById('obs_autostop_msg');
+                      function show(d){ if (document.activeElement !== box) box.value = d.minutes; msg.textContent = d.last ? ' \u00b7 ' + d.last : ''; }
+                      fetch('/api/obs/autostop',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){});
+                      box.addEventListener('change', function(){
+                        fetch('/api/obs/autostop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({minutes:parseInt(box.value||'0',10)})})
+                          .then(function(r){return r.json();}).then(show); });
+                    })();
+                    </script>
                     <ol class="obsc-steps" id="obsc-steps" hidden></ol>
                     <pre class="obsc-log" id="obsc-log" hidden></pre>
                 </section>
