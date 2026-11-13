@@ -132,3 +132,13 @@ def test_announcement_volume_is_its_own_setting(board):
     assert c.post('/api/announce', json={'action': 'settings', 'volume': 400}).get_json()['volume'] == 150
     assert c.post('/api/announce', json={'action': 'settings', 'volume': 'x'}).get_json()['volume'] == 150
     c.post('/api/announce', json={'action': 'settings', 'volume': 100})
+
+
+def test_auto_announce_stops_at_the_break(board, monkeypatch):
+    monkeypatch.setitem(C.settings, 'break_slide', {'auto': True, 'after': 8, 'delay': 120})
+    monkeypatch.setattr(C.meet_board, 'heat_count', lambda ei, e: 2)
+    assert C._ann_break_after(8, 2)            # last heat of the break event: nothing after it
+    assert not C._ann_break_after(8, 1)        # heat 2 of event 8 still gets announced
+    assert not C._ann_break_after(7, 3)
+    monkeypatch.setitem(C.settings, 'break_slide', {'auto': False, 'after': 8})
+    assert not C._ann_break_after(8, 2)        # no automatic break set: announce as usual

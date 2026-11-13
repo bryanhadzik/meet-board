@@ -123,7 +123,7 @@
   .then .txt { font-size:1cqw; font-weight:600; color:#b7cace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* last season's state cut for the event in the water (Meet Files > State qualifying times) */
-  .ctitle .cut { font-size:1.15cqw; font-weight:700; letter-spacing:.06em; color:#f0c96a; white-space:nowrap; flex:0 0 auto; margin-left:1.2cqw; }
+  .ctitle .cut { font-size:1.15cqw; font-weight:700; letter-spacing:.06em; color:#f0c96a; white-space:nowrap; flex:0 1 auto; min-width:0; overflow:hidden; margin-left:1.2cqw; }
   .ctitle .cut b { font-weight:800; color:#fff; margin-left:.35cqw; }
   .ctitle .cut i { font-style:normal; color:#c9a85a; margin-left:.9cqw; }
   .ctitle .cut .nowsep { margin-left:1.4cqw; padding-left:1.1cqw; border-left:.12cqw solid #5d7d84; }
@@ -133,7 +133,7 @@
             border-radius:.4cqw; padding:.2cqw .55cqw; white-space:nowrap; }
   .q span.rk { background:transparent; color:#9fc3cc; border:.12cqw solid #3d5a61; font-weight:700; }
   .style-light .q span.rk { color:#2b4a52; border-color:#9fb3b8; }
-  .q span.sb { background:#2fbf71; color:#04210f; font-size:.95cqw; }
+  .q span.sb { background:#2fbf71; color:#04210f; font-size:.9cqw; white-space:normal; text-align:center; line-height:1.05; width:min-content; }   /* SEASON / BEST on two lines: fits the column */
   .colhead .h-q { width:6.2cqw; text-align:right; color:#f0c96a; }
   .style-light .colhead .h-q { color:#8a5d00; }
 
@@ -424,6 +424,7 @@ function renderCut(){
   if (!c && now.length){            // no last-season cut configured: this season's line alone
     box.appendChild(document.createTextNode('EST. STATE QUALIFYING TIME'));   // this season's 32nd (relays 20th) in the class, utahswimcoach.com
     now.forEach(function(x){ if (now.length > 1) box.appendChild(el('i', '', x.cls)); box.appendChild(el('b', '', fmtSecs(x.line))); });
+    fitCut(box);
     return;
   }
   if (!c) return;
@@ -441,6 +442,15 @@ function renderCut(){
     box.appendChild(el('span', 'nowsep', 'THIS SEASON'));
     now.forEach(function(x){ if (multiC || now.length > 1) box.appendChild(el('i', '', x.cls)); box.appendChild(el('b', '', fmtSecs(x.line))); });
   }
+  fitCut(box);
+}
+// The cut line has to fit beside IN THE WATER and the race state: shrink the type until it does
+// (down to 60%), so a third classification or a long relay time never gets cut off.
+function fitCut(box){
+  box.style.fontSize = '';
+  if (!box.firstChild) return;
+  var base = parseFloat(getComputedStyle(box).fontSize), f = base;
+  while (box.scrollWidth > box.clientWidth + 1 && f > base * 0.6){ f -= base * 0.04; box.style.fontSize = f + 'px'; }
 }
 function fmtSecs(v){ v = Math.round(Number(v) * 100) / 100; var m = Math.floor(v / 60), x = v - m * 60; return m ? m + ':' + (x < 10 ? '0' : '') + x.toFixed(2) : v.toFixed(2); }
 function renderCurrent(){

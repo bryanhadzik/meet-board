@@ -2176,7 +2176,8 @@ def _break_slide():
         return out
     res = _break_results() or {}
     out['meet'] = (res.get('meet') or {}).get('name') if isinstance(res.get('meet'), dict) else (res.get('meet') or '')
-    out['scores'] = [{'name': x.get('name', ''), 'total': x.get('total', 0)} for x in (res.get('scores') or [])]
+    out['scores'] = [{'name': x.get('name', ''), 'code': x.get('code') or x.get('team') or '', 'total': x.get('total', 0)}
+                     for x in (res.get('scores') or [])]
     done, coming = [], []
     for ev in res.get('events') or []:
         rows = [r for r in ev.get('rows') or [] if r.get('place') and not r.get('exh')]
@@ -2484,6 +2485,19 @@ def _ann_play(key, why='button'):
     return None
 
 
+def _ann_break_after(event, heat):
+    """True after the last heat of the break event (Break slide > after event N, automatic on):
+    the next heat is after the break, so it isn't announced by itself."""
+    b = _break_cfg()
+    try:
+        e, h = int(event), int(heat)
+        if not b.get('auto') or e != int(b.get('after') or 0):
+            return False
+        return h >= (meet_board.heat_count(event_info, e) or h)
+    except Exception:
+        return False
+
+
 def _ann_near_end(event, heat):
     """The last swimmer is about 5 yards out (estimated from splits): announce the next heat now."""
     a = _ann_settings()
@@ -2492,6 +2506,9 @@ def _ann_near_end(event, heat):
     except (TypeError, ValueError):
         return
     if not a.get('auto') or a.get('when') != 'near' or k in _ann['swum']:
+        return
+    if _ann_break_after(*k):
+        print('Auto announce: break after event %d - not announcing the next heat' % k[0])
         return
     _ann['near_done'] = k
     err = _ann_play(_ann_target(), 'near the finish')
@@ -2512,7 +2529,9 @@ def _ann_race_over(event, heat):
         _ann_broadcast()
         return
     a = _ann_settings()
-    if a.get('auto'):
+    if a.get('auto') and _ann_break_after(*k):
+        print('Auto announce: break after event %d - not announcing the next heat' % k[0])
+    elif a.get('auto'):
         if _ann['timer']:
             try:
                 _ann['timer'].cancel()

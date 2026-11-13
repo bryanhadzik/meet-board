@@ -3,6 +3,17 @@
 ## Unreleased
 
 ### Added
+- Break slide on the stream: the race overlay in OBS shows "Results so far" as a band along the
+  bottom during the break - team scores, the events swum so far two at a time with their top three
+  (changing every 7 s, looping), and what's still to come. `?nobreak` keeps it off an overlay.
+
+### Changed
+- Automatic announcements pause at the break: after the last heat of the break event (Break slide,
+  automatic after event N) the next heat isn't announced by itself.
+- Meet board: SEASON BEST fits its column (two lines) instead of running over the team name, and the
+  state qualifying time line shrinks to fit instead of being cut off.
+
+### Added
 - Three more one-touch announcements on the Music page: "Clear the pool" (Swimmers, please clear
   the pool), "Quiet for the start", and "Need more timers".
 
