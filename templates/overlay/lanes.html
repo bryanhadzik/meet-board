@@ -67,6 +67,7 @@
 
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
 <script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
+<script src="{{ url_for('static', filename='overlay-delay.js') }}"></script>
 <script>
 (function(){
 "use strict";
@@ -187,6 +188,7 @@ function draw(){
 }
 
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
+if (window.mbOverlayDelay) window.mbOverlayDelay(socket, {{ overlay_delay|default(0) }});
 if (window.mbAutoReload) window.mbAutoReload(socket);
 // the warm-up slide owns the screen while it is up
 var slideUp = false;

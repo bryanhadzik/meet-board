@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- Overlay delay (Settings > Stream): hold the stream overlays' updates N seconds so the
+  lanes and times line up with a camera feed that reaches OBS late. Changes reach open
+  overlays at once; `?delay=N` on one overlay's URL overrides it. Default 0.
+
 ### Changed
 - At the meet start time set for the warm-up slide, the slide comes down by itself
   and the boards show the first heat (the console takes over once it sends a heat).

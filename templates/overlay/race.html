@@ -283,6 +283,7 @@
 
 <script src="{{ url_for('static', filename='socket.io.4.8.3.min.js') }}"></script>
 <script src="{{ url_for('static', filename='screen-reload.js') }}"></script>
+<script src="{{ url_for('static', filename='overlay-delay.js') }}"></script>
 <script src="{{ url_for('static', filename='warmup-slide.js') }}"></script>
 <script>
 (function(){
@@ -546,6 +547,7 @@ function draw(){
 }
 
 var socket = io.connect(location.protocol + '//' + location.host + '/scoreboard');
+if (window.mbOverlayDelay) window.mbOverlayDelay(socket, {{ overlay_delay|default(0) }});
     if (window.mbAutoReload) window.mbAutoReload(socket);
 socket.on('update_scoreboard', function(u){ for (var k in u) s[k] = u[k]; render(); });
 // Warm-up slide: takes the band's place before the meet (?warmup=full for the

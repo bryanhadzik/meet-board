@@ -2928,7 +2928,8 @@ def ws_music_cmd(d=None):
 @app.route('/overlay/<name>')
 def route_overlay(name):
     overlay_name = "overlay/" + name + '.html'
-    return flask.render_template(overlay_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'])
+    return flask.render_template(overlay_name, meet_title=settings['meet_title'], test_background='test' in flask.request.args.keys(), num_lanes=settings['num_lanes'],
+                                 overlay_delay=float(settings.get('overlay_delay', 0) or 0))
     
 @app.route('/web/<name>')
 def route_web(name):
@@ -3964,6 +3965,23 @@ def route_obs_autostop():
         save_settings()
     quiet = int((time.time() - STREAM_WATCH['activity']) / 60)
     return flask.jsonify({'minutes': int(settings.get('stream_autostop_min', 60) or 0), 'quiet_min': quiet, 'last': STREAM_WATCH['last']})
+
+
+@app.route('/api/overlay/delay', methods=['GET', 'POST'])
+def route_overlay_delay():
+    """GET/POST {seconds}: hold the stream overlays' updates this long (0-60 s) so they match a late camera feed.
+    Pushed to open overlays at once; ?delay=N on an overlay URL overrides it for that overlay."""
+    if flask.request.method == 'POST':
+        if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
+            return flask.jsonify({'error': 'login required'}), 401
+        d = flask.request.get_json(silent=True) or {}
+        try:
+            settings['overlay_delay'] = round(max(0.0, min(60.0, float(d.get('seconds')))), 1)
+        except (TypeError, ValueError):
+            return flask.jsonify({'error': 'seconds must be a number'}), 400
+        save_settings()
+        _socketio_emit('overlay_delay', {'seconds': settings['overlay_delay']}, namespace='/scoreboard')
+    return flask.jsonify({'seconds': float(settings.get('overlay_delay', 0) or 0)})
 
 
 @app.route('/favicon.ico')

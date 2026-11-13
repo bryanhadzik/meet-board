@@ -387,6 +387,20 @@
                           .then(function(r){return r.json();}).then(show); });
                     })();
                     </script>
+                    <div style="margin:4px 0 4px;font-size:13px">Delay the stream overlays by
+                        <input type="number" id="ov_delay" min="0" max="60" step="0.5" style="width:64px"> seconds
+                        <span style="color:#5d7379">(use when the lanes/times show up before the swimmers do in the video; 0 = no delay. Applies to open overlays at once)</span>
+                        <span id="ov_delay_msg" style="color:#5d7379"></span></div>
+                    <script>
+                    (function(){
+                      var box = document.getElementById('ov_delay'), msg = document.getElementById('ov_delay_msg');
+                      function show(d){ if (d.error) { msg.textContent = ' ' + d.error; return; } if (document.activeElement !== box) box.value = d.seconds; msg.textContent = ''; }
+                      fetch('/api/overlay/delay',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){});
+                      box.addEventListener('change', function(){
+                        fetch('/api/overlay/delay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seconds:parseFloat(box.value||'0')})})
+                          .then(function(r){return r.json();}).then(function(d){ show(d); if (!d.error) msg.textContent = ' \u2713 saved'; }); });
+                    })();
+                    </script>
                     <ol class="obsc-steps" id="obsc-steps" hidden></ol>
                     <pre class="obsc-log" id="obsc-log" hidden></pre>
                 </section>
