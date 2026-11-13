@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- Built-in logos and board colors for West Field (WFHS) and West Jordan (WJHS),
+  the two 5A visitors on the 2026-27 Tooele County home-meet schedule. Millard
+  now races 2A state cuts instead of the host's class.
+
+### Added
 - **Copy YouTube chapters** (Settings > Stream): after a streamed meet, one click copies
   "M:SS Event N Name" lines for the video's description. meet-board now notes when the
   OBS stream starts and when every race starts; each event's chapter begins 30 s before its

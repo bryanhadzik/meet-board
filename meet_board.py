@@ -46,6 +46,9 @@ DEFAULT_TEAM_COLORS = {
     'SJCHS': {'name': 'St. Joseph',     'color': '#2FB872', 'alt': '#E0A630'},  # green, gold
     'BLHS':  {'name': 'Ben Lomond',     'color': '#EE4256', 'alt': '#6FB0F0'},  # red, Columbia blue, white
     'FREM':  {'name': 'Fremont',        'color': '#3D7FE8', 'alt': '#A5ACAF', 'aliases': ['FHS', 'FREMONT', 'FREMT']},  # blue, silver
+    # 5A opponents on the 2026-27 Tooele County home-meet schedule
+    'WFHS':  {'name': 'West Field',     'color': '#E8682A', 'alt': '#E8EEEE', 'aliases': ['WFIELD', 'WESTF']},  # burnt orange, white (5A R5)
+    'WJHS':  {'name': 'West Jordan',    'color': '#1FA5C8', 'alt': '#9AA6AB', 'aliases': ['WJORD', 'WESTJ', 'WJ']},  # teal, black (5A R4)
     # Every other UHSAA 2025-27 3A and 4A school. Colors from MaxPreps (logo when
     # MaxPreps has none), lifted to read on the dark board; codes are guesses at
     # what Meet Manager files use - a school is also matched by its name.
@@ -475,7 +478,7 @@ CLASSES = ['6A', '5A', '4A', '3A', '2A']
 DEFAULT_TEAM_CLASS = {
     'TOOEL': '4A', 'STAN': '4A', 'DPEAK': '4A', 'GHS': '3A',
     'BRHS': '4A', 'SVHS': '4A', 'MCHS': '4A', 'RIDGE': '4A', 'GCHS': '4A',
-    'MOR': '3A', 'OGDEN': '3A', 'LHS': '3A', 'BLHS': '3A', 'SJCHS': '2A', 'FREM': '5A',
+    'MOR': '3A', 'OGDEN': '3A', 'LHS': '3A', 'BLHS': '3A', 'SJCHS': '2A', 'FREM': '5A', 'WFHS': '5A', 'WJHS': '5A', 'MILL': '2A',
     # rest of 3A/4A (Wasatch swims up in 6A Region 3)
     'DCHS': '4A', 'MVHS': '4A', 'OREM': '4A', 'PROVO': '4A', 'SAHS': '4A', 'TIMP': '4A',
     'UHS': '4A', 'WASCH': '6A', 'CEDAR': '4A', 'CCHS': '4A', 'DHHS': '4A', 'DIXIE': '4A',
