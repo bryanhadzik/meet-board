@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Changed
+- Music page: the "Clear the pool" announcement button is now "Close the pool" (same recording).
+
+### Changed
 - The meet start time set in MeetDeck (Meets tab or Meet database > Meet) comes over with
   the start lists and sets the warm-up slide's start time.
 
