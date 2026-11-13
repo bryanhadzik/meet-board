@@ -1965,6 +1965,8 @@ def _warmup_slide():
     # sending every swimmer to every TV on each heat change during the meet.
     if out['on']:
         out['events'] = meet_board.slide_events(event_info, int(settings.get('num_lanes', 8) or 8))
+        # STAN and SHS are one school: the swimmers-by-school pages group them together
+        out['school_of'] = meet_board.canonical_codes(settings, meet_teams, _team_names())
         out['colors'] = {c: (v.get('color') or '') for c, v in
                          meet_board.team_colors(settings, meet_teams, _team_names()).items()}
         # phone results QR (the page also has the YouTube live link to pass on)

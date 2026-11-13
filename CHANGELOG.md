@@ -3,6 +3,14 @@
 ## Unreleased
 
 ### Changed
+- Warm-up slide: after going through every heat it now shows each school's swimmers and the
+  events each one is swimming (relays included), then loops back to the first event. On the
+  meet boards the schools follow the heats in the scroll.
+- Stream warm-up band: long swimmer names wrap to a second line instead of being cut off with
+  "...", the band gives the heat more room (the QR caption sentence is dropped there), and a name
+  that still won't fit gets slightly smaller type and then a first initial.
+
+### Changed
 - Music page: the "Clear the pool" announcement button is now "Close the pool" (same recording).
 
 ### Changed

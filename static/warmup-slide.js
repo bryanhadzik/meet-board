@@ -4,6 +4,9 @@
    stream (a band along the bottom that steps through the heats one at a time,
    so the camera still shows warm-ups).
 
+   After the heats it lists each school's swimmers and the events each one
+   is swimming, then loops back to the first event.
+
    Turned on/off with the "Warm-up slide" button in the tab bar or on
    Settings -> Warm-up slide, and taken down automatically when the first race
    starts.
@@ -105,13 +108,13 @@ window.mbWarmupSlide = function (socket, opts) {
     '.wus.band .wus-qr{flex:0 0 auto;align-self:center;gap:calc(12*var(--u))}',
     '.wus.band .wus-qrimg{width:calc(150*var(--u));height:calc(150*var(--u));padding:calc(8*var(--u))}',
     '.wus.band .wus-qk{font-size:calc(15*var(--u))} .wus.band .wus-qu{font-size:calc(20*var(--u));margin-top:calc(3*var(--u))}',
-    '.wus.band .wus-qs{font-size:calc(15*var(--u));margin-top:calc(4*var(--u));max-width:calc(230*var(--u))}',
+    '.wus.band .wus-qs{display:none}',   /* the band needs the room for swimmer names */
 
     /* ---- band (stream): one heat at a time, clear of the player controls ---- */
     '.wus.band{left:0;right:0;bottom:0;height:calc(var(--bh)*var(--u));background:#091113;align-items:stretch;',
     '  padding:calc(22*var(--u)) calc(44*var(--u)) calc(84*var(--u));gap:calc(36*var(--u))}',
     '.wus.band::before{content:"";position:absolute;left:0;right:0;top:calc(-5*var(--u));height:calc(5*var(--u));background:#3ddc84}',
-    '.wus.band .wus-left{flex:0 0 calc(440*var(--u));display:flex;flex-direction:column;justify-content:center;min-width:0}',
+    '.wus.band .wus-left{flex:0 1 auto;max-width:calc(440*var(--u));display:flex;flex-direction:column;justify-content:center;min-width:0}',
     '.wus.band .wus-kick{align-self:flex-start;font-size:calc(18*var(--u));padding:calc(5*var(--u)) calc(14*var(--u))}',
     '.wus.band .wus-ttl{font-size:calc(42*var(--u));margin-top:calc(10*var(--u))}',
     '.wus.band .wus-sub{font-size:calc(22*var(--u));margin-top:calc(4*var(--u))}',
@@ -126,9 +129,27 @@ window.mbWarmupSlide = function (socket, opts) {
     '.wus.band .wus-lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:calc(8*var(--u)) calc(14*var(--u))}',
     '.wus.band .wus-lane{display:flex;align-items:center;gap:calc(10*var(--u));min-width:0}',
     '.wus.band .wus-ln{width:calc(36*var(--u));height:calc(36*var(--u));border-radius:calc(8*var(--u));font-size:calc(20*var(--u))}',
-    '.wus.band .wus-nm{font-size:calc(var(--nm,22)*var(--u))}',
+    '.wus.band .wus-nm{font-size:calc(var(--nm,22)*var(--u));white-space:normal;line-height:1.08;overflow-wrap:normal;',
+    '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',   /* long names wrap to a second line */
+    '.wus.band .wus-nm:has(.wus-legs){display:block;-webkit-line-clamp:none}',
     '.wus.band .wus-legs{font-size:calc(14*var(--u))}',
-    '.wus.band .wus-tm{display:none}'
+    '.wus.band .wus-tm{display:none}',
+    /* swimmers by school: name over the events they swim */
+    '.wus-sw{display:flex;align-items:stretch;gap:calc(10*var(--u));min-width:0}',
+    '.wus-sw .wus-bar{flex:0 0 calc(6*var(--u));border-radius:calc(3*var(--u));background:var(--tc,#3a4d52)}',
+    '.wus-sw .wus-swt{flex:1;min-width:0;display:flex;flex-direction:column}',
+    '.wus-swn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.wus-swe{color:#bfd2d6;font-weight:500;line-height:1.2}',
+    '.wus.band .wus-swg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(10*var(--u)) calc(22*var(--u))}',
+    '.wus.band .wus-swn{font-size:calc(22*var(--u))}',
+    '.wus.band .wus-swe{font-size:calc(16*var(--u));max-height:2.4em;overflow:hidden}',
+    '.wus.band .wus-school .wus-evno{color:var(--tc,#3ddc84)}',
+    '.wus.full .wus-sect{grid-column:1/-1;font-weight:800;letter-spacing:.16em;color:#3ddc84;font-size:calc(26*var(--u));',
+    '  padding-top:calc(24*var(--u));border-top:1px solid rgba(255,255,255,.15);margin-top:calc(12*var(--u))}',
+    '.wus.full .wus-scard{border-top:calc(5*var(--u)) solid var(--tc,#3a4d52)}',
+    '.wus.full .wus-scard .wus-evname{font-size:calc(26*var(--u));margin:0 0 calc(8*var(--u))}',
+    '.wus.full .wus-sw{padding:calc(5*var(--u)) 0;border-top:1px solid rgba(255,255,255,.06)}',
+    '.wus.full .wus-swn{font-size:calc(22*var(--u))} .wus.full .wus-swe{font-size:calc(16*var(--u))}'
   ].join('\n');
   document.head.appendChild(css);
 
@@ -175,6 +196,97 @@ window.mbWarmupSlide = function (socket, opts) {
       (ev.heats || []).forEach(function (h) { out.push({ev: ev, heat: h}); });
     });
     return out;
+  }
+
+  // "Girls 200 Yard Medley Relay" -> "200 MR", "Boys 50 Yard Freestyle" -> "50 Free"
+  function shortEv(n) {
+    return String(n || '').replace(/^(girls|boys|women|men|mixed)\s+/i, '')
+      .replace(/\s*\b(yards?|meters?|yd)\b/gi, '')
+      .replace(/medley relay/i, 'MR').replace(/free(style)? relay/i, 'FR')
+      .replace(/individual medley/i, 'IM').replace(/freestyle/i, 'Free').replace(/backstroke/i, 'Back')
+      .replace(/breaststroke/i, 'Breast').replace(/butterfly/i, 'Fly').replace(/\s+/g, ' ').trim();
+  }
+  function cleanName(n) {
+    n = String(n || '').trim();
+    var m = /^([^,]+),\s*(.+)$/.exec(n);           // "Last, First" -> "First Last"
+    return m ? m[2] + ' ' + m[1] : n;
+  }
+  function lastName(n) { var p = n.split(/\s+/); return (p[p.length - 1] + ' ' + n).toLowerCase(); }
+  // Each school (in schedule order) with its swimmers and the events each one swims, relays included.
+  function rosters() {
+    var so = data.school_of || {}, groups = {}, order = [], legs = [];
+    function group(code, team) {
+      var k = so[code] || code;
+      if (!groups[k]) { groups[k] = {team: team || {code: code, name: code}, sw: {}}; order.push(k); }
+      return groups[k];
+    }
+    (data.teams || []).forEach(function (t) { group(t.code, t); });
+    (data.events || []).forEach(function (ev) {
+      (ev.heats || []).forEach(function (h) {
+        h.lanes.forEach(function (l) {
+          if (!l.team) return;
+          var g = group(l.team);
+          if (l.legs && l.legs.length) { legs.push({g: g, ev: ev, legs: l.legs.map(cleanName)}); return; }
+          var n = cleanName(l.name); if (!n) return;
+          var s = g.sw[n] || (g.sw[n] = {name: n, evs: []});
+          if (s.evs.indexOf(ev) < 0) s.evs.push(ev);
+        });
+      });
+    });
+    // Relay legs are often last names only: give the relay to the swimmer with
+    // that last name on the team (two Andersons on one relay both get it).
+    legs.forEach(function (r) {
+      r.legs.forEach(function (n) {
+        if (!n) return;
+        var key = n.toLowerCase(), hits = Object.keys(r.g.sw).filter(function (full) {
+          var f = full.toLowerCase();
+          return f === key || f.slice(-key.length - 1) === ' ' + key;
+        });
+        var same = r.legs.filter(function (x) { return (x || '').toLowerCase() === key; }).length;
+        if (!hits.length) hits = [n];
+        else if (hits.length > 1 && hits.length !== same) return;   // can't tell which one
+        hits.forEach(function (full) {
+          var s = r.g.sw[full] || (r.g.sw[full] = {name: full, evs: []});
+          if (s.evs.indexOf(r.ev) < 0) s.evs.push(r.ev);
+        });
+      });
+    });
+    // keep each swimmer's events in meet order
+    var evOrder = (data.events || []).map(function (e) { return e; });
+    Object.keys(groups).forEach(function (k) {
+      Object.keys(groups[k].sw).forEach(function (n) {
+        groups[k].sw[n].evs.sort(function (a, b) { return evOrder.indexOf(a) - evOrder.indexOf(b); });
+      });
+    });
+    return order.map(function (k) {
+      var g = groups[k], list = Object.keys(g.sw).map(function (n) { return g.sw[n]; });
+      list.sort(function (a, b) { return lastName(a.name) < lastName(b.name) ? -1 : 1; });
+      return {team: g.team, color: g.team.color || colorOf(g.team.code), swimmers: list};
+    }).filter(function (g) { return g.swimmers.length; });
+  }
+  function swimmerRow(s, color) {
+    var row = el('div', 'wus-sw');
+    if (color) row.style.setProperty('--tc', color);
+    row.appendChild(el('div', 'wus-bar'));
+    var t = el('div', 'wus-swt');
+    t.appendChild(el('div', 'wus-swn', s.name));
+    t.appendChild(el('div', 'wus-swe', s.evs.map(function (ev) { return shortEv(ev.name); }).join(' · ')));
+    row.appendChild(t);
+    return row;
+  }
+  // Long names: shrink the type a little, then shorten the first name to an initial.
+  function fitNames(scope) {
+    requestAnimationFrame(function () {
+      scope.querySelectorAll('.wus-nm, .wus-swn').forEach(function (n) {
+        if (n.querySelector('.wus-legs') || !n.clientWidth) return;
+        var base = parseFloat(getComputedStyle(n).fontSize), fs = base;
+        while (n.scrollWidth > n.clientWidth + 1 && fs > base * 0.76) { fs -= base * 0.04; n.style.fontSize = fs + 'px'; }
+        if (n.scrollWidth > n.clientWidth + 1) {
+          var p = n.textContent.trim().split(/\s+/);
+          if (p.length > 1 && p[0].length > 2) n.textContent = p[0][0] + '. ' + p.slice(1).join(' ');
+        }
+      });
+    });
   }
 
   function titleBlock() {
@@ -264,7 +376,17 @@ window.mbWarmupSlide = function (socket, opts) {
     if (!list.length) { track.appendChild(el('div', 'wus-empty', 'Start lists will appear here once they are loaded.')); return; }
     var grid = el('div', 'wus-grid');
     list.forEach(function (x) { grid.appendChild(heatCard(x)); });
+    var rs = rosters();
+    if (rs.length) grid.appendChild(el('div', 'wus-sect', 'SWIMMERS BY SCHOOL'));
+    rs.forEach(function (g) {
+      var card = el('div', 'wus-heat wus-scard');
+      if (g.color) card.style.setProperty('--tc', g.color);
+      card.appendChild(el('div', 'wus-evname', g.team.name || g.team.code));
+      g.swimmers.forEach(function (s) { card.appendChild(swimmerRow(s, g.color)); });
+      grid.appendChild(card);
+    });
     track.appendChild(grid);
+    fitNames(grid);
     // Scroll only if it doesn't all fit; a second copy makes the loop seamless.
     requestAnimationFrame(function () {
       if (grid.offsetHeight <= view.clientHeight) return;
@@ -289,11 +411,31 @@ window.mbWarmupSlide = function (socket, opts) {
     root.appendChild(stage);
     var qr = qrBlock(); if (qr) root.appendChild(qr);
     var w = whenBlock(); if (w) root.appendChild(w);
-    var list = heats(), i = 0;
+    var list = heats(), i = 0, PER = 6;
+    rosters().forEach(function (g) {
+      var pages = Math.ceil(g.swimmers.length / PER);
+      for (var p = 0; p < pages; p++)
+        list.push({school: g, page: p + 1, pages: pages, swimmers: g.swimmers.slice(p * PER, (p + 1) * PER)});
+    });
     function show() {
       stage.textContent = '';
+      stage.classList.remove('wus-school');
       if (!list.length) return;
       var x = list[i % list.length];
+      if (x.school) {
+        stage.classList.add('wus-school');
+        if (x.school.color) stage.style.setProperty('--tc', x.school.color); else stage.style.removeProperty('--tc');
+        var sh = el('div', 'wus-hdr');
+        sh.appendChild(el('span', 'wus-evno', 'SWIMMERS'));
+        sh.appendChild(el('span', 'wus-evname', x.school.team.name || x.school.team.code));
+        if (x.pages > 1) sh.appendChild(el('span', 'wus-hn', x.page + ' OF ' + x.pages));
+        stage.appendChild(sh);
+        var sg = el('div', 'wus-swg');
+        x.swimmers.forEach(function (s) { sg.appendChild(swimmerRow(s, x.school.color)); });
+        stage.appendChild(sg);
+        fitNames(sg);
+        return;
+      }
       var hdr = el('div', 'wus-hdr');
       hdr.appendChild(el('span', 'wus-evno', 'EVENT ' + x.ev.event));
       hdr.appendChild(el('span', 'wus-evname', x.ev.name));
@@ -304,6 +446,7 @@ window.mbWarmupSlide = function (socket, opts) {
       grid.style.setProperty('--nm', relay ? 20 : 22);
       x.heat.lanes.forEach(function (l) { grid.appendChild(laneRow(l)); });
       stage.appendChild(grid);
+      fitNames(grid);
     }
     show();
     if (list.length > 1) rotate = setInterval(function () {
@@ -332,7 +475,7 @@ window.mbWarmupSlide = function (socket, opts) {
       // the server re-sends on every heat change; only redraw (and restart the
       // scroll) when what's on the slide actually changed
       // (speed is read live by the scroll; the band's hold time needs a restart)
-      var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events, data.results_url, data.stream,
+      var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events, data.school_of, data.results_url, data.stream,
                                 MODE === 'band' ? hold() : 0]);
       if (sig !== sigShown || !root.classList.contains('on')) { sigShown = sig; draw(); }
     } else sigShown = '';
