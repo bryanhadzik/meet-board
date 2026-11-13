@@ -32,20 +32,20 @@ window.mbBreakSlide = function (socket, opts) {
     '#mbBreak .bs-body{flex:1;min-height:0;display:flex;gap:calc(30*var(--u));margin-top:calc(24*var(--u))}',
     '#mbBreak .bs-view{flex:1;min-width:0;overflow:hidden;position:relative;',
     '  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 60*var(--u)),transparent 100%);mask-image:linear-gradient(180deg,#000 calc(100% - 60*var(--u)),transparent 100%)}',
-    '#mbBreak .bs-done{min-width:0;display:grid;will-change:transform;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:calc(14*var(--u));align-content:start;overflow:hidden}',
-    '#mbBreak .bs-ev{background:rgba(4,20,24,.55);border:1px solid rgba(255,255,255,.08);border-radius:calc(12*var(--u));padding:calc(10*var(--u)) calc(14*var(--u))}',
-    '#mbBreak .bs-ev .bs-h{font-weight:700;font-size:calc(25*var(--u));margin-bottom:calc(4*var(--u));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#mbBreak .bs-done{min-width:0;display:grid;will-change:transform;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:calc(20*var(--u));align-content:start;overflow:hidden}',
+    '#mbBreak .bs-ev{background:rgba(4,20,24,.55);border:1px solid rgba(255,255,255,.08);border-radius:calc(14*var(--u));padding:calc(14*var(--u)) calc(20*var(--u))}',
+    '#mbBreak .bs-ev .bs-h{font-weight:700;font-size:calc(38*var(--u));margin-bottom:calc(6*var(--u));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '#mbBreak .bs-ev .bs-h b{color:#3ddc84;margin-right:calc(8*var(--u))}',
-    '#mbBreak .bs-r{display:flex;gap:calc(10*var(--u));align-items:baseline;font-size:calc(24*var(--u));padding:calc(2*var(--u)) 0;border-top:1px solid rgba(255,255,255,.06)}',
-    '#mbBreak .bs-r .bs-pl{font-weight:800;width:calc(26*var(--u));color:#ffd60a;flex:0 0 auto}',
+    '#mbBreak .bs-r{display:flex;gap:calc(14*var(--u));align-items:baseline;font-size:calc(38*var(--u));padding:calc(5*var(--u)) 0;border-top:1px solid rgba(255,255,255,.06)}',
+    '#mbBreak .bs-r .bs-pl{font-weight:800;width:calc(38*var(--u));color:#ffd60a;flex:0 0 auto}',
     '#mbBreak .bs-r .bs-nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}',
-    '#mbBreak .bs-r .bs-tm{font-family:Consolas,"Cascadia Mono",monospace;color:#bfe6ec;flex:0 0 auto}',
-    '#mbBreak .bs-r .bs-tc{color:#8fb3ba;font-size:calc(17*var(--u));flex:0 0 auto}',
-    '#mbBreak .bs-come{flex:0 0 calc(420*var(--u));background:rgba(4,20,24,.55);border:1px solid rgba(255,255,255,.08);border-radius:calc(12*var(--u));',
+    '#mbBreak .bs-r .bs-tm{font-family:Consolas,"Cascadia Mono",monospace;color:#bfe6ec;flex:0 0 auto;font-size:.88em}',
+    '#mbBreak .bs-r .bs-tc{color:#8fb3ba;font-size:calc(22*var(--u));flex:0 0 auto}',
+    '#mbBreak .bs-come{flex:0 0 calc(400*var(--u));background:rgba(4,20,24,.55);border:1px solid rgba(255,255,255,.08);border-radius:calc(12*var(--u));',
     '  padding:calc(14*var(--u)) calc(18*var(--u));overflow:hidden}',
-    '#mbBreak .bs-come .bs-k{font-weight:800;letter-spacing:.14em;color:#3ddc84;font-size:calc(22*var(--u));margin-bottom:calc(8*var(--u))}',
-    '#mbBreak .bs-come .bs-i{font-size:calc(22*var(--u));padding:calc(4*var(--u)) 0;border-top:1px solid rgba(255,255,255,.06);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '#mbBreak .bs-come .bs-i b{color:#ffd60a;display:inline-block;min-width:calc(44*var(--u))}'
+    '#mbBreak .bs-come .bs-k{font-weight:800;letter-spacing:.14em;color:#3ddc84;font-size:calc(30*var(--u));margin-bottom:calc(8*var(--u))}',
+    '#mbBreak .bs-come .bs-i{font-size:calc(30*var(--u));padding:calc(6*var(--u)) 0;border-top:1px solid rgba(255,255,255,.06);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#mbBreak .bs-come .bs-i b{color:#ffd60a;display:inline-block;min-width:calc(60*var(--u))}'
   ].join('\n');
   document.head.appendChild(css);
   var root = document.createElement('div');
@@ -70,7 +70,7 @@ window.mbBreakSlide = function (socket, opts) {
     var body = el('div', 'bs-body'), view = el('div', 'bs-view'), done = el('div', 'bs-done');
     view.appendChild(done);
     var evs = d.done || [];
-    done.style.setProperty('--cols', d.final ? 4 : evs.length > 12 ? 4 : 3);
+    done.style.setProperty('--cols', d.final ? 3 : 2);   // big enough to read from the stands; it scrolls when it doesn't fit
     evs.forEach(function (ev) {
       var c = el('div', 'bs-ev'), h = el('div', 'bs-h');
       h.appendChild(el('b', '', 'E' + ev.no)); h.appendChild(document.createTextNode(ev.label || ''));
@@ -78,7 +78,7 @@ window.mbBreakSlide = function (socket, opts) {
       (ev.top || []).forEach(function (r) {
         var row = el('div', 'bs-r');
         row.appendChild(el('span', 'bs-pl', String(r.place)));
-        row.appendChild(el('span', 'bs-nm', (r.name || '').replace(/ High School( Swimming)?/, '')));
+        row.appendChild(el('span', 'bs-nm', (r.name || '').replace(/ (High School|Swim Team)( Swimming)?(?= "|$)/, '')));
         row.appendChild(el('span', 'bs-tc', r.team || ''));
         row.appendChild(el('span', 'bs-tm', r.time || ''));
         c.appendChild(row);

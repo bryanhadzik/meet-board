@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- Break slide on the meet boards: results in bigger type (two columns, scrolling when they don't fit), relays shown as "Grantsville \"A\"", and a larger Still to come list.
+
 ### Added
 - Break slide on the stream: the race overlay in OBS shows "Results so far" as a band along the
   bottom during the break - team scores, the events swum so far two at a time with their top three
