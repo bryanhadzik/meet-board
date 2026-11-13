@@ -75,15 +75,16 @@ def page(m):
     parts = []
     for i, t in enumerate(teams):
         if i:
-            parts.append('<div class="sep">%s</div>' % ("@" if (vis and i == n - 1) else "&" if vis else "·"))
+            quad = bool(big and "QUAD" in big)
+            parts.append('<div class="sep">%s</div>' % ("&" if quad else "@" if (vis and i == n - 1) else "&"))
         parts.append(tile(t, size))
     if not big:
         big = (" & ".join(vis) + " @ " + host)
     fs = 112 if len(big) <= 18 else 96 if len(big) <= 24 else 80 if len(big) <= 32 else 66
     subhtml = f'<span class="sub">{sub}</span>' if sub else ""
-    lane_y = 118 + size + 26
+    lane_y = max(118 + size + 30, 410)
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>
-<div class="water"></div><div class="lane" style="top:{lane_y}px;opacity:.35"></div>
+<div class="water"></div><div class="lane" style="top:{lane_y}px;opacity:.55"></div>
 <div class="top"><div class="live"><i></i>LIVE</div><div class="kick">HIGH SCHOOL SWIMMING</div></div>
 <div class="venue">PRATT AQUATIC<br>CENTER</div>
 <div class="logos">{''.join(parts)}</div>
