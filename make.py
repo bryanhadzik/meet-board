@@ -71,7 +71,7 @@ def page(m):
     if big and "QUAD" in big:
         teams = ["Tooele", "Stansbury", "Grantsville", "Deseret Peak"]
     n = len(teams)
-    size = {1: 300, 2: 260, 3: 220, 4: 200}[n]
+    size = {1: 260 if sub else 300, 2: 260, 3: 220, 4: 200}[n]
     parts = []
     for i, t in enumerate(teams):
         if i:
@@ -80,11 +80,13 @@ def page(m):
         parts.append(tile(t, size))
     if not big:
         big = (" & ".join(vis) + " @ " + host)
-    fs = 112 if len(big) <= 18 else 96 if len(big) <= 24 else 80 if len(big) <= 32 else 66
     subhtml = f'<span class="sub">{sub}</span>' if sub else ""
+    fs = 112 if len(big) <= 18 else 96 if len(big) <= 24 else 80 if len(big) <= 32 else 66
     lane_y = max(118 + size + 30, 410)
+    title_top = 720 - 118 - int(fs * 1.02) - (52 if sub else 0)
+    lane_css = "" if lane_y + 16 < title_top - 12 else "display:none;"
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>
-<div class="water"></div><div class="lane" style="top:{lane_y}px;opacity:.55"></div>
+<div class="water"></div><div class="lane" style="{lane_css}top:{lane_y}px;opacity:.55"></div>
 <div class="top"><div class="live"><i></i>LIVE</div><div class="kick">HIGH SCHOOL SWIMMING</div></div>
 <div class="venue">PRATT AQUATIC<br>CENTER</div>
 <div class="logos">{''.join(parts)}</div>
