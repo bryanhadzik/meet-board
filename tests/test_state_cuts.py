@@ -68,7 +68,7 @@ def test_cut_per_class_and_sex():
     got = M.state_cut_for(girls100, cuts, ['4A', '3A'])
     assert [(x['cls'], x['time']) for x in got] == [('4A', '1:02.24'), ('3A', '1:35.41')]
     mixed = dict(girls100, sex_codes=[1, 2])
-    assert [(x['cls'], x['sex']) for x in M.state_cut_for(mixed, cuts, ['4A'])] == [('4A', 'Girls'), ('4A', 'Boys')]
+    assert [(x['cls'], x['sex']) for x in M.state_cut_for(mixed, cuts, ['4A'])] == [('4A', 'Women'), ('4A', 'Men')]
     assert M.state_cut_for(dict(girls100, distance=25), cuts, ['4A']) == []
     assert M.state_cut_for(girls100, dict(cuts, on=False), ['4A']) == []
     assert M.state_cut_for(None, cuts, ['4A']) == []

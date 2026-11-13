@@ -94,8 +94,8 @@ COURSE_NAMES = {
 }
 
 GENDER_AGE_NAMES = {
-    GenderAge.GIRL_S: "Girls",
-    GenderAge.BOY_S: "Boys",
+    GenderAge.GIRL_S: "Women",       # high school meets: Women / Men everywhere, like the printed program
+    GenderAge.BOY_S: "Men",
     GenderAge.WOMEN_S: "Women",
     GenderAge.MEN_S: "Men",
     GenderAge.UNKNOWN: "",

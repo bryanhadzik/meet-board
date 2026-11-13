@@ -32,8 +32,8 @@ def test_loader_matches_hy3_shape():
     L = HytekEventLoader()
     n_ev, n_ht, n_ln, n_legs = startlist_json.load_into(L, DOC)
     assert (n_ev, n_ht, n_ln, n_legs) == (3, 3, 5, 1)          # the empty heat 2 is skipped
-    assert L.get_event_name(1) == "Girls 200 Yard Medley Relay"
-    assert L.get_event_name(2) == "Boys 200 Yard Freestyle"
+    assert L.get_event_name(1) == "Women 200 Yard Medley Relay"
+    assert L.get_event_name(2) == "Men 200 Yard Freestyle"
     assert L.get_event_name(3) == "Women 50 Yard Freestyle"
     assert L.get_display_string(1, 1, 4) == "Tooele A"
     assert L.get_display_string(1, 1, 5) == "Stansbury B"

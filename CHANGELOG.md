@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Changed
+- Women / Men instead of Girls / Boys on the meet boards, the stream overlay and State Times, to match the printed meet program.
+
+### Changed
 - Break slide on the meet boards: results in bigger type (two columns, scrolling when they don't fit), relays shown as "Grantsville \"A\"", and a larger Still to come list.
 
 ### Added

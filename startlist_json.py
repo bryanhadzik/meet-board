@@ -36,7 +36,7 @@ FORMAT = "meetdeck-startlist"
 
 _STROKE = {"A": (1, "Freestyle"), "B": (2, "Backstroke"), "C": (3, "Breaststroke"),
            "D": (4, "Butterfly"), "E": (5, "Medley")}
-_GENDER = {"F": (GenderAge.GIRL_S, "Girls", [2]), "M": (GenderAge.BOY_S, "Boys", [1]),
+_GENDER = {"F": (GenderAge.WOMEN_S, "Women", [2]), "M": (GenderAge.MEN_S, "Men", [1]),   # Women/Men, like the printed meet program
            "W": (GenderAge.WOMEN_S, "Women", [2]), "X": (GenderAge.UNKNOWN, "Mixed", [1, 2])}
 _COURSE = {"Y": "Yard", "S": "Meter", "L": "Meter"}
 

@@ -447,7 +447,7 @@ HS_EVENTS = [
     (3, 100, False, '100 Breaststroke'),
     (1, 400, True, '400 Free Relay'),
 ]
-SEX_NAMES = {2: 'Girls', 1: 'Boys'}
+SEX_NAMES = {2: 'Women', 1: 'Men'}
 STATE_CUTS_YEAR = '2026'
 
 
