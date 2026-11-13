@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Changed
+- Meet board results: a SEASON BEST lane is highlighted - the row glows green with a green edge and the time turns green.
+
+### Changed
 - Women / Men instead of Girls / Boys on the meet boards, the stream overlay and State Times, to match the printed meet program.
 
 ### Changed

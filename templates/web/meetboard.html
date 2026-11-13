@@ -178,6 +178,12 @@
   .style-light .bhead { background:#0a6b7c; color:#fff; }
   .style-light .colR { background:#e6ecee; border-left-color:#c9d4d7; }
   .style-light .row:nth-child(odd) { background:rgba(0,0,0,.04); }
+  /* SEASON BEST: the whole row glows green, the time goes green and bold */
+  .row.sbrow, .style-light .row.sbrow:nth-child(odd) { background:linear-gradient(90deg, rgba(47,191,113,.34), rgba(47,191,113,.12)); }
+  .row.sbrow { box-shadow:inset .45cqw 0 0 #2fbf71, inset 0 0 0 .12cqw rgba(47,191,113,.7); }   /* team-colour lanes keep their colour, with the green edge */
+  .row.sbrow .tmr { color:#7fe0ab; font-weight:800; }
+  .style-light .row.sbrow .tmr { color:#0f7a3c; }
+  .row.sbrow .q span.sb { box-shadow:0 0 .8cqw rgba(47,191,113,.8); }
   .style-light .ln { color:#51666d; }
   .style-light .nm.empty { color:#b3c1c5; }
   .style-light .tmr { color:#10202a; }
@@ -480,7 +486,7 @@ function renderCurrent(){
     lanes.push(L);
   });
   lanes.forEach(function(L){
-    var r = el('div', 'row' + (L.place === '1' && L.fin ? ' lead' : ''));
+    var r = el('div', 'row' + (L.place === '1' && L.fin ? ' lead' : '') + (L.qc === 'sb' ? ' sbrow' : ''));
     paint(r, L.team);
     r.appendChild(el('div','stripe'));
     r.appendChild(el('div','ln mono', String(L.i)));
