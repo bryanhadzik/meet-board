@@ -401,6 +401,32 @@
                           .then(function(r){return r.json();}).then(function(d){ show(d); if (!d.error) msg.textContent = ' \u2713 saved'; }); });
                     })();
                     </script>
+                    <div style="margin:10px 0 4px;font-size:13px"><b>YouTube chapters</b>
+                        <select id="ytc_sess" style="max-width:320px"></select>
+                        <button type="button" class="obsc-sm" id="ytc_copy">Copy YouTube chapters</button>
+                        <span id="ytc_msg" style="color:#5d7379"></span>
+                        <div style="color:#5d7379">Paste into the video's description in YouTube Studio. Each event starts 30 s before its first race; the times come from when the stream and each race started.</div>
+                        <textarea id="ytc_text" rows="8" style="width:100%;max-width:520px;font-family:Consolas,monospace;font-size:12.5px;margin-top:4px" readonly hidden></textarea></div>
+                    <script>
+                    (function(){
+                      var sel = document.getElementById('ytc_sess'), ta = document.getElementById('ytc_text'), msg = document.getElementById('ytc_msg');
+                      function load(copy){
+                        fetch('/api/youtube/chapters' + (sel.value ? '?stream=' + sel.value : ''), {cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+                          if (!sel.options.length) { (d.sessions || []).forEach(function(x){ var o = document.createElement('option'); o.value = x.index; o.textContent = x.label; sel.appendChild(o); }); }
+                          if (!sel.options.length) { var o = document.createElement('option'); o.value = ''; o.textContent = 'no streamed races yet'; sel.appendChild(o); }
+                          if (!copy) return;
+                          if (!d.text) { msg.textContent = ' ' + (d.error || 'nothing yet'); ta.hidden = true; return; }
+                          ta.value = d.text; ta.hidden = false;
+                          var done = function(){ msg.textContent = ' \u2713 copied: ' + d.events + ' events' + (d.note ? ' \u00b7 ' + d.note : ''); };
+                          if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(d.text).then(done, function(){ ta.select(); document.execCommand('copy'); done(); });
+                          else { ta.select(); document.execCommand('copy'); done(); }
+                        }).catch(function(){ msg.textContent = ' could not load'; });
+                      }
+                      document.getElementById('ytc_copy').addEventListener('click', function(){ load(true); });
+                      sel.addEventListener('change', function(){ ta.hidden = true; msg.textContent = ''; });
+                      load(false);
+                    })();
+                    </script>
                     <ol class="obsc-steps" id="obsc-steps" hidden></ol>
                     <pre class="obsc-log" id="obsc-log" hidden></pre>
                 </section>

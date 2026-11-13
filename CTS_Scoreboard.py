@@ -31,7 +31,7 @@ import https_server
 import startlist_json
 import announce
 import meet_board
-from race_book import RaceBook
+from race_book import RaceBook, secs as race_book_secs
 from serial_monitor import monitor as serial_mon
 import cts_signal
 import team_logos
@@ -40,6 +40,7 @@ import obs_client
 import music
 import music_mute
 import blackout as blackout_mod
+import yt_chapters
 from _version import __version__
 
 DEBUG = False
@@ -2539,6 +2540,11 @@ def _race_over(event, heat):
 
 def _race_started():
     _stream_activity()
+    try:                                # for "Copy YouTube chapters"
+        st = race_book.s
+        STREAM_LOG.race(st.get('current_event'), st.get('current_heat'), race_book_secs(st.get('running_time')))
+    except Exception as e:
+        print('stream log:', e)
     try:
         _ann_settings()                 # near-end announcing: on/off from the saved choice
     except Exception:
@@ -3918,6 +3924,21 @@ def route_obs_stream():
 # stream_autostop_min minutes. The warm-up and break slides count as activity, and so does the stream having
 # just started (warm-ups), so it never stops before the meet gets going.
 STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
+STREAM_LOG = yt_chapters.StreamLog(app_paths.data_path('stream_log.json'))
+
+
+def _stream_logger():
+    """Note when the OBS stream started (for YouTube chapters)."""
+    while True:
+        time.sleep(15)
+        try:
+            st = obs.status()
+            STREAM_LOG.stream(st.get('streaming'), st.get('seconds'))
+        except Exception:
+            pass
+
+
+threading.Thread(target=_stream_logger, daemon=True).start()
 
 
 def _stream_activity():
@@ -3965,6 +3986,20 @@ def route_obs_autostop():
         save_settings()
     quiet = int((time.time() - STREAM_WATCH['activity']) / 60)
     return flask.jsonify({'minutes': int(settings.get('stream_autostop_min', 60) or 0), 'quiet_min': quiet, 'last': STREAM_WATCH['last']})
+
+
+@app.route('/api/youtube/chapters')
+def route_youtube_chapters():
+    """Chapters for a streamed meet: ?stream=<index> (default the latest stream that had races)."""
+    try:
+        idx = int(flask.request.args['stream']) if flask.request.args.get('stream') else None
+    except ValueError:
+        idx = None
+    text, info = yt_chapters.chapters(STREAM_LOG, dict(event_info.event_names), idx)
+    fmt = lambda t: time.strftime('%a %b %d, %I:%M %p', time.localtime(t)).replace(' 0', ' ')
+    sess = [{'index': x['index'], 'label': '%s - %s (%d races)' % (fmt(x['start']), time.strftime('%I:%M %p', time.localtime(x['end'])).lstrip('0'), x['races'])}
+            for x in STREAM_LOG.sessions()]
+    return flask.jsonify({'text': text, **info, 'sessions': sess})
 
 
 @app.route('/api/overlay/delay', methods=['GET', 'POST'])

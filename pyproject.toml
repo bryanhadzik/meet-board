@@ -45,6 +45,7 @@ only-include = [
     "cts_signal.py",
     "music.py",
     "music_mute.py",
+    "yt_chapters.py",
     "obs_client.py",
     "serial_monitor.py",
     "team_logos.py",

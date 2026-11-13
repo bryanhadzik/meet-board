@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- **Copy YouTube chapters** (Settings > Stream): after a streamed meet, one click copies
+  "M:SS Event N Name" lines for the video's description. meet-board now notes when the
+  OBS stream starts and when every race starts; each event's chapter begins 30 s before its
+  first race. Pick an earlier stream from the list. Kept 45 days in stream_log.json.
 - Overlay delay (Settings > Stream): hold the stream overlays' updates N seconds so the
   lanes and times line up with a camera feed that reaches OBS late. Changes reach open
   overlays at once; `?delay=N` on one overlay's URL overrides it. Default 0.
