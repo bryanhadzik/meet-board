@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- The meet start time set in MeetDeck (Meets tab or Meet database > Meet) comes over with
+  the start lists and sets the warm-up slide's start time.
+
 ### Added
 - Built-in logos and board colors for West Field (WFHS) and West Jordan (WJHS),
   the two 5A visitors on the 2026-27 Tooele County home-meet schedule. Millard

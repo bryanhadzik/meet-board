@@ -3737,6 +3737,9 @@ def route_api_startlists():
         m = (doc or {}).get('meet') or {}
         settings['schedule_meet'] = {'id': str(m.get('id') or '')[:40], 'name': str(m.get('name') or '')[:120],
                                      'date': str(m.get('date') or '')[:20]}
+        hm = _HHMM.match(str(m.get('start') or '').strip())     # MeetDeck's meet start time -> warm-up slide
+        if hm:
+            settings['warmup_start'] = '%02d:%s' % (int(hm.group(1)), hm.group(2))
         settings['event_info'] = event_info.to_object()
         settings['hy3_source'] = settings['event_info']   # .scb reloads borrow its seeds/relay swimmers
         src = str((doc or {}).get('source') or 'MeetDeck')[:60]
