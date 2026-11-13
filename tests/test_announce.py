@@ -96,7 +96,8 @@ def test_clip_upload_zip_and_auto(board):
 def test_extra_announcement_buttons(board):
     c = C.app.test_client()
     d = c.get('/api/announce').get_json()
-    assert [x['clip'] for x in d['extras']] == ['x_anthem', 'x_meeting', 'x_welcome', 'x_open', 'x_break15', 'x_break10', 'x_clear']
+    assert [x['clip'] for x in d['extras']] == ['x_anthem', 'x_meeting', 'x_welcome', 'x_open', 'x_break15', 'x_break10', 'x_clear',
+                                                    'x_clearpool', 'x_quiet', 'x_timers']
     r = c.post('/api/announce', json={'action': 'extra', 'clip': 'x_anthem'}).get_json()
     assert r['now']['text'] == 'Please stand for the national anthem.'
     assert r['target']['event'] == 1 and r['last'] is None          # the heat queue doesn't move
