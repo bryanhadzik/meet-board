@@ -34,7 +34,9 @@
   <a href="/debug" class="{{ 'on' if active == 'debug' else '' }}">Debug</a>
   <span class="sp"></span>
   <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
-  <a href="/overlay/race?test" class="ext" target="_blank">Overlay &#8599;</a>
+  <!-- the two browser sources live in OBS: the lane band at the bottom and the lane rail on the left -->
+  <a href="/overlay/race?layout=strip&amp;test" class="ext" target="_blank" title="OBS source 'Lower Lanes' (/overlay/race?layout=strip), shown over a pool photo">Lower Lanes &#8599;</a>
+  <a href="/overlay/lanes?test&amp;demo" class="ext" target="_blank" title="OBS source 'Overlay' (/overlay/lanes), shown over a pool photo">Lane rail &#8599;</a>
   <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
     onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
   <button class="rl wu" id="mbWarmBtn" type="button" title="Show the warm-up slide (meet, teams, start time) on the meet boards and the stream">Warm-up slide</button>

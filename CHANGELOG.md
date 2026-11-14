@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Top links:** "Overlay" is replaced by the two pages that are live in OBS: Lower Lanes
+  (/overlay/race?layout=strip) and the lane rail (/overlay/lanes), both over a pool photo.
+
 ### Changed (stream)
 - **Lane rail (/overlay/lanes):** an event title above the lanes (EVENT 9, the event
   name, Heat 1 of 2). `title=0` turns it off.
