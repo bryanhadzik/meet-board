@@ -119,6 +119,19 @@ def save_uploads(folder, uploads):
     return saved, skipped
 
 
+# code -> sha256 of a built-in logo that no longer belongs to that code
+RETIRED_BUILTIN = {
+    'CCHS': '20282df5b73053a70acfae17eb881ce11f581007a86109185fa5b85848a29cab',  # Crimson Cliffs (now CRIM; CCHS = Cedar City)
+    'TIMP': '8f86023e2aa3193a9af985d6d0be049e6a359e22b8bec93935bf2362042632db',  # Timpanogos (now THS; TIMP = Timpview)
+}
+
+
+def _sha256(path):
+    import hashlib
+    with open(path, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
 def seed_builtin(folder, builtin_folder, already):
     """Copy built-in logos for codes that have no logo yet and weren't seeded
     before. already: codes seeded on earlier starts. Returns the codes copied
@@ -126,6 +139,17 @@ def seed_builtin(folder, builtin_folder, already):
     import shutil
     done = set(c.upper() for c in (already or []))
     copied = []
+    # Built-in logos shipped under a code that turned out to belong to another
+    # school: remove the old file (only if it is still the untouched built-in)
+    # so the right school's logo can be seeded under that code.
+    for code, digest in RETIRED_BUILTIN.items():
+        path = find_logo(folder, code)
+        try:
+            if path and _sha256(path) == digest:
+                os.remove(path)
+                done.discard(code)
+        except OSError:
+            pass
     try:
         names = sorted(os.listdir(builtin_folder))
     except OSError:

@@ -128,9 +128,9 @@ def test_one_school_several_codes():
     c = meet_board.team_colors({}, ['THS'], {'THS': 'Tooele High School Swimming'})
     assert c['THS']['alias_of'] == 'TOOEL'
     # aliases typed on the Team Colors page
-    s = {'team_colors': {'GHS': {'name': 'Grantsville', 'color': '#E5383B', 'alt': '', 'aliases': ['GRAN']}}}
-    assert meet_board.canonical_codes(s, ['GRAN'])['GRAN'] == 'GHS'
-    assert meet_board.alias_codes(s, 'GHS') == ['GHS', 'GRAN']
+    s = {'team_colors': {'GHS': {'name': 'Grantsville', 'color': '#E5383B', 'alt': '', 'aliases': ['GVILL']}}}
+    assert meet_board.canonical_codes(s, ['GVILL'])['GVILL'] == 'GHS'
+    assert meet_board.alias_codes(s, 'GHS') == ['GHS', 'GVILL']
 
 
 def test_school_key():

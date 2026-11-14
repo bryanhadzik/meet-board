@@ -3,6 +3,23 @@
 ## Unreleased
 
 ### Changed
+- **School codes match the state Team Manager list (utahswimcoach.com).**
+  Every 5A (regions 4-7) and 2A school is built in with name, colors, logo and
+  class: Cyprus, Granger, Hillcrest, Hunter, Kearns, Taylorsville, West, Box
+  Elder, Bonneville, Clearfield, Northridge, Roy, Alta, Bountiful, Olympus,
+  Skyline, Viewmont, Woods Cross, Maple Mountain, Payson, Pleasant Grove,
+  Spanish Fork, Salem Hills, Springville, Timpview, Gunnison Valley, Vanguard
+  Academy, Wasatch Academy, Rowland Hall and Havenwood Academy.
+- The state list's codes now resolve for schools we already had (TOOE, RIDG,
+  EMER, OGDE, SJCH, MANT, NSPH, UNIO, DELT, PHAL, PROV, SA, WASA, DIXI, VS,
+  COLT, JOR, JD, JM, MHS).
+- **Code fixes:** THS is Timpanogos and TIMP is Timpview; CRIM is Crimson
+  Cliffs and CCHS is Cedar City. Saved Team Colors rows and the old built-in
+  logos move over on first start (an uploaded logo is never touched).
+- A meet file's school name now wins over a code that belongs to another
+  school, so a Tooele file using THS still shows Tooele.
+
+### Changed
 - Meet board results: a SEASON BEST lane is highlighted - the row glows green with a green edge and the time turns green.
 
 ### Changed

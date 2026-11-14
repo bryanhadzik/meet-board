@@ -19,31 +19,32 @@ BOARD_STYLES = {
 # colors: each is lifted to clear 3:1 against the #0b1618 board background.
 # Every hex is an approximation - override them on the Team Colors page.
 DEFAULT_TEAM_COLORS = {
-    'TOOEL': {'name': 'Tooele',         'color': '#9B5DE5', 'alt': '#E8EEEE'},
+    'TOOEL': {'name': 'Tooele',         'color': '#9B5DE5', 'alt': '#E8EEEE', 'aliases': ['TOOE']},
     'STAN':  {'name': 'Stansbury',      'color': '#3D7FF0', 'alt': '#A8B2B8', 'aliases': ['SHS']},  # black, royal blue, silver
     'GHS':   {'name': 'Grantsville',    'color': '#E5383B', 'alt': '#E8EEEE'},
     'DPEAK': {'name': 'Deseret Peak',   'color': '#C9B45C', 'alt': '#8E9AA3', 'aliases': ['DPHS']},  # Vegas gold, black
     'BRHS':  {'name': 'Bear River',     'color': '#E8EEEE', 'alt': '#9AA6AB'},
     'SVHS':  {'name': 'Sky View',       'color': '#3E9BD6', 'alt': '#FFD24D'},
     'MCHS':  {'name': 'Mountain Crest', 'color': '#FF8C42', 'alt': '#5B8FE8'},
-    'RIDGE': {'name': 'Ridgeline',      'color': '#7ACC3E', 'alt': '#A5ACAF'},
+    'RIDGE': {'name': 'Ridgeline',      'color': '#7ACC3E', 'alt': '#A5ACAF', 'aliases': ['RIDG']},
     'GCHS':  {'name': 'Green Canyon',   'color': '#3FB58A', 'alt': '#BFC7CA'},
-    'TIMP':  {'name': 'Timpanogos',     'color': '#3F7FD9', 'alt': '#3FAE6A', 'aliases': ['TIMPA']},  # navy (lifted), green, grey
+    # Timpanogos is THS in the state Team Manager list (utahswimcoach.com); TIMP is Timpview
+    'THS':   {'name': 'Timpanogos',     'color': '#3F7FD9', 'alt': '#3FAE6A', 'aliases': ['TIMPA']},  # navy (lifted), green, grey
     # Meet Manager codes for the Mel Roberts Invitational teams. Colors from
     # the UHSAA school directory (and the Tooele County SD school sheet),
     # tuned so they read on the dark board; alt = the school's second color.
     'CARB':  {'name': 'Carbon',         'color': '#2A63D4', 'alt': '#E8EEEE'},  # blue, white
     'CDRV':  {'name': 'Cedar Valley',   'color': '#DC143C', 'alt': '#8E9AA3'},  # red, black / steel gray
     'MOR':   {'name': 'Morgan',         'color': '#A3324F', 'alt': '#E8EEEE'},  # maroon, white
-    'EMERY': {'name': 'Emery',          'color': '#F2B705', 'alt': '#8E9AA3'},  # black, gold, gray
+    'EMERY': {'name': 'Emery',          'color': '#F2B705', 'alt': '#8E9AA3', 'aliases': ['EMER']},  # black, gold, gray
     'UHS':   {'name': 'Uintah',         'color': '#D62B2B', 'alt': '#E8EEEE'},  # red, white
     'MILL':  {'name': 'Millard',        'color': '#2F7BE6', 'alt': '#E8EEEE'},  # blue, white
     'NSHS':  {'name': 'North Summit',   'color': '#8A4FD8', 'alt': '#F2C230'},  # purple, gold
     'SSHS':  {'name': 'South Summit',   'color': '#2E8B47', 'alt': '#E8EEEE'},  # forest green, white
     # Northern Utah teams (Spooky Meet, Nov 2026). Colors from MaxPreps, lifted for the dark board.
-    'OGDEN': {'name': 'Ogden',          'color': '#E8682A', 'alt': '#9AA6AB'},  # orange, black
+    'OGDEN': {'name': 'Ogden',          'color': '#E8682A', 'alt': '#9AA6AB', 'aliases': ['OGDE']},  # orange, black
     'LHS':   {'name': 'Logan',          'color': '#E0405A', 'alt': '#F0B83C'},  # crimson, gold
-    'SJCHS': {'name': 'St. Joseph',     'color': '#2FB872', 'alt': '#E0A630'},  # green, gold
+    'SJCHS': {'name': 'St. Joseph',     'color': '#2FB872', 'alt': '#E0A630', 'aliases': ['SJCH']},  # green, gold
     'BLHS':  {'name': 'Ben Lomond',     'color': '#EE4256', 'alt': '#6FB0F0'},  # red, Columbia blue, white
     'FREM':  {'name': 'Fremont',        'color': '#3D7FE8', 'alt': '#A5ACAF', 'aliases': ['FHS', 'FREMONT', 'FREMT']},  # blue, silver
     # 5A opponents on the 2026-27 Tooele County home-meet schedule
@@ -54,38 +55,71 @@ DEFAULT_TEAM_COLORS = {
     # what Meet Manager files use - a school is also matched by its name.
     'LCA':   {'name': 'Layton Christian Academy',  'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['LCAHS']},  # 3A R12
     'LPA':   {'name': 'Liahona',                   'color': '#0461E4', 'alt': '#C8880A', 'aliases': ['LIAH']},  # 3A R12
-    'MANTI': {'name': 'Manti',                     'color': '#D60024', 'alt': '#E8EEEE'},  # 3A R13
-    'NSAN':  {'name': 'North Sanpete',             'color': '#D60024', 'alt': '#E8EEEE'},  # 3A R13
-    'UNION': {'name': 'Union',                     'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['UNHS']},  # 3A R13
+    'MANTI': {'name': 'Manti',                     'color': '#D60024', 'alt': '#E8EEEE', 'aliases': ['MANT']},  # 3A R13
+    'NSAN':  {'name': 'North Sanpete',             'color': '#D60024', 'alt': '#E8EEEE', 'aliases': ['NSPH']},  # 3A R13
+    'UNION': {'name': 'Union',                     'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['UNHS', 'UNIO']},  # 3A R13
     'CVHS':  {'name': 'Canyon View',               'color': '#108073', 'alt': '#9AA6AB', 'aliases': ['CANYV']},  # 3A R14
-    'DELTA': {'name': 'Delta',                     'color': '#D60024', 'alt': '#9AA6AB'},  # 3A R14
+    'DELTA': {'name': 'Delta',                     'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['DELT']},  # 3A R14
     'JUAB':  {'name': 'Juab',                      'color': '#D60024', 'alt': '#C8880A', 'aliases': ['JUABH']},  # 3A R14
-    'PHHS':  {'name': 'Providence Hall',           'color': '#0460DE', 'alt': '#D60024', 'aliases': ['PROVH']},  # 3A R14
+    'PHHS':  {'name': 'Providence Hall',           'color': '#0460DE', 'alt': '#D60024', 'aliases': ['PROVH', 'PHAL']},  # 3A R14
     'RICH':  {'name': 'Richfield',                 'color': '#0461E4', 'alt': '#D60024'},  # 3A R14
     'DCHS':  {'name': 'Deer Creek',                'color': '#0460DE', 'alt': '#9AA6AB', 'aliases': ['DEERC']},  # 4A R8
     'MVHS':  {'name': 'Mountain View',             'color': '#D60024', 'alt': '#C8880A', 'aliases': ['MTNV']},  # 4A R8
     'OREM':  {'name': 'Orem',                      'color': '#0461E4', 'alt': '#C8880A'},  # 4A R8
-    'PROVO': {'name': 'Provo',                     'color': '#00824B', 'alt': '#E8EEEE'},  # 4A R8
-    'SAHS':  {'name': 'Summit Academy',            'color': '#0460DE', 'alt': '#C8880A'},  # 4A R8
-    'WASCH': {'name': 'Wasatch',                   'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['WASAT']},  # 4A R8
-    'CEDAR': {'name': 'Cedar',                     'color': '#D60024', 'alt': '#C8880A', 'aliases': ['CEDHS']},  # 4A R9
-    'CCHS':  {'name': 'Crimson Cliffs',            'color': '#0461E4', 'alt': '#D60024', 'aliases': ['CRIMS']},  # 4A R9
+    'PROVO': {'name': 'Provo',                     'color': '#00824B', 'alt': '#E8EEEE', 'aliases': ['PROV']},  # 4A R8
+    'SAHS':  {'name': 'Summit Academy',            'color': '#0460DE', 'alt': '#C8880A', 'aliases': ['SA']},  # 4A R8
+    'WASCH': {'name': 'Wasatch',                   'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['WASAT', 'WASA']},  # 4A R8
+    'CEDAR': {'name': 'Cedar',                     'color': '#D60024', 'alt': '#C8880A', 'aliases': ['CEDHS', 'CCHS']},  # 4A R9 (CCHS = Cedar City in the state list)
+    'CRIM':  {'name': 'Crimson Cliffs',            'color': '#0461E4', 'alt': '#D60024', 'aliases': ['CRIMS']},  # 4A R9
     'DHHS':  {'name': 'Desert Hills',              'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['DESH']},  # 4A R9
-    'DIXIE': {'name': 'Dixie',                     'color': '#0461E4', 'alt': '#E8EEEE', 'aliases': ['DXHS']},  # 4A R9
+    'DIXIE': {'name': 'Dixie',                     'color': '#0461E4', 'alt': '#E8EEEE', 'aliases': ['DXHS', 'DIXI']},  # 4A R9
     'HURR':  {'name': 'Hurricane',                 'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['HURHS']},  # 4A R9
     'PVHS':  {'name': 'Pine View',                 'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['PINEV']},  # 4A R9
     'SCHS':  {'name': 'Snow Canyon',               'color': '#0460DE', 'alt': '#00824B', 'aliases': ['SNOWC']},  # 4A R9
     'UAA':   {'name': 'Utah Arts Academy',         'color': '#90D0F0', 'alt': '#E8EEEE'},  # 4A R9
-    'VISTA': {'name': 'Vista School',              'color': '#D01717', 'alt': '#E8EEEE'},  # 4A R9
+    'VISTA': {'name': 'Vista School',              'color': '#D01717', 'alt': '#E8EEEE', 'aliases': ['VS']},  # 4A R9
     'CITYA': {'name': 'City Academy',              'color': '#909050', 'alt': '#277527'},  # 4A R10
-    'CTWD':  {'name': 'Cottonwood',                'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['COTT']},  # 4A R10
+    'CTWD':  {'name': 'Cottonwood',                'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['COTT', 'COLT']},  # 4A R10
     'EAST':  {'name': 'East',                      'color': '#D60024', 'alt': '#E8EEEE'},  # 4A R10
     'HIGH':  {'name': 'Highland',                  'color': '#C8880A', 'alt': '#9AA6AB', 'aliases': ['HIGHL']},  # 4A R10
-    'JORD':  {'name': 'Jordan',                    'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['JORDN']},  # 4A R10
-    'JDCHS': {'name': 'Juan Diego',                'color': '#0460DE', 'alt': '#1580A5', 'aliases': ['JDIEGO']},  # 4A R10
-    'JMCHS': {'name': 'Judge Memorial',            'color': '#D60024', 'alt': '#C8880A', 'aliases': ['JUDGE']},  # 4A R10
-    'MURR':  {'name': 'Murray',                    'color': '#CC4E10', 'alt': '#9AA6AB'},  # 4A R10
+    'JORD':  {'name': 'Jordan',                    'color': '#D60024', 'alt': '#9AA6AB', 'aliases': ['JORDN', 'JOR']},  # 4A R10
+    'JDCHS': {'name': 'Juan Diego',                'color': '#0460DE', 'alt': '#1580A5', 'aliases': ['JDIEGO', 'JD']},  # 4A R10
+    'JMCHS': {'name': 'Judge Memorial',            'color': '#D60024', 'alt': '#C8880A', 'aliases': ['JUDGE', 'JM']},  # 4A R10
+    'MURR':  {'name': 'Murray',                    'color': '#CC4E10', 'alt': '#9AA6AB', 'aliases': ['MHS']},  # 4A R10
     'PCHS':  {'name': 'Park City',                 'color': '#D60024', 'alt': '#E8EEEE', 'aliases': ['PARKC']},  # 4A R10
+    # Every 5A (regions 4-7) and 2A school in the state Team Manager list on
+    # utahswimcoach.com, under the codes that list uses. Colors from MaxPreps,
+    # lifted to read on the dark board.
+    'CYP':  {'name': 'Cyprus',                   'color': '#0460DE', 'alt': '#C8880A'},  # 5A R4 (MaxPreps #022C66, #C8880A)
+    'GRAN': {'name': 'Granger',                  'color': '#D60024', 'alt': '#0461E4'},  # 5A R4 (MaxPreps #CC0022, #034CB2)
+    'HILL': {'name': 'Hillcrest',                'color': '#00824B', 'alt': '#E8EEEE'},  # 5A R4 (MaxPreps #00824B, #FFFFFF)
+    'HNTR': {'name': 'Hunter',                   'color': '#0460DE', 'alt': '#9AA6AB'},  # 5A R4 (MaxPreps #022C66, #454444)
+    'KHS':  {'name': 'Kearns',                   'color': '#C8880A', 'alt': '#00824B'},  # 5A R4 (MaxPreps #C8880A, #00824B)
+    'TAYL': {'name': 'Taylorsville',             'color': '#0461E4', 'alt': '#C8880A'},  # 5A R4 (MaxPreps #034CB2, #C8880A)
+    'WEST': {'name': 'West',                     'color': '#D60024', 'alt': '#9AA6AB'},  # 5A R4 (MaxPreps #CC0022, #222222)
+    'BEHS': {'name': 'Box Elder',                'color': '#7B52CE', 'alt': '#E8EEEE'},  # 5A R5 (MaxPreps #754ACC, #FFFFFF)
+    'BONN': {'name': 'Bonneville',               'color': '#0460DE', 'alt': '#C8880A'},  # 5A R5 (MaxPreps #022C66, #C8880A)
+    'CLEA': {'name': 'Clearfield',               'color': '#00824B', 'alt': '#E8EEEE'},  # 5A R5 (MaxPreps #00824B, #FFFFFF)
+    'NORT': {'name': 'Northridge',               'color': '#D60024', 'alt': '#9AA6AB'},  # 5A R5 (MaxPreps #CC0022, #454444)
+    'ROY':  {'name': 'Roy',                      'color': '#C8880A', 'alt': '#9AA6AB'},  # 5A R5 (MaxPreps #C8880A, #222222)
+    'ALTA': {'name': 'Alta',                     'color': '#9AA6AB', 'alt': '#E8EEEE'},  # 5A R6 (MaxPreps #222222, #737272)
+    'BNTF': {'name': 'Bountiful',                'color': '#D60024', 'alt': '#9AA6AB'},  # 5A R6 (MaxPreps #CC0022, #454444)
+    'OLY':  {'name': 'Olympus',                  'color': '#00824B', 'alt': '#9AA6AB'},  # 5A R6 (MaxPreps #00824B, #454444)
+    'SKY':  {'name': 'Skyline',                  'color': '#0460DE', 'alt': '#C8880A'},  # 5A R6 (MaxPreps #022C66, #C8880A)
+    'VHS':  {'name': 'Viewmont',                 'color': '#D60024', 'alt': '#C8880A'},  # 5A R6 (MaxPreps #CC0022, #C8880A)
+    'WXHS': {'name': 'Woods Cross',              'color': '#0461E4', 'alt': '#D60024'},  # 5A R6 (MaxPreps #034CB2, #CC0022)
+    'MMHS': {'name': 'Maple Mountain',           'color': '#D60024', 'alt': '#C8880A'},  # 5A R7 (MaxPreps #8F0018, #C8880A)
+    'PAYS': {'name': 'Payson',                   'color': '#9AA6AB', 'alt': '#00824B'},  # 5A R7 (MaxPreps #454444, #00824B)
+    'PGHS': {'name': 'Pleasant Grove',           'color': '#0461E4', 'alt': '#E8EEEE'},  # 5A R7 (MaxPreps #034CB2, #FFFFFF)
+    'SFHS': {'name': 'Spanish Fork',             'color': '#D60024', 'alt': '#9AA6AB'},  # 5A R7 (MaxPreps #CC0022, #454444)
+    'SHHS': {'name': 'Salem Hills',              'color': '#0460DE', 'alt': '#1580A5'},  # 5A R7 (MaxPreps #022C66, #1580A5)
+    'SPRV': {'name': 'Springville',              'color': '#0460DE', 'alt': '#D60024'},  # 5A R7 (MaxPreps #022C66, #CC0022)
+    'TIMP': {'name': 'Timpview',                 'color': '#D5350B', 'alt': '#0461E4'},  # 5A R7 (MaxPreps #D5350B, #034CB2)
+    'GVHS': {'name': 'Gunnison Valley',          'color': '#0461E4', 'alt': '#E8EEEE'},  # 2A R15 (MaxPreps #034CB2, #FFFFFF)
+    'VA':   {'name': 'Vanguard Academy',         'color': '#7B52CE', 'alt': '#0461E4'},  # 2A R16 (MaxPreps #754ACC, #034CB2)
+    'WA':   {'name': 'Wasatch Academy',          'color': '#D5350B', 'alt': '#9AA6AB'},  # 2A R16 (MaxPreps #D5350B, #222222)
+    'RH':   {'name': 'Rowland Hall',             'color': '#00824B', 'alt': '#E8EEEE'},  # 2A R17 (MaxPreps #00824B, #FFFFFF)
+    'HA':   {'name': 'Havenwood Academy',        'color': '#5FD3C6', 'alt': '#9AA6AB'},  # 2A R20 (no MaxPreps page; placeholder color)
 }
 
 # Board-safe fallback colors for teams nobody has configured yet, handed out
@@ -127,6 +161,48 @@ def _base_table(settings):
     return merged
 
 
+# Codes moved to match the state Team Manager list (utahswimcoach.com):
+# old built-in code -> (school name it held, new home code)
+NEW_BUILTIN_2026_11 = ('CYP', 'GRAN', 'HILL', 'HNTR', 'KHS', 'TAYL', 'WEST', 'BEHS', 'BONN', 'CLEA', 'NORT',
+                       'ROY', 'ALTA', 'BNTF', 'OLY', 'SKY', 'VHS', 'WXHS', 'MMHS', 'PAYS', 'PGHS', 'SFHS',
+                       'SHHS', 'SPRV', 'TIMP', 'GVHS', 'VA', 'WA', 'RH', 'HA')
+MOVED_CODES = {'CCHS': ('Crimson Cliffs', 'CRIM'), 'TIMP': ('Timpanogos', 'THS')}
+
+
+def migrate_team_codes(settings):
+    """Move saved Team Colors rows off codes that now belong to another school
+    (CCHS was Crimson Cliffs, TIMP was Timpanogos). Returns True if changed."""
+    saved = settings.get('team_colors') or {}
+    changed = False
+    for old, (name, new) in MOVED_CODES.items():
+        row = saved.get(old)
+        if not row or (row.get('name') or '').strip().lower() != name.lower():
+            continue
+        row = dict(row)
+        aliases = [a for a in row.get('aliases', []) if a.upper() not in (old, new)]
+        if new in saved:  # keep what was typed for the new code, add the aliases
+            keep = dict(saved[new])
+            keep['aliases'] = list(dict.fromkeys(list(keep.get('aliases', [])) + aliases))
+            if not (keep.get('name') or '').strip():
+                keep['name'] = row.get('name')
+            saved[new] = keep
+        else:
+            row['aliases'] = aliases
+            saved[new] = row
+        del saved[old]
+        changed = True
+    # a school that just got built-in colors keeps none of the automatic
+    # palette colors that were saved for it before (Rowland Hall's orange)
+    for code in NEW_BUILTIN_2026_11:
+        row = saved.get(code)
+        if row and (row.get('color') or '').upper() in FALLBACK_PALETTE:
+            saved[code] = dict(row, color='', alt='')
+            changed = True
+    if changed:
+        settings['team_colors'] = saved
+    return changed
+
+
 def canonical_codes(settings, codes, team_names=None):
     """{code: home_code} for the given meet codes (home_code == code when the
     code is its own school). team_names: {code: full name} from the .hy3."""
@@ -148,13 +224,18 @@ def canonical_codes(settings, codes, team_names=None):
             continue
         # a saved row with no school name (an auto color that got saved with
         # the form) doesn't outrank the school that lists this code as an alias
+        k = school_key((team_names or {}).get(code, ''))
         if code in table and not (code in owner and not (table[code].get('name') or '').strip()):
             out[code] = code
         elif code in owner:
             out[code] = owner[code]
         else:
-            k = school_key((team_names or {}).get(code, ''))
             out[code] = by_name.get(k, code) if k else code
+        # the meet file's school name outranks a code that belongs to another
+        # school (a Tooele file using THS, which is Timpanogos in the state list)
+        named = by_name.get(k) if k else None
+        if named and named != out[code] and school_key((table.get(out[code]) or {}).get('name')) != k:
+            out[code] = named
     return out
 
 
@@ -480,13 +561,19 @@ DEFAULT_TEAM_CLASS = {
     'BRHS': '4A', 'SVHS': '4A', 'MCHS': '4A', 'RIDGE': '4A', 'GCHS': '4A',
     'MOR': '3A', 'OGDEN': '3A', 'LHS': '3A', 'BLHS': '3A', 'SJCHS': '2A', 'FREM': '5A', 'WFHS': '5A', 'WJHS': '5A', 'MILL': '2A',
     # rest of 3A/4A (Wasatch swims up in 6A Region 3)
-    'DCHS': '4A', 'MVHS': '4A', 'OREM': '4A', 'PROVO': '4A', 'SAHS': '4A', 'TIMP': '4A',
-    'UHS': '4A', 'WASCH': '6A', 'CEDAR': '4A', 'CCHS': '4A', 'DHHS': '4A', 'DIXIE': '4A',
+    'DCHS': '4A', 'MVHS': '4A', 'OREM': '4A', 'PROVO': '4A', 'SAHS': '4A', 'THS': '4A',
+    'UHS': '4A', 'WASCH': '6A', 'CEDAR': '4A', 'CRIM': '4A', 'DHHS': '4A', 'DIXIE': '4A',
     'HURR': '4A', 'PVHS': '4A', 'SCHS': '4A', 'UAA': '4A', 'VISTA': '4A', 'CTWD': '4A',
     'EAST': '4A', 'HIGH': '4A', 'JORD': '4A', 'JDCHS': '4A', 'JMCHS': '4A', 'MURR': '4A',
     'PCHS': '4A', 'CITYA': '4A', 'LCA': '3A', 'LPA': '3A', 'CARB': '3A', 'EMERY': '3A',
     'MANTI': '3A', 'NSAN': '3A', 'UNION': '3A', 'CVHS': '3A', 'DELTA': '3A', 'JUAB': '3A',
     'PHHS': '3A', 'RICH': '3A',
+    # 5A regions 4-7 and 2A, as grouped on utahswimcoach.com
+    'CYP': '5A', 'GRAN': '5A', 'HILL': '5A', 'HNTR': '5A', 'KHS': '5A', 'TAYL': '5A', 'WEST': '5A',
+    'BEHS': '5A', 'BONN': '5A', 'CLEA': '5A', 'NORT': '5A', 'ROY': '5A',
+    'ALTA': '5A', 'BNTF': '5A', 'OLY': '5A', 'SKY': '5A', 'VHS': '5A', 'WXHS': '5A',
+    'MMHS': '5A', 'PAYS': '5A', 'PGHS': '5A', 'SFHS': '5A', 'SHHS': '5A', 'SPRV': '5A', 'TIMP': '5A',
+    'GVHS': '2A', 'NSHS': '2A', 'SSHS': '2A', 'VA': '2A', 'WA': '2A', 'RH': '2A', 'HA': '2A',
 }
 
 

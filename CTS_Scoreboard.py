@@ -3351,6 +3351,9 @@ def seed_builtin_logos():
     """First start of a version with new built-in logos: copy them in (never
     over an uploaded logo, never back after someone removed one)."""
     try:
+        if meet_board.migrate_team_codes(settings):
+            save_settings()
+            print('Team Colors: moved Crimson Cliffs to CRIM and Timpanogos to THS')
         copied, done = team_logos.seed_builtin(_logo_folder(), app_paths.bundle_path('static', 'logos'),
                                                settings.get('logos_seeded'))
         if done != settings.get('logos_seeded'):
