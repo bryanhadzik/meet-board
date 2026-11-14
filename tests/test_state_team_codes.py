@@ -71,3 +71,13 @@ def test_saved_auto_color_gives_way_to_new_builtin():
     assert M.migrate_team_codes(s)
     assert M.team_colors(s, ['RH'])['RH']['color'] == M.DEFAULT_TEAM_COLORS['RH']['color']
     assert s['team_colors']['CARB']['color'] == '#9fd356'   # older choices stay
+
+
+def test_uploaded_timpanogos_copy_under_timp_is_replaced(tmp_path):
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    builtin = os.path.join(here, 'static', 'logos')
+    (tmp_path / 'THS.png').write_bytes(b'timpanogos upload')
+    (tmp_path / 'TIMP.png').write_bytes(b'timpanogos upload')
+    copied, _ = T.seed_builtin(str(tmp_path), builtin, ['TIMP', 'THS'])
+    assert 'TIMP' in copied and (tmp_path / 'THS.png').read_bytes() == b'timpanogos upload'
+    assert (tmp_path / 'TIMP.png').read_bytes() == open(os.path.join(builtin, 'TIMP.png'), 'rb').read()

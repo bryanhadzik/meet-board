@@ -125,6 +125,8 @@ RETIRED_BUILTIN = {
     'TIMP': '8f86023e2aa3193a9af985d6d0be049e6a359e22b8bec93935bf2362042632db',  # Timpanogos (now THS; TIMP = Timpview)
 }
 
+RETIRED_SAME_AS = {'TIMP': 'THS', 'CCHS': 'CRIM'}
+
 
 def _sha256(path):
     import hashlib
@@ -146,6 +148,16 @@ def seed_builtin(folder, builtin_folder, already):
         path = find_logo(folder, code)
         try:
             if path and _sha256(path) == digest:
+                os.remove(path)
+                done.discard(code)
+        except OSError:
+            pass
+    # ...or a copy of the logo the school now has under its new code (an
+    # uploaded Timpanogos logo saved as both THS and TIMP)
+    for code, new_code in RETIRED_SAME_AS.items():
+        path, other = find_logo(folder, code), find_logo(folder, new_code)
+        try:
+            if path and other and _sha256(path) == _sha256(other):
                 os.remove(path)
                 done.discard(code)
         except OSError:
