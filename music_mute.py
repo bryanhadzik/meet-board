@@ -7,6 +7,13 @@ music stops or pauses, after a short delay, exactly those sources are unmuted
 again. Sources you had muted yourself are never touched. The list of sources
 we muted is saved, so a crash or restart mid-song can't leave the stream
 silent: they're restored as soon as OBS is reachable and nothing is playing.
+
+Announcements on the stream: when "Play announcements on the stream" is on, the
+race overlay in OBS plays each announcement itself and tells meet-board when it
+starts and stops. The same sources are muted while it plays (the camera mic would
+otherwise pick up the PA a second or two late, on top of the clean recording) and
+turned back on a moment after it ends. Music and announcements share one list of
+"muted by us", so neither one unmutes a source the other still needs muted.
 """
 import threading
 import time
@@ -20,6 +27,8 @@ class StreamMute:
         self.log = log
         self._lock = threading.Lock()
         self._unmute_at = None
+        self._ann_until = None        # an announcement is playing on the stream until then (safety cap)
+        self._music_on = False
         self.last_error = ''
         self.last_action = ''
 
@@ -31,6 +40,17 @@ class StreamMute:
     @property
     def chosen(self):
         return list(self.settings.get('music_obs_inputs') or [])
+
+    @property
+    def ann_enabled(self):
+        return bool(self.settings.get('ann_on_stream'))
+
+    def ann_active(self, now=None):
+        return self._ann_until is not None and (now or time.time()) < self._ann_until
+
+    def _held(self, music_status):
+        """Something still wants the stream muted: music (with music muting on) or an announcement."""
+        return (music_status == 'playing' and self.enabled) or self.ann_active()
 
     @property
     def muted_by_us(self):
@@ -94,6 +114,9 @@ class StreamMute:
         """Call with the music status after every change: playing | paused | stopped."""
         with self._lock:
             self.last_error = ''
+            self._music_on = status == 'playing'
+            if self.ann_active() and status != 'playing':
+                return                    # the announcement still holds the mute; it unmutes when it ends
             if status == 'playing':
                 self._unmute_at = None
                 if self.enabled and self.chosen:
@@ -105,10 +128,30 @@ class StreamMute:
                 delay = float(self.settings.get('music_unmute_delay', 2.0) or 0)
                 self._unmute_at = time.time() + delay if self.muted_by_us else None
 
+    def announce_changed(self, playing, cap=90.0):
+        """The overlay in OBS started (True) or finished (False) playing an announcement."""
+        with self._lock:
+            self.last_error = ''
+            if playing:
+                if not self.ann_enabled:
+                    return
+                self._ann_until = time.time() + cap     # never stays muted if the overlay goes away mid-clip
+                self._unmute_at = None
+                if self.chosen:
+                    try:
+                        self._mute()
+                    except Exception as e:
+                        self.last_error = str(e)
+            else:
+                self._ann_until = None
+                if self.muted_by_us and not (self._music_on and self.enabled):
+                    delay = float(self.settings.get('ann_unmute_delay', 2.0) or 0)
+                    self._unmute_at = time.time() + delay
+
     def tick(self, music_status):
         """Run every second or so: does delayed unmutes and crash recovery."""
         with self._lock:
-            if music_status == 'playing' or not self.muted_by_us:
+            if self._held(music_status) or not self.muted_by_us:
                 return
             if self._unmute_at is None:
                 self._unmute_at = time.time()          # leftover from before a restart
@@ -121,5 +164,6 @@ class StreamMute:
 
     def status(self):
         return {'enabled': self.enabled, 'chosen': self.chosen, 'muted_now': self.muted_by_us,
+                'ann_on_stream': self.ann_enabled, 'ann_playing': self.ann_active(),
                 'unmute_in': max(0, round(self._unmute_at - time.time(), 1)) if self._unmute_at else None,
                 'last_action': self.last_action, 'last_error': self.last_error}

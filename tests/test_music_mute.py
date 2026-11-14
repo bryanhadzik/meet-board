@@ -57,3 +57,44 @@ def test_restart_recovery_and_disabled():
     obs, settings, sm = make(music_obs_mute=False)
     sm.music_changed('playing')
     assert obs.mute['Pool Mic'] is False
+
+
+def test_announcement_mutes_camera_while_it_plays():
+    obs, settings, sm = make(ann_on_stream=True, ann_unmute_delay=0)
+    sm.announce_changed(True)
+    assert obs.mute['Pool Mic'] is True and sm.ann_active()
+    sm.tick('stopped')
+    assert obs.mute['Pool Mic'] is True            # still announcing
+    sm.announce_changed(False); sm.tick('stopped')
+    assert obs.mute['Pool Mic'] is False and sm.muted_by_us == []
+
+
+def test_announcement_off_does_nothing():
+    obs, settings, sm = make(ann_on_stream=False)
+    sm.announce_changed(True)
+    assert obs.mute['Pool Mic'] is False
+
+
+def test_announcement_ending_during_music_keeps_music_mute():
+    obs, settings, sm = make(ann_on_stream=True, ann_unmute_delay=0)
+    sm.music_changed('playing')
+    sm.announce_changed(True); sm.announce_changed(False); sm.tick('playing')
+    assert obs.mute['Pool Mic'] is True            # the song still needs it muted
+    sm.music_changed('stopped'); sm.tick('stopped')
+    assert obs.mute['Pool Mic'] is False
+
+
+def test_music_stopping_during_announcement_waits_for_it():
+    obs, settings, sm = make(ann_on_stream=True, ann_unmute_delay=0)
+    sm.music_changed('playing'); sm.announce_changed(True)
+    sm.music_changed('stopped'); sm.tick('stopped')
+    assert obs.mute['Pool Mic'] is True            # announcement still playing
+    sm.announce_changed(False); sm.tick('stopped')
+    assert obs.mute['Pool Mic'] is False
+
+
+def test_announcement_mute_never_sticks_if_the_overlay_vanishes():
+    obs, settings, sm = make(ann_on_stream=True)
+    sm.announce_changed(True, cap=0.01)
+    time.sleep(0.02); sm.tick('stopped')
+    assert obs.mute['Pool Mic'] is False
