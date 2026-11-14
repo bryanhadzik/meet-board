@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Debug tab hidden** from the top links unless Settings > Troubleshooting tools turns it on.
+
 - **Top links:** "Overlay" is replaced by the two pages that are live in OBS: Lower Lanes
   (/overlay/race?layout=strip) and the lane rail (/overlay/lanes), both over a pool photo.
 

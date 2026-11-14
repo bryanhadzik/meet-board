@@ -586,12 +586,21 @@
   })();
   </script>
 </section>
+<h3 id="troubleshooting">Troubleshooting tools</h3>
+<section class="card">
+  <form action="/settings#troubleshooting" method="POST">
+    <input type="hidden" name="show_debug_form" value="1">
+    <label><input type="checkbox" name="show_debug" value="1" {% if show_debug %}checked{% endif %} onchange="this.form.submit();">
+      Show the Debug tab (serial input, test races, raw data)</label>
+    <div class="small text-muted">Hidden otherwise. /debug still opens if you type it.</div>
+  </form>
+</section>
 <h3 id="phoneresults">Phone results</h3>
 <section class="card">
   <p style="margin-top:0">A QR code on the spectator boards that opens the public results page MeetDeck publishes
     (MeetDeck: Setup &rarr; Phone results). Paste that page's address here.</p>
   <form action="/settings#phoneresults" method="POST">
-    <label class="small">Results page address <input name="results_url" value="{{ results_url }}" placeholder="https://bryanhadzik.github.io/swim-results/" style="width:360px" class="form-control"></label>
+    <label class="small">Results page address <input name="results_url" value="{{ results_url }}" placeholder="https://swim.hadzik.org/" style="width:360px" class="form-control"></label>
     <label class="small" style="margin-top:6px">Show it
       <select name="results_qr" class="form-control" style="width:auto;display:inline-block">
         {% for code, label in [('slide', 'Corner code + a full-screen slide between races'), ('corner', 'Corner code only'), ('off', 'Off')] %}

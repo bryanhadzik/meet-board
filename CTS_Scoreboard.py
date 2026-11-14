@@ -3193,6 +3193,12 @@ def route_settings():
                 settings['show_pr_tags'] = new_val
                 modified = True
 
+        if 'show_debug_form' in flask.request.form:
+            new_val = 'show_debug' in flask.request.form
+            if settings.get('show_debug') != new_val:
+                settings['show_debug'] = new_val
+                modified = True
+
         if 'show_confetti_form' in flask.request.form:
             new_val = 'show_confetti' in flask.request.form
             if settings.get('show_confetti') != new_val:
@@ -4234,7 +4240,8 @@ def route_site_map():
 
 @app.context_processor
 def inject_ad():
-    return dict(ad_url=settings['ad_url'])
+    # show_debug: the Debug tab is hidden from the top links unless turned on in Settings
+    return dict(ad_url=settings['ad_url'], show_debug=bool(settings.get('show_debug')))
     
 # callback to reload the user object        
 @login_manager.user_loader

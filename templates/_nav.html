@@ -31,7 +31,7 @@
   <a href="/team_colors" class="{{ 'on' if active == 'colors' else '' }}">Team Colors</a>
   <a href="/state_times" class="{{ 'on' if active == 'state' else '' }}">State Times</a>
   <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}" id="mbUpdTab" title="Software update">Update</a>
-  <a href="/debug" class="{{ 'on' if active == 'debug' else '' }}">Debug</a>
+  {% if show_debug or active == 'debug' %}<a href="/debug" class="{{ 'on' if active == 'debug' else '' }}">Debug</a>{% endif %}
   <span class="sp"></span>
   <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
   <!-- the two browser sources live in OBS: the lane band at the bottom and the lane rail on the left -->
