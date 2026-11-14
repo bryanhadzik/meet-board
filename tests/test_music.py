@@ -51,7 +51,7 @@ def test_upload_serve_delete(music_dir):
     assert c.get('/music/file/Star Spangled Banner.mp3').data == b'ID3fake'
     assert c.get('/music/file/..%2Fsettings.json').status_code == 404
     page = c.get('/music').get_data(as_text=True)
-    assert 'Star Spangled Banner' in page and 'class="mbnav"' in page
+    assert 'Star Spangled Banner' in page and 'appbar.js' in page
     assert c.post('/music/delete', json={'file': 'Star Spangled Banner.mp3'}).status_code == 200
     assert not os.listdir(music_dir)
 

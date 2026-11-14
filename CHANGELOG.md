@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **One top bar with MeetDeck** (static/appbar.js, same file in both): Set up meet · Run meet · Music,
+  Screens ▾ (meet board and stream pages, warm-up / timers / break / go black / refresh) and
+  ⚙ Setup ▾ (settings, team colors, state times, meet files, update, debug when on), plus a status dot.
+
 - **Debug tab hidden** from the top links unless Settings > Troubleshooting tools turns it on.
 
 - **Top links:** "Overlay" is replaced by the two pages that are live in OBS: Lower Lanes

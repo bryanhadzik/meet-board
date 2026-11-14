@@ -1,49 +1,29 @@
-{# Tab bar shared by the admin pages. `active` = settings | music | colors | update #}
+{# Top bar on the admin pages. `active` = settings | files | music | colors | state | update | debug #}
 <style>
-  .mbnav { display:flex; gap:2px; flex-wrap:wrap; align-items:flex-end; background:#0b1618; padding:10px 16px 0;
-           font:600 14px/1 "Segoe UI", system-ui, sans-serif; position:sticky; top:0; z-index:50; }
-  .mbnav .brand { color:#bfe6ec; margin-right:14px; padding-bottom:11px; letter-spacing:.04em; }
-  .mbnav a { color:#9fb6bb; text-decoration:none; padding:10px 12px; border-radius:8px 8px 0 0; }
-  .mbnav a:hover { color:#fff; background:#16282c; text-decoration:none; }
-  .mbnav a.on { color:#0b1618; background:#f4f6f6; }
-  .mbnav .sp { flex:1; }
-  .mbnav a.ext { font-weight:500; font-size:13px; }
-  .mbnav .rl { margin:0 0 6px 8px; font:600 12px/1 "Segoe UI", system-ui, sans-serif; color:#0b1618; background:#d9a441;
-               border:0; border-radius:6px; padding:7px 10px; cursor:pointer; }
-  .mbnav .rl.done { background:#7fe0ab; }
-  @media (max-width:1340px) { .mbnav a.ext { display:none; } }
-  @media (max-width:1180px) { .mbnav .brand { display:none; } .mbnav a { padding:10px 9px; } }
-  .mbnav .bk { background:#2a3a3d; color:#e6eef0; }
-  .mbnav .wu { background:#2a3a3d; color:#e6eef0; }
-  .mbnav .wu.on { background:#3ddc84; color:#0b1618; }
-  .mbnav .nt { background:#2a3a3d; color:#e6eef0; }
-  .mbnav .nt.on { background:#ffd23f; color:#0b1618; }
-  .mbnav .brk { background:#2a3a3d; color:#e6eef0; }
-  .mbnav .brk.on { background:#ffd60a; color:#0b1618; }
-  .mbnav a .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#3ddc84; margin-left:6px; vertical-align:2px; }
-  .mbnav .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
+  /* screen buttons, inside the shared bar's Screens menu */
+  #appbar .rl { font:600 13px/1 "Segoe UI", system-ui, sans-serif; color:#0b1618; background:#d9a441;
+                border:0; border-radius:7px; padding:9px 11px; cursor:pointer; }
+  #appbar .rl.done { background:#7fe0ab; }
+  #appbar .bk, #appbar .wu, #appbar .nt, #appbar .brk { background:#2a3a3d; color:#e6eef0; }
+  #appbar .wu.on { background:#3ddc84; color:#0b1618; }
+  #appbar .nt.on { background:#ffd23f; color:#0b1618; }
+  #appbar .brk.on { background:#ffd60a; color:#0b1618; }
+  #appbar .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
 </style>
-<nav class="mbnav">
-  <span class="brand">meet-board</span>
-  <a href="/settings" class="{{ 'on' if active == 'settings' else '' }}">Settings</a>
-  <a href="/meet_files" class="{{ 'on' if active == 'files' else '' }}">Meet</a>
-  <a href="/music" class="{{ 'on' if active == 'music' else '' }}">Music</a>
-  <a href="/team_colors" class="{{ 'on' if active == 'colors' else '' }}">Team Colors</a>
-  <a href="/state_times" class="{{ 'on' if active == 'state' else '' }}">State Times</a>
-  <a href="/software_update" class="{{ 'on' if active == 'update' else '' }}" id="mbUpdTab" title="Software update">Update</a>
-  {% if show_debug or active == 'debug' %}<a href="/debug" class="{{ 'on' if active == 'debug' else '' }}">Debug</a>{% endif %}
-  <span class="sp"></span>
-  <a href="/web/meetboard" class="ext" target="_blank">Meet board &#8599;</a>
-  <!-- the two browser sources live in OBS: the lane band at the bottom and the lane rail on the left -->
-  <a href="/overlay/race?layout=strip&amp;test" class="ext" target="_blank" title="OBS source 'Lower Lanes' (/overlay/race?layout=strip), shown over a pool photo">Lower Lanes &#8599;</a>
-  <a href="/overlay/lanes?test&amp;demo" class="ext" target="_blank" title="OBS source 'Overlay' (/overlay/lanes), shown over a pool photo">Lane rail &#8599;</a>
-  <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
-    onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
+{# The shared top bar (static/appbar.js, same file as MeetDeck's). These buttons move into its Screens menu. #}
+<div id="mbScreenCtl" style="display:none">
   <button class="rl wu" id="mbWarmBtn" type="button" title="Show the warm-up slide (meet, teams, start time) on the meet boards and the stream">Warm-up slide</button>
   <button class="rl nt" id="mbNoticeBtn" type="button" title="Full-screen &quot;We need timers&quot; slide on the meet board TVs (change the words in Settings &gt; Screens)">Need timers</button>
   <button class="rl brk" id="mbBreakBtn" type="button" title="Break slide on the meet board TVs: team scores, results so far and the events still to come (Settings &gt; Screens: show it automatically after the session's last event)">Break slide</button>
   <button class="rl bk" id="mbBlackBtn" type="button" title="Blank the meet board and scoreboard TVs (the OBS overlay is not affected)">Go black</button>
-</nav>
+  <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
+    onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
+</div>
+<script>
+window.APPBAR = {app: "meetboard", active: {{ ('music' if active == 'music' else 'admin')|tojson }}, page: {{ active|tojson }},
+                 debug: {{ (show_debug or active == 'debug')|tojson }}, screenControls: document.getElementById("mbScreenCtl")};
+</script>
+<script src="{{ url_for('static', filename='appbar.js') }}"></script>
 <script>
 (function(){
   var b = document.getElementById('mbBlackBtn'), st = null;
@@ -99,8 +79,7 @@
   wLoad(); setInterval(wLoad, 15000);
   // flag the Software Update tab when a newer release is out
   fetch('/update_check').then(function(r){ return r.json(); }).then(function(d){
-    if (d && d.newer){ var t = document.getElementById('mbUpdTab');
-      t.title = 'Update available: ' + d.latest; t.insertAdjacentHTML('beforeend', '<span class="dot"></span>'); }
+    if (d && d.newer && window.AppBar) window.AppBar.update('Update available: ' + d.latest);
   }).catch(function(){});
 })();
 </script>

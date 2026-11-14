@@ -93,7 +93,7 @@ def test_admin_pages_after_the_reshuffle(monkeypatch):
     tc = c.get('/team_colors').get_data(as_text=True)
     assert 'Team names (scores)' in tc and 'name="team_home"' in tc
     stt = c.get('/state_times').get_data(as_text=True)
-    assert 'id="sc_body"' in stt and '>State Times<' in stt
+    assert 'id="sc_body"' in stt and 'appbar.js' in stt and 'page: "state"' in stt
     # team names saved from Team Colors land back there
     old = C.settings.get('team_guest3', ''), C.settings.get('team_guest3_tag', '')
     try:
