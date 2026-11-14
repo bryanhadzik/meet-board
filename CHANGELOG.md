@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed (stream)
+- **Lane rail (/overlay/lanes):** an event title above the lanes (EVENT 9, the event
+  name, Heat 1 of 2). `title=0` turns it off.
+- **Lane rail hides during the break** while the results band is up.
+- **Event 99 is a test race:** nothing from it reaches the meet board, the overlay,
+  announcements or the race history (setting `test_event` changes the number).
+
 ### Changed
 - **School codes match the state Team Manager list (utahswimcoach.com).**
   Every 5A (regions 4-7) and 2A school is built in with name, colors, logo and

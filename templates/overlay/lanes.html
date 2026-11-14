@@ -24,6 +24,7 @@
     width=NNN          chip width in px (default 330; 430 for relays with swimmers listed)
     scale=1.0          size multiplier for the type
     logos=0            hide school logos
+    title=0            no event title above the lanes
     test               show a pool photo behind it for positioning (never in OBS)
     demo               always show (ignore the race state) - for lining it up
 -->
@@ -60,6 +61,18 @@
   .sub { white-space:nowrap; overflow:hidden; line-height:1.15; color:#c9d6d9; font-weight:500; }
   .sub.code { color:var(--tc, #9fb3b8); font-weight:700; letter-spacing:.06em; }
   .sub.legs { white-space:normal; line-height:1.12; }
+  /* what's about to swim, above the lanes */
+  .evhd { flex:0 0 auto; display:flex; align-items:center; gap:calc(10 * var(--s)); width:100%;
+          background:rgba(9,17,19,.92); border-radius:calc(10 * var(--s)); overflow:hidden;
+          box-shadow:0 calc(3 * var(--s)) calc(12 * var(--s)) rgba(0,0,0,.35); border-left:calc(6 * var(--s)) solid #f2c230; }
+  .rail.right .evhd { flex-direction:row-reverse; text-align:right; border-left:0; border-right:calc(6 * var(--s)) solid #f2c230; }
+  .evhd .no { flex:0 0 auto; padding-left:calc(10 * var(--s)); color:#f2c230; font-weight:800; letter-spacing:.08em; line-height:1; text-align:center; }
+  .rail.right .evhd .no { padding-left:0; padding-right:calc(10 * var(--s)); }
+  .evhd .no small { display:block; font-size:.42em; letter-spacing:.16em; color:#9fd4dc; margin-bottom:.15em; }
+  .evhd .what { flex:1; min-width:0; padding-right:calc(10 * var(--s)); }
+  .rail.right .evhd .what { padding-right:0; padding-left:calc(10 * var(--s)); }
+  .evhd .en { font-weight:800; white-space:nowrap; overflow:hidden; line-height:1.1; }
+  .evhd .ht { color:#c9d6d9; font-weight:600; white-space:nowrap; line-height:1.15; }
 </style>
 </head>
 <body class="{{ 'test' if test_background else '' }}">
@@ -80,6 +93,8 @@ var WIDTH = num('width', 330, 160, 700), SCALE = num('scale', 1, 0.5, 2.5);
 var ORDER_DOWN = q.get('order') === 'down';
 var SHOW_LOGOS = q.get('logos') !== '0';
 var DEMO = q.has('demo');
+var TITLE = q.get('title') !== '0';
+var breakUp = false;          // the break results band is up: no start list to show
 
 var rail = document.getElementById('rail');
 var U = window.innerWidth / 1920;
@@ -124,8 +139,8 @@ function draw(){
   var n = Math.max(1, Math.min(10, parseInt(s.num_lanes, 10) || 8));
   var anyone = false;
   for (var i = 1; i <= n; i++) if (trim(s['lane_name'+i]) || trim(s['lane_team'+i])) anyone = true;
-  var show = DEMO || (onBlocks() && hasEvent && anyone);
-  if (s.race_state === 'Running' && !DEMO){ hideSince = 0; rail.classList.add('off'); return; }  // the gun: gone at once
+  var show = DEMO || (onBlocks() && hasEvent && anyone && !breakUp);
+  if ((s.race_state === 'Running' || breakUp) && !DEMO){ hideSince = 0; rail.classList.add('off'); return; }  // the gun: gone at once
   if (show){ hideSince = 0; rail.classList.remove('off'); }
   else {
     // anything else (blank console, a one-off odd update): wait 1.5 s before hiding
@@ -140,7 +155,22 @@ function draw(){
   for (var j = 1; j <= n; j++) if ((s['lane_legs'+j] || []).some(function(x){ return trim(x); })) hasLegs = true;
   place(hasLegs && !WIDTH_SET ? 430 : WIDTH);
   rail.textContent = '';
-  var slot = (BOTTOM - TOP) * U / n;               // px per lane
+  var hdH = 0;
+  if (TITLE && hasEvent){
+    // EVENT 9 | Girls 100 Fly / Heat 1 of 2
+    hdH = Math.round(58 * U * SCALE);
+    var hd = el('div', 'evhd'); hd.style.height = hdH + 'px';
+    var no = el('div', 'no mono'); no.appendChild(el('small', null, 'EVENT')); no.appendChild(document.createTextNode(ev));
+    no.style.fontSize = (hdH * 0.5) + 'px';
+    var what = el('div', 'what');
+    var en = el('div', 'en', trim(s.event_name) || 'Event ' + ev); en.style.fontSize = (hdH * 0.36) + 'px';
+    what.appendChild(en);
+    var ht = trim(s.current_heat), hc = parseInt(s.heat_count, 10) || 0;
+    if (ht && ht !== '0'){ var h2 = el('div', 'ht', 'Heat ' + ht + (hc ? ' of ' + hc : '')); h2.style.fontSize = (hdH * 0.26) + 'px'; what.appendChild(h2); }
+    hd.appendChild(no); hd.appendChild(what);
+    rail.appendChild(hd);
+  }
+  var slot = ((BOTTOM - TOP) * U - (hdH ? hdH + 8 * U : 0)) / n;   // px per lane
   var h = Math.min(slot * 0.86, 76 * U * SCALE);   // chip height
   var relayEvent = !!s.event_is_relay;
   var lanes = [];
@@ -177,7 +207,7 @@ function draw(){
     chip.appendChild(txt);
     rail.appendChild(chip);
   });
-  rail.querySelectorAll('.nm').forEach(function(e){ fit(e, 0.62); });
+  rail.querySelectorAll('.nm, .evhd .en').forEach(function(e){ fit(e, 0.62); });
   rail.querySelectorAll('.sub:not(.legs)').forEach(function(e){ fit(e, 0.7); });
   // relay legs may take two lines; shrink only if they'd overflow the chip
   rail.querySelectorAll('.chip').forEach(function(ch){
@@ -194,6 +224,10 @@ if (window.mbAutoReload) window.mbAutoReload(socket);
 var slideUp = false;
 socket.on('warmup_slide', function(d){ slideUp = !!(d && d.on); rail.style.visibility = slideUp ? 'hidden' : ''; });
 socket.on('update_scoreboard', function(u){ for (var k in u) s[k] = u[k]; render(); });
+// the break results band is up: hide the lanes until it comes down
+socket.on('break_slide', function(d){ breakUp = !!(d && d.on); render(); });
+fetch('/api/break_slide', {cache: 'no-store'}).then(function(r){ return r.json(); })
+  .then(function(d){ breakUp = !!(d && d.on); render(); }).catch(function(){});
 socket.on('disconnect', function(){ setTimeout(function(){ if (!socket.connected) rail.classList.add('off'); }, 5000); });
 })();
 </script>

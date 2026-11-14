@@ -397,11 +397,15 @@ def hex_to_digit(c):
 
 update={}
 _last_emit = 0.0
+# Event 99 on the console is a test race (timers checking their buttons/pads before the
+# meet): nothing about it reaches the board, the overlay, announcements or race history.
+TEST_EVENT = 99
+test_race = False
 next_update = datetime.datetime.now()
 last_event_sent = (1,1)
 
 def parse_line(l, out = None):
-    global event_heat_info, lane_info, time_info, running_time, update, next_update, last_event_sent, team_scores
+    global event_heat_info, lane_info, time_info, running_time, update, next_update, last_event_sent, team_scores, test_race
     
     s = ""
     if out:
@@ -467,6 +471,13 @@ def parse_line(l, out = None):
             try:
                 event_tuple = (int(update["current_event"]), int(update["current_heat"]))
             except: return
+            was_test = test_race
+            test_race = event_tuple[0] == int(settings.get('test_event', TEST_EVENT) or TEST_EVENT)
+            if test_race != was_test:
+                print("Event %s on the console: %s" % (event_tuple[0], "test race - ignored" if test_race else "back to the meet"))
+            if test_race:
+                update.clear()
+                return
 
             print_at(0, 0, " Event:" +  update["current_event"] + " Heat:" + update["current_heat"] + "    ")
             
@@ -514,6 +525,8 @@ def parse_line(l, out = None):
         # Batch the console's ~100 records/s into one board update per
         # update_interval (default 1 s); values just accumulate in `update`.
         global _last_emit
+        if test_race:
+            update.clear()          # a test race (event 99): show and record nothing
         if ("current_event" in update or "running_time" in update) and \
                 time.time() - _last_emit >= float(settings.get('update_interval', 1.0) or 0):
             _last_emit = time.time()
