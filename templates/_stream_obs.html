@@ -1,0 +1,235 @@
+<section class="card">
+        <style>
+        .obsc{--obsc-bg:#111b1d;--obsc-line:#26383c;--obsc-dim:#8fa3a8;--obsc-fg:#e8eeee;
+          background:var(--obsc-bg);color:var(--obsc-fg);border:1px solid var(--obsc-line);
+          border-radius:12px;padding:18px;margin:6px 0 12px;max-width:560px;
+          font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+        .obsc h4{margin:0 0 14px;font-size:15px;font-weight:600;letter-spacing:.02em;
+          display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--obsc-fg)}
+        .obsc-pill{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+          padding:3px 9px;border-radius:999px;border:1px solid var(--obsc-line);color:var(--obsc-dim)}
+        .obsc-pill[data-on="1"]{background:#123024;border-color:#1f6b45;color:#6ee7a8}
+        .obsc-pill[data-live="1"]{background:#3a1116;border-color:#8c2230;color:#ff8d9b}
+        .obsc-btn{width:100%;padding:18px;border:0;border-radius:10px;cursor:pointer;
+          font:600 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.03em;
+          color:#06120d;background:#3ddc84;transition:background .12s,transform .06s}
+        .obsc-btn:active{transform:translateY(1px)}
+        .obsc-btn[disabled]{background:#2a3a3e;color:#6c7f84;cursor:not-allowed}
+        .obsc-btn[data-mode="stop"]{background:#ff5a6e;color:#2a0508}
+        .obsc-btn[data-mode="confirm"]{background:#ffc447;color:#2b1e00}
+        .obsc-stats{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap}
+        .obsc-stat{min-width:76px}
+        .obsc-stat b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+        .obsc-stat span{font-size:11px;color:var(--obsc-dim);text-transform:uppercase;letter-spacing:.06em}
+        .obsc-warn{color:#ffc447}
+        .obsc-msg{margin-top:12px;font-size:12px;color:var(--obsc-dim);min-height:1.2em}
+        .obsc-msg[data-err="1"]{color:#ff8d9b}
+        .obsc-hint{font-size:12px;color:#ffc447;margin-top:4px}
+        .obsc-hint:empty{display:none}
+        .obsc-row{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+        .obsc-sm{background:#1d2c30;color:var(--obsc-fg);border:1px solid var(--obsc-line);border-radius:7px;
+          padding:6px 12px;font:600 12px system-ui,sans-serif;cursor:pointer}
+        .obsc-sm[disabled]{opacity:.5;cursor:wait}
+        .obsc-meta{font-size:11px;color:var(--obsc-dim)}
+        .obsc-steps{margin:12px 0 0;padding-left:0;list-style:none;font-size:13px}
+        .obsc-steps li{padding:5px 0;border-top:1px solid var(--obsc-line)}
+        .obsc-steps li b{display:inline-block;width:18px}
+        .obsc-steps .ok b{color:#6ee7a8} .obsc-steps .bad b{color:#ff8d9b}
+        .obsc-steps .d{color:var(--obsc-dim)} .obsc-steps .h{display:block;color:#ffc447;margin-left:18px;font-size:12px}
+        .obsc-log{margin-top:12px;max-height:220px;overflow:auto;background:#0b1416;border:1px solid var(--obsc-line);
+          border-radius:8px;padding:8px 10px;font:12px/1.4 Consolas,monospace;color:#b7cace;white-space:pre-wrap}
+        </style>
+        <div class="row">
+            <div class="col-lg-8">
+                <section class="obsc" id="obsc">
+                    <h4>Stream
+                        <span class="obsc-pill" id="obsc-link">OBS offline</span>
+                        <span class="obsc-pill" id="obsc-live" hidden>&#9679; Live</span>
+                    </h4>
+                    <button class="obsc-btn" id="obsc-btn" type="button" disabled>Connecting&hellip;</button>
+                    <div class="obsc-stats">
+                        <div class="obsc-stat"><b id="obsc-time">&mdash;</b><span>Uptime</span></div>
+                        <div class="obsc-stat"><b id="obsc-rate">&mdash;</b><span>Mbps out</span></div>
+                        <div class="obsc-stat"><b id="obsc-drop">&mdash;</b><span>Dropped</span></div>
+                    </div>
+                    <div class="obsc-msg" id="obsc-msg"></div>
+                    <div class="obsc-hint" id="obsc-hint"></div>
+                    <div class="obsc-row">
+                        <button class="obsc-sm" id="obsc-test" type="button">Test connection</button>
+                        <button class="obsc-sm" id="obsc-logbtn" type="button">Connection log</button>
+                        <span class="obsc-meta" id="obsc-meta"></span>
+                    </div>
+                    <div style="margin:10px 0 4px;font-size:13px">Stop the stream by itself after
+                        <input type="number" id="obs_autostop" min="0" max="600" style="width:64px"> minutes with no races
+                        <span style="color:#5d7379">(0 = never; the warm-up and break slides count as activity, and a newly started stream gets this long before any race)</span>
+                        <span id="obs_autostop_msg" style="color:#5d7379"></span></div>
+                    <script>
+                    (function(){
+                      var box = document.getElementById('obs_autostop'), msg = document.getElementById('obs_autostop_msg');
+                      function show(d){ if (document.activeElement !== box) box.value = d.minutes; msg.textContent = d.last ? ' \u00b7 ' + d.last : ''; }
+                      fetch('/api/obs/autostop',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){});
+                      box.addEventListener('change', function(){
+                        fetch('/api/obs/autostop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({minutes:parseInt(box.value||'0',10)})})
+                          .then(function(r){return r.json();}).then(show); });
+                    })();
+                    </script>
+                    <div style="margin:4px 0 4px;font-size:13px">Delay the stream overlays by
+                        <input type="number" id="ov_delay" min="0" max="60" step="0.5" style="width:64px"> seconds
+                        <span style="color:#5d7379">(use when the lanes/times show up before the swimmers do in the video; 0 = no delay. Applies to open overlays at once)</span>
+                        <span id="ov_delay_msg" style="color:#5d7379"></span></div>
+                    <script>
+                    (function(){
+                      var box = document.getElementById('ov_delay'), msg = document.getElementById('ov_delay_msg');
+                      function show(d){ if (d.error) { msg.textContent = ' ' + d.error; return; } if (document.activeElement !== box) box.value = d.seconds; msg.textContent = ''; }
+                      fetch('/api/overlay/delay',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){});
+                      box.addEventListener('change', function(){
+                        fetch('/api/overlay/delay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seconds:parseFloat(box.value||'0')})})
+                          .then(function(r){return r.json();}).then(function(d){ show(d); if (!d.error) msg.textContent = ' \u2713 saved'; }); });
+                    })();
+                    </script>
+                    <div style="margin:10px 0 4px;font-size:13px"><b>YouTube chapters</b>
+                        <select id="ytc_sess" style="max-width:320px"></select>
+                        <button type="button" class="obsc-sm" id="ytc_copy">Copy YouTube chapters</button>
+                        <span id="ytc_msg" style="color:#5d7379"></span>
+                        <div style="color:#5d7379">Paste into the video's description in YouTube Studio. Each event starts 30 s before its first race; the times come from when the stream and each race started.</div>
+                        <textarea id="ytc_text" rows="8" style="width:100%;max-width:520px;font-family:Consolas,monospace;font-size:12.5px;margin-top:4px" readonly hidden></textarea></div>
+                    <script>
+                    (function(){
+                      var sel = document.getElementById('ytc_sess'), ta = document.getElementById('ytc_text'), msg = document.getElementById('ytc_msg');
+                      function load(copy){
+                        fetch('/api/youtube/chapters' + (sel.value ? '?stream=' + sel.value : ''), {cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+                          if (!sel.options.length) { (d.sessions || []).forEach(function(x){ var o = document.createElement('option'); o.value = x.index; o.textContent = x.label; sel.appendChild(o); }); }
+                          if (!sel.options.length) { var o = document.createElement('option'); o.value = ''; o.textContent = 'no streamed races yet'; sel.appendChild(o); }
+                          if (!copy) return;
+                          if (!d.text) { msg.textContent = ' ' + (d.error || 'nothing yet'); ta.hidden = true; return; }
+                          ta.value = d.text; ta.hidden = false;
+                          var done = function(){ msg.textContent = ' \u2713 copied: ' + d.events + ' events' + (d.note ? ' \u00b7 ' + d.note : ''); };
+                          if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(d.text).then(done, function(){ ta.select(); document.execCommand('copy'); done(); });
+                          else { ta.select(); document.execCommand('copy'); done(); }
+                        }).catch(function(){ msg.textContent = ' could not load'; });
+                      }
+                      document.getElementById('ytc_copy').addEventListener('click', function(){ load(true); });
+                      sel.addEventListener('change', function(){ ta.hidden = true; msg.textContent = ''; });
+                      load(false);
+                    })();
+                    </script>
+                    <ol class="obsc-steps" id="obsc-steps" hidden></ol>
+                    <pre class="obsc-log" id="obsc-log" hidden></pre>
+                </section>
+                <form action="/stream" method="POST" class="form-inline" style="margin-bottom:6px;">
+                    <input type="hidden" name="obs_url_form" value="1"><input type="hidden" name="return_to" value="/stream">
+                    <label style="font-weight:normal;">OBS WebSocket
+                        <input class="form-control" name="obs_url" value="{{ obs_url }}" style="width:220px;"></label>
+                    <label style="font-weight:normal; margin-left:8px;">Password
+                        <input class="form-control" name="obs_password" type="password" autocomplete="off"
+                            placeholder="{{ 'saved - leave blank to keep' if obs_password_set else 'OBS WebSocket password' }}" style="width:220px;"></label>
+                    {% if obs_password_set %}<label style="font-weight:normal; margin-left:6px;"><input type="checkbox" name="obs_password_clear"> clear</label>{% endif %}
+                    <button class="btn btn-default" type="submit">Save</button>
+                </form>
+                <p class="help-block">In OBS: Tools &gt; WebSocket Server Settings &gt; Enable WebSocket server (port 4455), set a
+                    password and enter it here. If OBS is closed the boards and overlay keep working; this card just waits
+                    and reconnects every 5 seconds.</p>
+            </div>
+        </div>
+        <script>
+        (function () {
+          var elLink = document.getElementById('obsc-link'), elLive = document.getElementById('obsc-live');
+          var elBtn = document.getElementById('obsc-btn'), elTime = document.getElementById('obsc-time');
+          var elRate = document.getElementById('obsc-rate'), elDrop = document.getElementById('obsc-drop');
+          var elMsg = document.getElementById('obsc-msg');
+          var armed = false, armTimer = null, busy = false, last = null;
+
+          function hhmmss(s) {
+            var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+            var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+            return (h ? h + ':' : '') + p(m) + ':' + p(x);
+          }
+          function disarm() { armed = false; if (armTimer) { clearTimeout(armTimer); armTimer = null; } render(last); }
+          function render(s) {
+            last = s;
+            var up = s && s.link === 'up';
+            elLink.textContent = up ? 'OBS connected' : 'OBS offline';
+            elLink.setAttribute('data-on', up ? '1' : '0');
+            var live = !!(s && s.streaming);
+            elLive.hidden = !live; elLive.setAttribute('data-live', live ? '1' : '0');
+            if (busy) { elBtn.disabled = true; elBtn.removeAttribute('data-mode'); elBtn.textContent = 'Working…'; }
+            else if (!up) { elBtn.disabled = true; elBtn.removeAttribute('data-mode'); elBtn.textContent = 'OBS not reachable'; }
+            else if (armed) { elBtn.disabled = false; elBtn.setAttribute('data-mode', 'confirm'); elBtn.textContent = 'Tap again to STOP the stream'; }
+            else if (live) { elBtn.disabled = false; elBtn.setAttribute('data-mode', 'stop'); elBtn.textContent = 'Stop stream'; }
+            else { elBtn.disabled = false; elBtn.removeAttribute('data-mode'); elBtn.textContent = 'Start stream'; }
+            elTime.textContent = live ? hhmmss(s.seconds || 0) : '—';
+            elRate.textContent = live ? ((s.kbps || 0) / 1000).toFixed(1) : '—';
+            var d = s ? (s.droppedPct || 0) : 0;
+            elDrop.textContent = live ? d.toFixed(2) + '%' : '—';
+            elDrop.className = (live && d >= 1) ? 'obsc-warn' : '';
+            if (s && s.error && !busy && !up) { elMsg.textContent = s.error; elMsg.setAttribute('data-err', '1'); }
+            if (up && elMsg.getAttribute('data-err') === '1' && s && !s.error) note('');
+            document.getElementById('obsc-hint').textContent = (!up && s && s.hint) ? s.hint : '';
+            var meta = [];
+            if (s && s.url) meta.push(s.url);
+            if (s && s.password_set === false) meta.push('no password saved');
+            if (up && s.ws_version) meta.push('obs-websocket ' + s.ws_version);
+            if (up && s.obs_version) meta.push('OBS ' + s.obs_version);
+            if (!up && s && s.attempts) meta.push('attempt ' + s.attempts + (s.last_attempt ? ' at ' + s.last_attempt : ''));
+            if (up && s.connected_since) meta.push('connected since ' + s.connected_since);
+            document.getElementById('obsc-meta').textContent = meta.join(' \u00b7 ');
+          }
+          var elSteps = document.getElementById('obsc-steps'), elLog = document.getElementById('obsc-log');
+          var elTest = document.getElementById('obsc-test');
+          elTest.addEventListener('click', function () {
+            elTest.disabled = true; elTest.textContent = 'Testing\u2026';
+            elSteps.hidden = false; elSteps.innerHTML = '';
+            fetch('/api/obs/test', {method: 'POST'}).then(function (r) { return r.json(); }).then(function (d) {
+              (d.steps || []).forEach(function (x) {
+                var li = document.createElement('li'); li.className = x.ok ? 'ok' : 'bad';
+                var b = document.createElement('b'); b.textContent = x.ok ? '\u2713' : '\u2717'; li.appendChild(b);
+                li.appendChild(document.createTextNode(x.step + ' '));
+                var sp = document.createElement('span'); sp.className = 'd'; sp.textContent = x.detail || ''; li.appendChild(sp);
+                if (x.hint) { var h = document.createElement('span'); h.className = 'h'; h.textContent = x.hint; li.appendChild(h); }
+                elSteps.appendChild(li);
+              });
+            }).catch(function () {
+              elSteps.innerHTML = '<li class="bad"><b>\u2717</b>Could not reach meet-board</li>';
+            }).then(function () { elTest.disabled = false; elTest.textContent = 'Test connection'; poll(); });
+          });
+          function loadLog() {
+            fetch('/api/obs/diagnostics', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
+              elLog.textContent = (d.log || []).map(function (e) { return e.t + '  ' + e.msg; }).join('\n') || 'No connection events yet.';
+              elLog.scrollTop = elLog.scrollHeight;
+            });
+          }
+          document.getElementById('obsc-logbtn').addEventListener('click', function () {
+            elLog.hidden = !elLog.hidden; if (!elLog.hidden) loadLog();
+          });
+          setInterval(function () { if (!elLog.hidden) loadLog(); }, 3000);
+          function note(text, isErr) { elMsg.textContent = text || ''; elMsg.setAttribute('data-err', isErr ? '1' : '0'); }
+          function poll() {
+            fetch('/api/obs', {cache: 'no-store'}).then(function (r) { return r.json(); })
+              .then(render).catch(function () { render({link: 'down'}); });
+          }
+          elBtn.addEventListener('click', function () {
+            if (busy || !last || last.link !== 'up') return;
+            // Stopping a live stream mid-meet is the costly misclick: second tap within 4 s.
+            if (last.streaming && !armed) {
+              armed = true; render(last); note('Stopping ends the broadcast for everyone watching.');
+              armTimer = setTimeout(disarm, 4000); return;
+            }
+            var action = last.streaming ? 'stop' : 'start';
+            busy = true; render(last); note('');
+            if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+            armed = false;
+            fetch('/api/obs/stream', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                      body: JSON.stringify({action: action})})
+              .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return [r, b]; }); })
+              .then(function (rb) {
+                if (!rb[0].ok) note(rb[1].error || ('HTTP ' + rb[0].status), true);
+                else { render(rb[1]); note(action === 'start' ? 'Stream started.' : 'Stream stopped.'); }
+              })
+              .catch(function () { note('Could not reach meet-board.', true); })
+              .then(function () { busy = false; poll(); });
+          });
+          poll(); setInterval(poll, 2000);
+        })();
+        </script>
+
+        </section>

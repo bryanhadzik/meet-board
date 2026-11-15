@@ -2999,6 +2999,7 @@ def route_web(name):
 
 @app.route('/settings', methods=['POST', 'GET'])
 @app.route('/meet_files', methods=['POST', 'GET'])
+@app.route('/stream', methods=['POST', 'GET'])
 @flask_login.login_required
 def route_settings():
     global settings
@@ -3283,7 +3284,7 @@ def route_settings():
         if blank_message_needs_broadcast:
             send_blank_message()
                 
-    if flask.request.method == 'POST' and flask.request.form.get('return_to') in ('/team_colors', '/meet_files'):
+    if flask.request.method == 'POST' and flask.request.form.get('return_to') in ('/team_colors', '/meet_files', '/stream'):
         return flask.redirect(flask.request.form['return_to'])
 
     comm_port_list = [(port, "%s: %s" % (port,desc)) for port, desc, id in serial.tools.list_ports.comports()]
@@ -3312,7 +3313,7 @@ def route_settings():
             team_tag_options.append((tag, '%s (%s)' % (tag, name) if name else tag))
     
     # /meet_files is the same handler (uploads post here) with its own page
-    page = 'meet_files.html' if flask.request.path == '/meet_files' else 'settings.html'
+    page = {'/meet_files': 'meet_files.html', '/stream': 'stream.html'}.get(flask.request.path, 'settings.html')
     return flask.render_template(page, 
                 meet_title=settings['meet_title'], 
                 serial_port=settings['serial_port'],

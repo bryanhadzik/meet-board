@@ -20,7 +20,7 @@
     onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
 </div>
 <script>
-window.APPBAR = {app: "meetboard", active: {{ ('music' if active == 'music' else 'admin')|tojson }}, page: {{ active|tojson }},
+window.APPBAR = {app: "meetboard", active: {{ (active if active in ('music', 'stream') else 'admin')|tojson }}, page: {{ active|tojson }},
                  debug: {{ (show_debug or active == 'debug')|tojson }}, screenControls: document.getElementById("mbScreenCtl")};
 </script>
 <script src="{{ url_for('static', filename='appbar.js') }}"></script>

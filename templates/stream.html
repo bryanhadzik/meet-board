@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>meet-board: Stream</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+{% set active = "stream" %}{% include "_nav.html" %}
+<div class="container">
+<h1 class="pagetitle">Stream</h1>
+
+<h3 id="obs">Go live</h3>
+{% include "_stream_obs.html" %}
+
+<h3 id="pages">Stream pages in OBS</h3>
+<section class="card">
+  <p style="margin-top:0">These are the browser sources OBS shows over the camera. Open one here to check it (the test view fills in sample swimmers).</p>
+  <ul style="margin:0;padding-left:18px;line-height:1.9">
+    <li><a href="/overlay/race?layout=strip&amp;test" target="_blank" rel="noopener">Lower Lanes &#8599;</a> &mdash; lanes, names and times along the bottom during a race</li>
+    <li><a href="/overlay/lanes?test&amp;demo" target="_blank" rel="noopener">Lane rail &#8599;</a> &mdash; the upcoming event and who is in each lane</li>
+  </ul>
+</section>
+
+<h3 id="sound">Sound on the stream</h3>
+<section class="card">
+  <p style="margin:0">Muting the stream while music plays, announcements on the stream, and which OBS sources get muted are set on the <a href="/music#stream">Music</a> page.</p>
+</section>
+</div>
+</body>
+</html>
