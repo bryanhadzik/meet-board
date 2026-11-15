@@ -3409,13 +3409,20 @@ def _team_names():
 
 def _logo_path(code):
     """A team's logo file, also found under any other code for the same school
-    (SHS.png serves STAN and the reverse)."""
+    (SHS.png serves STAN and the reverse). When the meet file's school name says a
+    code belongs to another school (Tooele entered as THS, which is Timpanogos'
+    code), that school's logo wins over the file named after the code."""
     folder = _logo_folder()
     code = (code or '').upper()
+    home = meet_board.canonical_codes(settings, [code], _team_names()).get(code, code)
+    if home != code:
+        for c in dict.fromkeys([home] + list(meet_board.alias_codes(settings, home))):
+            path = team_logos.find_logo(folder, c)
+            if path:
+                return path
     path = team_logos.find_logo(folder, code)
     if path:
         return path
-    home = meet_board.canonical_codes(settings, [code], _team_names()).get(code, code)
     for c in meet_board.alias_codes(settings, home):
         path = team_logos.find_logo(folder, c)
         if path:
@@ -3424,11 +3431,11 @@ def _logo_path(code):
 
 
 def _meet_logos(meet_teams):
-    """{code: mtime} for every logo file, plus each meet code whose school has
-    a logo under another code."""
+    """{code: mtime} for every logo file, plus each meet code's own logo (which may be
+    another code's file - see _logo_path)."""
     out = team_logos.list_logos(_logo_folder())
     for code in meet_teams or []:
-        if code and code not in out:
+        if code:
             p = _logo_path(code)
             if p:
                 out[code] = int(os.path.getmtime(p))

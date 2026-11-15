@@ -69,3 +69,17 @@ def test_logo_served_under_alias_code(tmp_path, monkeypatch):
     assert app._logo_path('SHS').endswith('SHS.png')
     assert app._logo_path('NOPE') is None
     assert 'STAN' in app._meet_logos(['STAN'])
+
+
+def test_tooele_entered_as_ths_gets_tooele_logo(tmp_path, monkeypatch):
+    """THS is Timpanogos' code; a meet file naming THS 'Tooele High School' must show Tooele's logo."""
+    import CTS_Scoreboard as app
+    monkeypatch.setattr(app, '_logo_folder', lambda: str(tmp_path))
+    (tmp_path / 'THS.png').write_bytes(b'\x89PNG timp')
+    (tmp_path / 'TOOEL.png').write_bytes(b'\x89PNG tooele')
+    monkeypatch.setattr(app.event_info, 'team_names', {'THS': 'Tooele High School'}, raising=False)
+    assert app._logo_path('THS').endswith('TOOEL.png')
+    monkeypatch.setattr(app.event_info, 'team_names', {'THS': 'Timpanogos High School'}, raising=False)
+    assert app._logo_path('THS').endswith('THS.png')
+    monkeypatch.setattr(app.event_info, 'team_names', {}, raising=False)
+    assert app._logo_path('THS').endswith('THS.png')
