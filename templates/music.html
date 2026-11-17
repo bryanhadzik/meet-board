@@ -157,6 +157,7 @@
         <option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
       <button class="btn" type="button" id="annCancel" hidden>Cancel the automatic one</button>
       <button class="btn" type="button" id="annTest" title="Plays announcements over and over (a test line, the first heats of the meet and the one-off announcements) so you can walk the deck and check the speakers. Press again to stop.">Test audio system</button>
+      <button class="btn" type="button" id="annTestHere" title="Plays the same test loop on this device instead of the pool PC - e.g. a phone connected to a Bluetooth speaker. Press again to stop.">Test on this device</button>
       <label class="vol annvol" title="Announcements only - the music volume is separate. Over 100% boosts quiet clips.">Announcement volume <input type="range" id="annVol" min="0" max="150" value="100"> <span id="annVolT">100%</span></label>
       <span class="small" id="annInfo"></span>
     </div>
@@ -702,6 +703,49 @@ $('up').addEventListener('submit', function (ev) {
   $('annDelay').addEventListener('change', function () { annPost({action: 'settings', delay: +this.value}); });
   $('annWhen').addEventListener('change', function () { annPost({action: 'settings', when: this.value}); });
   $('annCancel').addEventListener('click', function () { annPost({action: 'cancel'}); });
+  // ---- sound test on THIS device (a phone on a Bluetooth speaker): the loop plays here, not on the pool PC ----
+  (function () {
+    var btn = $('annTestHere'), au = new Audio(), on = false, list = [], i = 0, q = [], timer = null;
+    au.preload = 'auto';
+    var SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    function vol() { return Math.max(0, Math.min(1, window.annVolume == null ? 1 : window.annVolume)); }
+    function step() {
+      if (!on) return;
+      var it = q.shift();
+      if (!it) {
+        if (!list.length) return;
+        var x = list[i++ % list.length]; q = x.items.slice();
+        timer = setTimeout(step, i === 1 ? 300 : 2500); return;
+      }
+      if (it.url) {
+        var done = false, next = function () { if (!done) { done = true; timer = setTimeout(step, 350); } };
+        au.onended = next;
+        au.onerror = function () { if (it.say) q.unshift({say: it.say}); next(); };
+        au.src = it.url; au.volume = vol();
+        var p = au.play(); if (p && p.catch) p.catch(function () { au.onerror(); });
+      } else if (it.say && window.speechSynthesis) {
+        var u = new SpeechSynthesisUtterance(it.say); u.rate = 0.95; u.volume = vol();
+        u.onend = function () { timer = setTimeout(step, 350); }; u.onerror = u.onend;
+        speechSynthesis.speak(u);
+      } else { timer = setTimeout(step, 50); }
+    }
+    function stop() {
+      on = false; clearTimeout(timer); q = [];
+      try { au.pause(); } catch (e) {}
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      btn.textContent = 'Test on this device'; btn.classList.remove('busy');
+    }
+    btn.addEventListener('click', function () {
+      if (on) { stop(); return; }
+      // phones only allow sound that starts from a tap: unlock the player and the voice right here, in the tap
+      au.src = SILENT; var p = au.play(); if (p && p.catch) p.catch(function () {});
+      if (window.speechSynthesis) { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
+      on = true; i = 0; q = []; btn.textContent = 'Stop test on this device'; btn.classList.add('busy');
+      fetch('/api/announce/test_list', {cache: 'no-store'}).then(function (r) { return r.json(); })
+        .then(function (d) { list = d.list || []; if (!list.length) { stop(); $('annInfo').textContent = 'Nothing to play.'; return; } step(); })
+        .catch(function () { stop(); $('annInfo').textContent = 'Could not load the test announcements.'; });
+    });
+  })();
   $('annTest').addEventListener('click', function () { $('annInfo').textContent = ''; annPost({action: 'test', on: !(ANN && ANN.test)}); });
   $('annVol').addEventListener('input', function () {
     $('annVolT').textContent = this.value + '%';

@@ -2645,6 +2645,12 @@ race_book.on_near_end = _ann_near_end
 _ann_settings()                                 # sets race_book.near_yards from the saved choice
 
 
+@app.route('/api/announce/test_list')
+def route_api_announce_test_list():
+    """The sound-test loop, for playing on the device that asks (a phone on a Bluetooth speaker)."""
+    return _cors(flask.jsonify({'list': _ann_test_list()}))
+
+
 @app.route('/api/announce', methods=['GET', 'POST'])
 def route_api_announce():
     if flask.request.method == 'POST':
