@@ -2384,7 +2384,8 @@ def route_music_stream_mute():
 # recorded clips (announce.py). The Music page has one Announce button that always offers the
 # next heat; optionally it fires by itself when a race is over.
 _ann = {'announced': set(), 'swum': set(), 'override': None, 'last': None, 'last_text': '', 'seq': 0, 'timer': None,
-        'now': None}     # what was said last (heat or one-off): {'title', 'text'}
+        'now': None,     # what was said last (heat or one-off): {'title', 'text'}
+        'test': False}   # sound-system test: the speaker tab loops announcements until stopped
 
 
 def _ann_settings():
@@ -2445,6 +2446,7 @@ def _ann_view():
     have = announce.clips_on_disk(_ann_folder())
     out['extras'] = [{'clip': k, 'label': lab, 'text': t, 'have': k in have} for k, lab, t in announce.EXTRAS]
     out['now'] = _ann['now']
+    out['test'] = bool(_ann.get('test'))
     out['ago'] = int(time.time() - _ann['at']) if _ann.get('at') else None
     if _ann['last']:
         e, h = _ann['last']
@@ -2490,6 +2492,35 @@ def _ann_play_extra(clip):
     _ann['at'] = time.time()
     print('Announced %s: %s' % (label, text))
     _ann_broadcast()
+    return None
+
+
+def _ann_test_list():
+    """What the sound-system test loops through: the first few heats of the meet as they'd really be announced,
+    the one-off announcements, and a plain test line (so it works with no meet loaded)."""
+    have = announce.clips_on_disk(_ann_folder())
+    item = lambda p: {'url': '/announce/clip/%s.mp3' % p['clip'], 'say': p['say']} if p['clip'] in have else {'say': p['say']}
+    out = [{'text': 'Sound check. This is a test of the pool sound system.',
+            'items': [{'say': 'Sound check. This is a test of the pool sound system.'}]}]
+    for key in _ann_order()[:4]:
+        try:
+            pieces, _ = _ann_pieces(key)
+            out.append({'text': announce.text_of(pieces), 'items': [item(p) for p in pieces]})
+        except Exception as e:
+            print('sound test heat %s: %s' % (key, e))
+    for k, label, text in announce.EXTRAS:
+        out.append({'text': text, 'items': [{'url': '/announce/clip/%s.mp3' % k, 'say': text} if k in have else {'say': text}]})
+    return out
+
+
+def _ann_test(on):
+    if on and not music_state.speaker_sid:
+        return 'no speaker tab open (/music?speaker=1 on the pool PC)'
+    _ann['test'] = bool(on)
+    if music_state.speaker_sid:
+        socketio.emit('announce_test', {'on': bool(on), 'list': _ann_test_list() if on else []},
+                      namespace='/music', to=music_state.speaker_sid)
+    print('Sound system test %s' % ('started' if on else 'stopped'))
     return None
 
 
@@ -2624,6 +2655,8 @@ def route_api_announce():
             err = _ann_play(_ann_target())
         elif act == 'extra':
             err = _ann_play_extra(str(d.get('clip') or ''))
+        elif act == 'test':
+            err = _ann_test(bool(d.get('on')))
         elif act in ('next', 'prev'):
             order, key = _ann_order(), _ann_target()
             if key in order:
@@ -2828,6 +2861,9 @@ def ws_music_disconnect(*args):
     if flask.request.sid == music_state.speaker_sid:
         music_state.speaker_sid = None
         music_state.speaker_ready = False
+        if _ann.get('test'):                 # the tab that was looping the sound test is gone
+            _ann['test'] = False
+            _ann_broadcast()
         _music_broadcast()
 
 @socketio.on('speaker_hello', namespace='/music')
@@ -2838,6 +2874,9 @@ def ws_music_speaker(d=None):
     music_state.speaker_ready = bool((d or {}).get('ready'))
     if old and old != flask.request.sid:
         socketio.emit('speaker_standby', {}, namespace='/music', to=old)
+        if _ann.get('test'):
+            _ann['test'] = False
+            _ann_broadcast()
     _music_broadcast()
 
 @socketio.on('mic_report', namespace='/music')

@@ -156,6 +156,7 @@
       <label id="annDelayL">after <select id="annDelay"><option value="0">0 s</option><option value="3">3 s</option><option value="5">5 s</option>
         <option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
       <button class="btn" type="button" id="annCancel" hidden>Cancel the automatic one</button>
+      <button class="btn" type="button" id="annTest" title="Plays announcements over and over (a test line, the first heats of the meet and the one-off announcements) so you can walk the deck and check the speakers. Press again to stop.">Test audio system</button>
       <label class="vol annvol" title="Announcements only - the music volume is separate. Over 100% boosts quiet clips.">Announcement volume <input type="range" id="annVol" min="0" max="150" value="100"> <span id="annVolT">100%</span></label>
       <span class="small" id="annInfo"></span>
     </div>
@@ -686,6 +687,9 @@ $('up').addEventListener('submit', function (ev) {
     window.annVolume = v / 100;
     if (window.annApplyVolume) window.annApplyVolume();
     $('annCancel').hidden = !d.pending;
+    $('annTest').textContent = d.test ? 'Stop audio test' : 'Test audio system';
+    $('annTest').classList.toggle('busy', !!d.test);
+    $('annTest').disabled = !d.speaker && !d.test;
     var info = [];
     if (!d.speaker) info.push('No speaker tab open - open /music?speaker=1 on the pool PC.');
     if (d.clips < d.clips_total) info.push(d.clips + ' of ' + d.clips_total + ' voice clips loaded; missing words use the PC voice.');
@@ -698,6 +702,7 @@ $('up').addEventListener('submit', function (ev) {
   $('annDelay').addEventListener('change', function () { annPost({action: 'settings', delay: +this.value}); });
   $('annWhen').addEventListener('change', function () { annPost({action: 'settings', when: this.value}); });
   $('annCancel').addEventListener('click', function () { annPost({action: 'cancel'}); });
+  $('annTest').addEventListener('click', function () { $('annInfo').textContent = ''; annPost({action: 'test', on: !(ANN && ANN.test)}); });
   $('annVol').addEventListener('input', function () {
     $('annVolT').textContent = this.value + '%';
     window.annVolume = this.value / 100; if (window.annApplyVolume) window.annApplyVolume();   // hear it right away on the speaker tab
@@ -737,7 +742,11 @@ if (SPEAKER) {
   }
   function annStep() {
     var it = annQueue.shift();
-    if (!it) { annBusy = false; setTimeout(function () { if (!annBusy) annDuck(false); }, 400); return; }
+    if (!it) {
+      annBusy = false;
+      if (annTest.on) { annTest.timer = setTimeout(annTestNext, 2500); return; }     // sound test: next one after a pause
+      setTimeout(function () { if (!annBusy) annDuck(false); }, 400); return;
+    }
     if (it.url) {
       annPlayer.src = it.url; annPlayer.volume = 1;
       var done = false, next = function () { if (!done) { done = true; setTimeout(annStep, 350); } };
@@ -752,6 +761,26 @@ if (SPEAKER) {
   }
   function annVol() { return window.annVolume == null ? 1 : window.annVolume; }
   window.annApplyVolume = function () { if (ctx && annGain) annGain.gain.setTargetAtTime(annVol(), ctx.currentTime, 0.05); };
+  // ---- sound-system test: loop the list until the remote stops it ----
+  var annTest = {on: false, list: [], i: 0, timer: null};
+  function annTestNext() {
+    if (!annTest.on || !annTest.list.length) return;
+    var x = annTest.list[annTest.i++ % annTest.list.length];
+    window.annApplyVolume();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    annQueue = x.items.slice(); annBusy = true; annDuck(true);
+    setTimeout(annStep, 350);
+  }
+  socket.on('announce_test', function (d) {
+    if (!ready || !d) return;
+    clearTimeout(annTest.timer);
+    annTest.on = !!d.on;
+    if (annTest.on) { annTest.list = d.list || []; annTest.i = 0; annTestNext(); return; }
+    annQueue = []; annBusy = false;                     // stop right away
+    try { annPlayer.pause(); } catch (e) {}
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    annDuck(false);
+  });
   socket.on('announce_play', function (d) {
     if (!ready || !d || !d.items) return;
     window.annApplyVolume();
