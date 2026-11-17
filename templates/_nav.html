@@ -21,7 +21,7 @@
 </div>
 <script>
 window.APPBAR = {app: "meetboard", active: {{ (active if active in ('music', 'stream') else 'admin')|tojson }}, page: {{ active|tojson }},
-                 debug: {{ (show_debug or active == 'debug')|tojson }}, screenControls: document.getElementById("mbScreenCtl")};
+                 debug: {{ (show_debug or active == 'debug')|tojson }}, streamOff: {{ streaming_off|tojson }}, screenControls: document.getElementById("mbScreenCtl")};
 </script>
 <script src="{{ url_for('static', filename='appbar.js') }}"></script>
 <script>

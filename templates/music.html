@@ -239,6 +239,7 @@
     <div id="upMsg"></div>
   </div>
 
+  {% if streaming_off %}<style>#stream,#smCard{display:none}</style>{% endif %}
   {% if not speaker %}
   <h2 id="stream">Stream audio (OBS)</h2>
   <div class="card" id="smCard">

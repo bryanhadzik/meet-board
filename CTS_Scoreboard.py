@@ -1986,7 +1986,7 @@ def _warmup_slide():
         # phone results QR (the page also has the YouTube live link to pass on)
         if settings.get('results_qr') != 'off':
             out['results_url'] = (settings.get('results_url') or '').strip()
-            out['stream'] = bool((settings.get('youtube_channel') or '').strip())
+            out['stream'] = bool((settings.get('youtube_channel') or '').strip()) and not streaming_off()
     return out
 
 
@@ -2465,7 +2465,7 @@ def _ann_broadcast():
 
 def _ann_to_stream(items):
     """Send an announcement to the race overlay in OBS, which plays it on the stream."""
-    if settings.get('ann_on_stream'):
+    if settings.get('ann_on_stream') and not streaming_off():
         socketio.emit('announce_stream', {'id': _ann['seq'], 'items': items}, namespace='/scoreboard')
 
 
@@ -3810,8 +3810,12 @@ def stream_link():
         live = bool(obs.status().get('streaming')) if obs else False
     except Exception:
         live = False
+    if streaming_off():                  # streaming turned off: no link anywhere
+        r = flask.jsonify(url=None, live=False, channel='', off=True)
+        r.headers['Access-Control-Allow-Origin'] = '*'
+        return r
     r = flask.jsonify(url=youtube_live_url(settings.get('youtube_channel')), live=live,
-                      channel=(settings.get('youtube_channel') or '').strip())
+                      channel=(settings.get('youtube_channel') or '').strip(), off=False)
     r.headers['Access-Control-Allow-Origin'] = '*'
     return r
 
@@ -4294,7 +4298,27 @@ def route_site_map():
 @app.context_processor
 def inject_ad():
     # show_debug: the Debug tab is hidden from the top links unless turned on in Settings
-    return dict(ad_url=settings['ad_url'], show_debug=bool(settings.get('show_debug')))
+    return dict(ad_url=settings['ad_url'], show_debug=bool(settings.get('show_debug')), streaming_off=streaming_off())
+
+
+def streaming_off():
+    """Settings -> Streaming turned off: nothing mentions the stream (no live link or YouTube on the phone page and
+    the QR slides, no Stream tab, no announcements to OBS) - for when meets can't be streamed."""
+    return bool(settings.get('streaming_off'))
+
+
+@app.route('/api/streaming_off', methods=['GET', 'POST'])
+@flask_login.login_required
+def route_streaming_off():
+    if flask.request.method == 'POST':
+        settings['streaming_off'] = bool((flask.request.get_json(silent=True) or {}).get('off'))
+        save_settings()
+        print('Streaming turned %s' % ('off' if settings['streaming_off'] else 'back on'))
+        try:
+            _warmup_broadcast()
+        except Exception:
+            pass
+    return flask.jsonify(off=streaming_off())
     
 # callback to reload the user object        
 @login_manager.user_loader
