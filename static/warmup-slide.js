@@ -45,7 +45,25 @@ window.mbWarmupSlide = function (socket, opts) {
     /* big (stream): the full listing in a panel over part of the picture, scaled to the panel */
     '.wus.full.big{left:auto;right:0;top:0;bottom:0;width:calc(var(--pct)*1vw);--u:calc(var(--pct)*1vw/1920*1.12);',
     '  box-shadow:calc(-6*var(--u)) 0 0 0 #3ddc84,0 0 calc(60*var(--u)) rgba(0,0,0,.6)}',
-    '.wus.full.big .wus-grid{grid-template-columns:repeat(3,minmax(0,1fr))}',
+    '.wus.full.big .wus-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(22*var(--u))}',
+    /* big: no QR, a short header, and the heats as large as they'll go */
+    '.wus.full.big{padding:calc(30*var(--u)) calc(50*var(--u)) 0}',
+    '.wus.full.big .wus-top{margin-top:0}.wus.full.big .wus-top .wus-head{margin-top:0;align-items:center}',
+    '.wus.full.big .wus-ttl{font-size:calc(60*var(--u));margin-top:calc(8*var(--u))}',
+    '.wus.full.big .wus-sub{font-size:calc(26*var(--u))}',
+    '.wus.full.big .wus-t{font-size:calc(64*var(--u))}',
+    '.wus.full.big .wus-teams{margin:calc(14*var(--u)) 0 calc(4*var(--u));max-height:calc(56*var(--u))}',
+    '.wus.full.big .wus-heat{padding:calc(16*var(--u)) calc(18*var(--u)) calc(12*var(--u))}',
+    '.wus.full.big .wus-heat .wus-evno{font-size:calc(22*var(--u))}',
+    '.wus.full.big .wus-heat .wus-evname{font-size:calc(32*var(--u))}',
+    '.wus.full.big .wus-lane{gap:calc(12*var(--u));padding:calc(7*var(--u)) 0}',
+    '.wus.full.big .wus-ln{width:calc(44*var(--u));height:calc(44*var(--u));font-size:calc(26*var(--u))}',
+    '.wus.full.big .wus-nm{font-size:calc(31*var(--u))}',
+    '.wus.full.big .wus-legs{font-size:calc(21*var(--u))}',
+    '.wus.full.big .wus-tm{font-size:calc(19*var(--u))}',
+    '.wus.full.big .wus-sect{font-size:calc(30*var(--u))}',
+    '.wus.full.big .wus-scard .wus-evname{font-size:calc(32*var(--u))}',
+    '.wus.full.big .wus-swn{font-size:calc(29*var(--u))} .wus.full.big .wus-swe{font-size:calc(21*var(--u))}',
     '.wus-kick{display:inline-block;font-weight:800;letter-spacing:.22em;color:#0b1618;background:#3ddc84;border-radius:calc(8*var(--u))}',
     '.wus-ttl{font-weight:800;line-height:1.02;letter-spacing:-.01em}',
     '.wus-sub{color:#bfe6ec;font-weight:500}',
@@ -359,7 +377,7 @@ window.mbWarmupSlide = function (socket, opts) {
     var w = whenBlock();
     left.appendChild(head);
     top.appendChild(left);
-    var qr = qrBlock(true);
+    var qr = BIG ? null : qrBlock(true);      // the stream panel leaves the QR to the meet board TVs
     if (qr) {                       // start time sits above the results caption, beside the big QR
       top.appendChild(qr);
       if (w) qr.querySelector('.wus-qrt').insertBefore(w, qr.querySelector('.wus-qrt').firstChild);
