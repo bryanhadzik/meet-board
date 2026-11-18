@@ -116,3 +116,19 @@ def test_stream_layout_setting():
     p = meet_board.slide_payload({'warmup_stream': 'band', 'warmup_big_pct': 5}, {}, [])
     assert p['stream_layout'] == 'band' and p['big_pct'] == 40
     assert meet_board.slide_layout({'warmup_stream': 'nope'}) == 'big'
+
+
+def test_warmup_and_break_slide_take_each_other_down():
+    import CTS_Scoreboard as cs
+    c = cs.app.test_client()
+    was = (cs.settings.get('warmup_slide_on'), cs.BREAK['on'])
+    try:
+        c.post('/api/break_slide', json={'on': True, 'final': True})
+        assert cs.BREAK['on']
+        c.post('/api/warmup_slide', json={'on': True})
+        assert cs.settings['warmup_slide_on'] and not cs.BREAK['on']
+        c.post('/api/break_slide', json={'on': True})
+        assert cs.BREAK['on'] and not cs.settings['warmup_slide_on']
+    finally:
+        cs.settings['warmup_slide_on'] = was[0]
+        cs._break_set(was[1])

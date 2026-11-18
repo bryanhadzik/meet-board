@@ -2037,6 +2037,8 @@ def route_api_warmup_slide():
         if 'on' in d:
             settings['warmup_slide_on'] = bool(d['on'])
         save_settings()
+        if settings.get('warmup_slide_on') and BREAK['on']:
+            _break_set(False)                # warm-ups starting: the break / final results slide comes down by itself
         _warmup_broadcast()
     out = _warmup_slide()
     meet_info = getattr(event_info, 'meet_info', None) or {}
@@ -2240,6 +2242,10 @@ def _break_set(on, final=False):
     BREAK['on'] = bool(on)
     BREAK['final'] = bool(on and final)
     _break_emit()
+    if on and settings.get('warmup_slide_on'):   # one slide at a time: the break slide takes the warm-up slide down
+        settings['warmup_slide_on'] = False
+        save_settings()
+        _warmup_broadcast()
 
 
 def _final_race_over(e, h):
