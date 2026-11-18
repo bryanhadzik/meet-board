@@ -3783,6 +3783,17 @@ def _cors(resp):
     resp.headers['Cache-Control'] = 'no-store'
     return resp
 
+# The TV controls in the shared top bar's Screens menu also run from MeetDeck's pages (port 8001)
+_SCREEN_API = ('/api/warmup_slide', '/api/notice', '/api/break_slide', '/api/blackout', '/screens/reload')
+
+
+@app.after_request
+def _screen_api_cors(resp):
+    if flask.request.path in _SCREEN_API and flask.request.headers.get('Origin'):
+        _cors(resp)
+    return resp
+
+
 @app.route('/api/results_qr')
 def results_qr_info():
     """What the meet boards need for the phone-results QR code (public: the boards don't log in)."""

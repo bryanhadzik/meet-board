@@ -1,82 +1,12 @@
 {# Top bar on the admin pages. `active` = settings | files | music | colors | state | update | debug #}
-<style>
-  /* screen buttons, inside the shared bar's Screens menu */
-  #appbar .rl { font:600 13px/1 "Segoe UI", system-ui, sans-serif; color:#0b1618; background:#d9a441;
-                border:0; border-radius:7px; padding:9px 11px; cursor:pointer; }
-  #appbar .rl.done { background:#7fe0ab; }
-  #appbar .bk, #appbar .wu, #appbar .nt, #appbar .brk { background:#2a3a3d; color:#e6eef0; }
-  #appbar .wu.on { background:#3ddc84; color:#0b1618; }
-  #appbar .nt.on { background:#ffd23f; color:#0b1618; }
-  #appbar .brk.on { background:#ffd60a; color:#0b1618; }
-  #appbar .bk.on { background:#000; color:#ffd479; box-shadow:0 0 0 1px #ffd479 inset; }
-</style>
-{# The shared top bar (static/appbar.js, same file as MeetDeck's). These buttons move into its Screens menu. #}
-<div id="mbScreenCtl" style="display:none">
-  <button class="rl wu" id="mbWarmBtn" type="button" title="Show the warm-up slide (meet, teams, start time) on the meet boards and the stream">Warm-up slide</button>
-  <button class="rl nt" id="mbNoticeBtn" type="button" title="Full-screen &quot;We need timers&quot; slide on the meet board TVs (change the words in Settings &gt; Screens)">Need timers</button>
-  <button class="rl brk" id="mbBreakBtn" type="button" title="Break slide on the meet board TVs: team scores, results so far and the events still to come (Settings &gt; Screens: show it automatically after the session's last event)">Break slide</button>
-  <button class="rl bk" id="mbBlackBtn" type="button" title="Blank the meet board and scoreboard TVs (the OBS overlay is not affected)">Go black</button>
-  <button class="rl" type="button" title="Reload every meet board, scoreboard and overlay page (TVs, OBS)"
-    onclick="var b=this;fetch('/screens/reload?json=1',{method:'POST'}).then(function(){b.textContent='Screens refreshing\u2026';b.classList.add('done');setTimeout(function(){b.textContent='Refresh all screens';b.classList.remove('done');},4000);});">Refresh all screens</button>
-</div>
+{# The shared top bar (static/appbar.js, same file as MeetDeck's). Its Screens menu has the TV controls. #}
 <script>
 window.APPBAR = {app: "meetboard", active: {{ (active if active in ('music', 'stream') else 'admin')|tojson }}, page: {{ active|tojson }},
-                 debug: {{ (show_debug or active == 'debug')|tojson }}, streamOff: {{ streaming_off|tojson }}, screenControls: document.getElementById("mbScreenCtl")};
+                 debug: {{ (show_debug or active == 'debug')|tojson }}, streamOff: {{ streaming_off|tojson }}};
 </script>
 <script src="{{ url_for('static', filename='appbar.js') }}"></script>
 <script>
 (function(){
-  var b = document.getElementById('mbBlackBtn'), st = null;
-  function show(d){
-    st = d; if (window.bkShow) window.bkShow(d);
-    b.classList.toggle('on', !!d.black);
-    b.textContent = d.black ? (d.reason === 'auto' ? 'Screens black (idle) \u2014 wake' : 'Screens black \u2014 wake') : 'Go black';
-    b.title = d.black ? 'TVs are black. Click to wake them.' :
-      (d.auto && d.black_in_seconds != null ? 'Blank the TVs now. Otherwise they go black by themselves in ' +
-        Math.ceil(d.black_in_seconds/60) + ' min with no meet activity.' : 'Blank the meet board and scoreboard TVs');
-  }
-  function load(){ fetch('/api/blackout',{cache:'no-store'}).then(function(r){return r.json();}).then(show).catch(function(){}); }
-  b.onclick = function(){
-    fetch('/api/blackout',{method:'POST',headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({black: !(st && st.black)})}).then(function(r){return r.json();}).then(show);
-  };
-  load(); setInterval(load, 15000);
-  // warm-up slide toggle
-  var w = document.getElementById('mbWarmBtn'), wOn = false;
-  function wShow(d){ wOn = !!(d && d.on); w.classList.toggle('on', wOn);
-    w.textContent = wOn ? 'Warm-up: ON' : 'Warm-up slide';
-    if (window.wuShow) window.wuShow(d); }
-  function wLoad(){ fetch('/api/warmup_slide',{cache:'no-store'}).then(function(r){return r.json();}).then(wShow).catch(function(){}); }
-  w.onclick = function(){
-    fetch('/api/warmup_slide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!wOn})})
-      .then(function(r){return r.json();}).then(wShow);
-  };
-  window.wuNavShow = wShow;
-  // notice slide ("We need timers") toggle
-  var nb = document.getElementById('mbNoticeBtn'), nOn = false;
-  function nShow(d){ nOn = !!(d && d.on); nb.classList.toggle('on', nOn);
-    nb.textContent = nOn ? 'Timers slide: ON' : 'Need timers';
-    if (window.ntShow) window.ntShow(d); }
-  nb.onclick = function(){
-    fetch('/api/notice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!nOn})})
-      .then(function(r){return r.json();}).then(nShow);
-  };
-  window.ntNavShow = nShow;
-  // break slide toggle
-  var bb = document.getElementById('mbBreakBtn'), bOn = false;
-  function bShow(d){ bOn = !!(d && d.on); bb.classList.toggle('on', bOn);
-    bb.textContent = bOn ? (d.final ? 'Final results: ON' : 'Break slide: ON') : (d && d.pending ? 'Results slide soon\u2026' : 'Break slide');
-    if (window.brShow) window.brShow(d); }
-  bb.onclick = function(){
-    fetch('/api/break_slide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!bOn})})
-      .then(function(r){return r.json();}).then(bShow);
-  };
-  window.brNavShow = bShow;
-  function bLoad(){ fetch('/api/break_slide',{cache:'no-store'}).then(function(r){return r.json();}).then(bShow).catch(function(){}); }
-  bLoad(); setInterval(bLoad, 15000);
-  function nLoad(){ fetch('/api/notice',{cache:'no-store'}).then(function(r){return r.json();}).then(nShow).catch(function(){}); }
-  nLoad(); setInterval(nLoad, 15000);
-  wLoad(); setInterval(wLoad, 15000);
   // flag the Software Update tab when a newer release is out
   fetch('/update_check').then(function(r){ return r.json(); }).then(function(d){
     if (d && d.newer && window.AppBar) window.AppBar.update('Update available: ' + d.latest);
