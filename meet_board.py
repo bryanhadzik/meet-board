@@ -461,7 +461,22 @@ def slide_payload(settings, meet_info, teams):
         'teams': teams,
         'speed': slide_speed(settings),
         'hold': slide_hold(settings),
+        'stream_layout': slide_layout(settings),
+        'big_pct': slide_big_pct(settings),
     }
+
+
+STREAM_LAYOUTS = ('big', 'band', 'full')   # warm-ups on the stream: a big panel, a band along the bottom, the whole picture
+BIG_MIN, BIG_MAX, BIG_DEFAULT = 40, 100, 75  # big panel: percent of the screen's width
+
+
+def slide_layout(settings):
+    v = settings.get('warmup_stream', 'big')
+    return v if v in STREAM_LAYOUTS else 'big'
+
+
+def slide_big_pct(settings):
+    return _clamp(settings.get('warmup_big_pct', BIG_DEFAULT), BIG_MIN, BIG_MAX, BIG_DEFAULT)
 
 
 SPEED_MIN, SPEED_MAX, SPEED_DEFAULT = 5, 120, 30   # TV scroll, px per second at 1080p

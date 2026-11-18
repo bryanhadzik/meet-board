@@ -66,6 +66,8 @@ settings = {
     'state_cuts': meet_board.default_state_cuts(),   # last season's state cuts per class (meet board)
     'warmup_speed': 30,           # TV scroll speed, px per second at 1080p
     'warmup_hold': 7,             # stream band: seconds per heat
+    'warmup_stream': 'big',       # warm-ups on the stream: big (a panel over most of the picture), band, full
+    'warmup_big_pct': 75,         # big panel: percent of the screen's width
     'username': 'admin',
     'password': 'password',
     'ad_url': '',
@@ -2001,7 +2003,7 @@ _HHMM = re.compile(r'^([01]?\d|2[0-3]):([0-5]\d)$')
 
 @app.route('/api/warmup_slide', methods=['GET', 'POST'])
 def route_api_warmup_slide():
-    """GET: what the warm-up slide shows. POST any of {on, title, subtitle, start, speed, hold}."""
+    """GET: what the warm-up slide shows. POST any of {on, title, subtitle, start, speed, hold, stream_layout, big_pct}."""
     if flask.request.method == 'POST':
         if not app.config.get('LOGIN_DISABLED') and not flask_login.current_user.is_authenticated:
             return flask.jsonify({'error': 'login required'}), 401
@@ -2022,6 +2024,16 @@ def route_api_warmup_slide():
                 except (TypeError, ValueError):
                     return flask.jsonify({'error': k + ' must be a number'}), 400
                 settings['warmup_' + k] = fn({'warmup_' + k: d[k]})
+        if 'stream_layout' in d:
+            if d['stream_layout'] not in meet_board.STREAM_LAYOUTS:
+                return flask.jsonify({'error': 'stream_layout must be one of ' + ', '.join(meet_board.STREAM_LAYOUTS)}), 400
+            settings['warmup_stream'] = d['stream_layout']
+        if 'big_pct' in d:
+            try:
+                float(d['big_pct'])
+            except (TypeError, ValueError):
+                return flask.jsonify({'error': 'big_pct must be a number'}), 400
+            settings['warmup_big_pct'] = meet_board.slide_big_pct({'warmup_big_pct': d['big_pct']})
         if 'on' in d:
             settings['warmup_slide_on'] = bool(d['on'])
         save_settings()

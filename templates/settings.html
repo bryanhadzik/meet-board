@@ -224,9 +224,9 @@
             .wu-speed .wu-ends { color:var(--dim); font-size:13px; }
           </style>
           <p class="help-block" style="margin-top:0">Shows the meet, the start time with a countdown, the teams, and a slow listing of every event
-            and the swimmers in each heat &mdash; full screen on the meet board TVs (the heats scroll slowly up), and as a
-            band along the bottom of the stream that steps through the heats one at a time, so the camera still shows
-            warm-ups. It comes down by itself when the first race starts.</p>
+            and the swimmers in each heat &mdash; full screen on the meet board TVs (the heats scroll slowly up). On the stream it's
+            the same scrolling listing in a big panel over most of the picture, with a strip of the pool still showing (or a
+            band along the bottom that steps through the heats). It comes down by itself when the first race starts.</p>
           <div class="wu-grid">
             <div><label for="wu_sub">Second line</label><input class="form-control" id="wu_sub" style="width:100%"></div>
             <div><label for="wu_start">Meet starts at</label><input class="form-control" id="wu_start" type="time"></div>
@@ -244,6 +244,18 @@
               </div>
               <span class="help-block">Changes the boards right away, even while the slide is up.
                 <a href="#" onclick="var e=document.getElementById('wu_speed'); e.value=30; wuSpeedLabel(); wuSet({speed:30}); return false">Reset</a></span>
+            </div>
+            <div>
+              <label for="wu_lay">On the stream</label>
+              <select class="form-control" id="wu_lay" onchange="wuSet({stream_layout: this.value})">
+                <option value="big">Big panel (scrolls like the meet board)</option>
+                <option value="band">Band along the bottom</option>
+                <option value="full">Whole picture</option>
+              </select>
+              <select class="form-control" id="wu_pct" onchange="wuSet({big_pct: +this.value})" style="margin-top:6px">
+                <option value="50">Panel: half the screen</option><option value="66">Panel: two thirds</option>
+                <option value="75">Panel: 75% of the screen</option><option value="85">Panel: 85% of the screen</option>
+              </select>
             </div>
             <div>
               <label for="wu_hold">Stream band: each heat shows for</label>
@@ -277,6 +289,12 @@
             if (d.defaults){ $('wu_sub').placeholder = d.defaults.subtitle || 'e.g. the pool'; }
             if (!loaded && d.saved){ loaded = true; $('wu_sub').value = d.saved.subtitle; $('wu_start').value = d.saved.start; }
             if (d.speed != null && document.activeElement !== $('wu_speed')){ $('wu_speed').value = d.speed; wuSpeedLabel(); }
+            if (d.stream_layout){ $('wu_lay').value = d.stream_layout; $('wu_pct').style.display = d.stream_layout === 'big' ? '' : 'none'; }
+            if (d.big_pct != null){
+              var pc = $('wu_pct'), pv = String(+d.big_pct);
+              if (![].some.call(pc.options, function(o){ return o.value === pv; })){ var po = document.createElement('option'); po.value = pv; po.textContent = 'Panel: ' + pv + '% of the screen'; pc.appendChild(po); }
+              pc.value = pv;
+            }
             if (d.hold != null){
               var h = $('wu_hold'), v = String(+d.hold);
               if (![].some.call(h.options, function(o){ return o.value === v; })){

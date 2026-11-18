@@ -108,3 +108,11 @@ def test_api_sets_speed_and_broadcasts_it(monkeypatch):
         defaults = {'warmup_speed': 30, 'warmup_hold': 7, 'warmup_title': ''}
         for k, v in old.items():
             C.settings[k] = defaults[k] if v is None else v
+
+
+def test_stream_layout_setting():
+    p = meet_board.slide_payload({}, {}, [])
+    assert p['stream_layout'] == 'big' and p['big_pct'] == 75
+    p = meet_board.slide_payload({'warmup_stream': 'band', 'warmup_big_pct': 5}, {}, [])
+    assert p['stream_layout'] == 'band' and p['big_pct'] == 40
+    assert meet_board.slide_layout({'warmup_stream': 'nope'}) == 'big'

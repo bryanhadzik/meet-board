@@ -12,8 +12,12 @@
    starts.
 
      mbWarmupSlide(socket, {mode: 'full'})                     meet boards
-     mbWarmupSlide(socket, {mode: 'band', bandh: 392,           stream overlay
-                            onShow: function (shown) {...}})
+     mbWarmupSlide(socket, {mode: 'stream', bandh: 392,         stream overlay: the layout comes from
+                            onShow: function (shown) {...}})    Settings -> Warm-up slide (big / band / full)
+
+   On the stream, "big" is the meet-board listing (heats scrolling up) in a panel over
+   most of the picture (75% of the width by default, at the right), so a strip of
+   warm-ups stays in view; "band" steps through the heats along the bottom.
 
    Scroll speed and band hold time come from Settings -> Warm-up slide (sent
    with the slide, applied live). URL options on a page override them:
@@ -22,7 +26,8 @@
 */
 window.mbWarmupSlide = function (socket, opts) {
   opts = opts || {};
-  var MODE = opts.mode === 'band' ? 'band' : 'full';
+  var AUTO = opts.mode === 'stream';           // stream overlay: layout from Settings
+  var MODE = opts.mode === 'band' ? 'band' : 'full', BIG = false;
   var BANDH = opts.bandh || 392;
   var q = new URLSearchParams(location.search);
   function clamp(v, lo, hi) { v = parseFloat(v); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null; }
@@ -37,6 +42,10 @@ window.mbWarmupSlide = function (socket, opts) {
     '  --u:calc(100vw/1920);opacity:0;transition:opacity .5s ease;pointer-events:none;display:flex;box-sizing:border-box}',
     '.wus *{box-sizing:border-box}',
     '.wus.on{opacity:1}',
+    /* big (stream): the full listing in a panel over part of the picture, scaled to the panel */
+    '.wus.full.big{left:auto;right:0;top:0;bottom:0;width:calc(var(--pct)*1vw);--u:calc(var(--pct)*1vw/1920*1.12);',
+    '  box-shadow:calc(-6*var(--u)) 0 0 0 #3ddc84,0 0 calc(60*var(--u)) rgba(0,0,0,.6)}',
+    '.wus.full.big .wus-grid{grid-template-columns:repeat(3,minmax(0,1fr))}',
     '.wus-kick{display:inline-block;font-weight:800;letter-spacing:.22em;color:#0b1618;background:#3ddc84;border-radius:calc(8*var(--u))}',
     '.wus-ttl{font-weight:800;line-height:1.02;letter-spacing:-.01em}',
     '.wus-sub{color:#bfe6ec;font-weight:500}',
@@ -394,7 +403,7 @@ window.mbWarmupSlide = function (socket, opts) {
       var loop = grid.offsetHeight, y = 0, last = null;
       function step(t) {
         // speed is read every frame, so a change in Settings applies smoothly
-        if (last !== null) { y += (t - last) / 1000 * speed() * window.innerWidth / 1920; if (y >= loop) y -= loop; }
+        if (last !== null) { y += (t - last) / 1000 * speed() * root.clientWidth / 1920; if (y >= loop) y -= loop; }
         last = t;
         track.style.transform = 'translateY(' + (-y).toFixed(1) + 'px)';
         raf = requestAnimationFrame(step);
@@ -469,14 +478,23 @@ window.mbWarmupSlide = function (socket, opts) {
   }
 
   if (q.has('nowarmup')) return;
+  function layout() {        // the stream overlay follows Settings -> Warm-up slide
+    if (!AUTO) return;
+    var lay = q.get('warmup') === 'band' || q.get('warmup') === 'full' || q.get('warmup') === 'big' ? q.get('warmup') : (data.stream_layout || 'big');
+    MODE = lay === 'band' ? 'band' : 'full'; BIG = lay === 'big';
+    var pct = Math.max(40, Math.min(100, parseFloat(q.get('wupct')) || data.big_pct || 75));
+    root.className = 'wus ' + MODE + (BIG ? ' big' : '') + (root.classList.contains('on') ? ' on' : '');
+    root.style.setProperty('--pct', pct);
+  }
   socket.on('warmup_slide', function (d) {
     data = d || {};
+    layout();
     if (data.on) {
       // the server re-sends on every heat change; only redraw (and restart the
       // scroll) when what's on the slide actually changed
       // (speed is read live by the scroll; the band's hold time needs a restart)
       var sig = JSON.stringify([data.title, data.subtitle, data.start, data.date, data.teams, data.events, data.school_of, data.results_url, data.stream,
-                                MODE === 'band' ? hold() : 0]);
+                                MODE === 'band' ? hold() : 0, MODE, BIG, data.big_pct]);
       if (sig !== sigShown || !root.classList.contains('on')) { sigShown = sig; draw(); }
     } else sigShown = '';
     show(!!data.on);

@@ -553,10 +553,10 @@ if (window.mbOverlayDelay) window.mbOverlayDelay(socket, {{ overlay_delay|defaul
     if (window.mbAutoReload) window.mbAutoReload(socket);
     if (window.mbAnnounceStream) window.mbAnnounceStream(socket);   // announcements on the stream (Music > Stream audio)
 socket.on('update_scoreboard', function(u){ for (var k in u) s[k] = u[k]; render(); });
-// Warm-up slide: takes the band's place before the meet (?warmup=full for the
-// whole picture, ?warmup=0 to never show it on this source)
+// Warm-up slide before the meet: layout from Settings -> Warm-up slide (a big panel over 75% of the
+// picture, a band along the bottom, or the whole picture); ?warmup=big|band|full overrides, ?warmup=0 hides it
 if (window.mbWarmupSlide && q.get('warmup') !== '0')
-  window.mbWarmupSlide(socket, {mode: q.get('warmup') === 'full' ? 'full' : 'band', bandh: BAND ? BANDH : 392,
+  window.mbWarmupSlide(socket, {mode: 'stream', bandh: BAND ? BANDH : 392,
     onShow: function(on){ ov.style.visibility = on ? 'hidden' : ''; }});
 // Break slide ("Results so far"): a band in the same place, results changing every few seconds
 // (?nobreak to keep it off this source)
