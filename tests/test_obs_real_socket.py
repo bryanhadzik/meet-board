@@ -37,7 +37,7 @@ def fake_obs():
                 rt = m['d']['requestType']
                 data = {'GetVersion': {'obsVersion': '31.0.2', 'platformDescription': 'Windows 11'},
                         'GetStreamServiceSettings': {'streamServiceType': 'rtmp_common',
-                                                     'streamServiceSettings': {'service': 'YouTube - RTMPS', 'key': 'x'}},
+                                                     'streamServiceSettings': {'service': 'Cloudflare Stream', 'key': 'x'}},
                         'GetStreamStatus': {'outputActive': False}}.get(rt, {})
                 ws.send(json.dumps({'op': 7, 'd': {'requestType': rt, 'requestId': m['d']['requestId'],
                                                    'requestStatus': {'result': True, 'code': 100}, 'responseData': data}}))

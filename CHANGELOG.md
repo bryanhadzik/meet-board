@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Stream moved off YouTube.** The YouTube channel setting is gone: `/api/stream_link` now only says
+  `live` / `off` (the player's address is a MeetDeck setting, Cloudflare Stream by default). QR and
+  warm-up slides say "live stream"; "Copy YouTube chapters" is now "Copy event times"
+  (`/api/stream/chapters`, module `stream_chapters.py`).
+
 - **One top bar with MeetDeck** (static/appbar.js, same file in both): Set up meet · Run meet · Music,
   Screens ▾ (meet board and stream pages, warm-up / timers / break / go black / refresh) and
   ⚙ Setup ▾ (settings, team colors, state times, meet files, update, debug when on), plus a status dot.

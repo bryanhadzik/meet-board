@@ -17,17 +17,11 @@ def test_results_qr_info_and_svg():
     cs.settings['results_url'] = ''
 
 
-def test_stream_link():
+def test_stream_link(monkeypatch):
     c = cs.app.test_client()
-    for given, want in [('@tooeleswim', 'https://www.youtube.com/@tooeleswim/live'),
-                        ('tooeleswim', 'https://www.youtube.com/@tooeleswim/live'),
-                        ('https://www.youtube.com/@Pool.Live/featured', 'https://www.youtube.com/@Pool.Live/live'),
-                        ('https://youtube.com/channel/UCabcdefghijklmnopqrstuv', 'https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv/live'),
-                        ('', '')]:
-        cs.settings['youtube_channel'] = given
-        d = c.get('/api/stream_link').get_json()
-        assert d['url'] == want and d['live'] is False
-    cs.settings['youtube_channel'] = ''
+    d = c.get('/api/stream_link').get_json()
+    assert d == {'live': False, 'off': cs.streaming_off()} and 'url' not in d
+    assert c.get('/api/stream_link').headers['Access-Control-Allow-Origin'] == '*'
 
 
 def test_break_slide_manual_and_auto(monkeypatch):

@@ -1,5 +1,5 @@
 """Mute the stream's audio in OBS while meet music plays, so copyrighted
-songs picked up by the pool mic (or desktop audio) don't reach YouTube.
+songs picked up by the pool mic (or desktop audio) don't reach the stream.
 
 On Music -> Stream audio you tick which OBS audio sources to silence. When a
 song starts, each ticked source that is currently live gets muted; when the

@@ -314,7 +314,7 @@ window.mbWarmupSlide = function (socket, opts) {
     t.appendChild(el('span', 'wus-qk', data.stream ? 'RESULTS & LIVE STREAM' : 'LIVE RESULTS'));
     t.appendChild(el('span', 'wus-qu', url.replace(/^https?:\/\//, '').replace(/\/$/, '')));
     t.appendChild(el('span', 'wus-qs', data.stream
-      ? (MODE === 'full' ? 'Scan for heats, lanes and results. Family can\u2019t make it? The YouTube live stream link is on that page \u2014 send it to them.'
+      ? (MODE === 'full' ? 'Scan for heats, lanes and results. Family can\u2019t make it? The live stream is on that page \u2014 send it to them.'
                          : 'Heats and results on your phone. Share the live stream link from that page.')
       : 'Scan for heats, lanes and results on your phone.'));
     box.appendChild(t);

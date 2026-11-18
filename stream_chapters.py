@@ -1,8 +1,8 @@
-"""YouTube chapters for a streamed meet.
+"""Event times in a streamed meet's recording.
 
 meet-board knows when every race starts (race_book) and when the OBS stream started (obs status:
-outputDuration), so after a meet it can list "M:SS Event N Name" lines to paste into the video's
-description. YouTube's rules: the first chapter at 0:00, at least three, each at least 10 s long.
+outputDuration), so after a meet it can list "M:SS Event N Name" lines: where each event is in the
+recording (for a video description or to find a race). The first line at 0:00, each at least 10 s apart.
 
 Stored in DATA_DIR/stream_log.json:
   {"streams": [{"start": ts, "end": ts}], "races": [{"t": ts, "event": "4", "heat": "1"}]}
@@ -104,12 +104,12 @@ def chapters(log, names, index=None, lead=LEAD):
     elif marks:
         marks[0][0] = 0.0
     for t, label in marks:
-        if lines and t < lines[-1][0] + 10:              # YouTube needs 10 s per chapter
+        if lines and t < lines[-1][0] + 10:              # at least 10 s apart (video chapter rules)
             t = lines[-1][0] + 10
         lines.append([t, label])
     text = '\n'.join('%s %s' % (_fmt(t), label) for t, label in lines)
     info = {'session': s, 'events': len(marks), 'races': len(races), 'ok': len(lines) >= 3,
-            'note': '' if len(lines) >= 3 else 'YouTube needs at least 3 chapters'}
+            'note': '' if len(lines) >= 3 else 'video chapters need at least 3 lines'}
     return text, info
 
 

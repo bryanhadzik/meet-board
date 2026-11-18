@@ -314,8 +314,8 @@
 <h3 id="obs">Stream (OBS)</h3>
 <section class="card">
   <label style="font-weight:600;display:flex;gap:8px;align-items:center"><input type="checkbox" id="streamOff" {% if streaming_off %}checked{% endif %}> Streaming turned off &mdash; hide everything about the stream</label>
-  <p class="help-block" style="margin:4px 0 8px">For when meets can't be streamed. Takes away the live-stream button and the YouTube channels on the phone results page,
-    "and the YouTube live stream" on the QR slides, the Stream tab and the stream pages in the top bar, and announcements played
+  <p class="help-block" style="margin:4px 0 8px">For when meets can't be streamed. Takes away the live-stream button and player on the phone results page,
+    "and the live stream" on the QR slides, the Stream tab and the stream pages in the top bar, and announcements played
     into OBS. Nothing is deleted &mdash; untick it to bring it all back. (The phone results page changes the next time results are published.)</p>
   <span id="streamOffMsg" class="small"></span>
   <script>
@@ -326,7 +326,7 @@
       .catch(function () { m.textContent = ' Could not save.'; });
   });
   </script>
-  <p style="margin:8px 0 0">{% if streaming_off %}The Stream page is hidden while streaming is off: <a href="/stream">open it anyway</a>.{% else %}Starting and stopping the stream, the OBS connection, overlay delay and YouTube chapters are on the <a href="/stream">Stream</a> page.{% endif %}</p></section>
+  <p style="margin:8px 0 0">{% if streaming_off %}The Stream page is hidden while streaming is off: <a href="/stream">open it anyway</a>.{% else %}Starting and stopping the stream, the OBS connection, overlay delay and the recording's event times are on the <a href="/stream">Stream</a> page.{% endif %}</p></section>
 <h3 id="https">Phone mic (HTTPS)</h3>
 <section class="card">
   <p style="margin-top:0">Phones only let <a href="/listen" target="_blank">Listen from the stands</a> use their microphone over
@@ -389,8 +389,7 @@
       </select></label>
     <label class="small">Slide every <input name="results_every" value="{{ results_every }}" style="width:60px;display:inline-block" class="form-control"> minutes, for
       <input name="results_secs" value="{{ results_secs }}" style="width:60px;display:inline-block" class="form-control"> seconds (never during a race or while results are up)</label><br>
-    <label class="small" style="margin-top:6px">YouTube channel <input name="youtube_channel" value="{{ youtube_channel }}" placeholder="@yourchannel or the channel's link" style="width:300px" class="form-control"></label>
-    <span class="small" style="color:#777">The phone results page gets a &ldquo;Watch the live stream&rdquo; link to this channel's <i>/live</i> page, which always opens whatever is streaming.</span><br>
+    <span class="small" style="color:#777;display:block;margin-top:6px">While OBS is streaming, the phone results page plays the live stream above the results (the player's address is in MeetDeck Setup).</span>
     <button class="btn btn-primary btn-sm" type="submit" style="margin-top:6px">Save</button>
     {% if results_url %}<a href="/results_qr.svg" target="_blank" class="small" style="margin-left:10px">See the code</a>{% endif %}
   </form>

@@ -67,13 +67,13 @@ window.mbResultsQr = function (opts) {
     }).catch(function () {}).then(apply);
   }
 
-  function words() {          // the page also has the YouTube live link: say so when there's a stream
+  function words() {          // the page also plays the live stream: say so when there's a stream
     var st = !!(cfg && cfg.stream);
     corner.querySelector('.k').textContent = st ? 'RESULTS & LIVE VIDEO ON YOUR PHONE' : 'RESULTS ON YOUR PHONE';
     slide.querySelector('.k').textContent = st ? 'RESULTS & LIVE STREAM' : 'LIVE RESULTS';
     slide.querySelector('.h').textContent = st ? 'Results & live video on your phone' : 'Results on your phone';
     slide.querySelector('.p').textContent = st
-      ? 'Point your camera at the code. Every event, place and time, team scores, and the YouTube live stream \u2014 send the link to family who couldn\u2019t make it.'
+      ? 'Point your camera at the code. Every event, place and time, team scores, and the live stream \u2014 send the link to family who couldn\u2019t make it.'
       : 'Point your camera at the code. Every event, place and time, plus team scores \u2014 updated through the meet.';
   }
 

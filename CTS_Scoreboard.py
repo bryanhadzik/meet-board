@@ -40,7 +40,7 @@ import obs_client
 import music
 import music_mute
 import blackout as blackout_mod
-import yt_chapters
+import stream_chapters
 from _version import __version__
 
 DEBUG = False
@@ -73,7 +73,6 @@ settings = {
     'results_qr': 'slide',        # off | corner | slide (corner + a full-screen slide every few minutes between races)
     'results_every': '4',         # minutes between full-screen slides
     'results_secs': '15',         # seconds each slide stays up
-    'youtube_channel': '',        # @handle or channel URL; youtube.com/<it>/live opens whatever is streaming now
     'num_lanes': 8,           # Tooele: 8-lane pool
     'pool_course': 'SCY',
     'show_pr_tags': True,
@@ -1983,10 +1982,10 @@ def _warmup_slide():
         out['school_of'] = meet_board.canonical_codes(settings, meet_teams, _team_names())
         out['colors'] = {c: (v.get('color') or '') for c, v in
                          meet_board.team_colors(settings, meet_teams, _team_names()).items()}
-        # phone results QR (the page also has the YouTube live link to pass on)
+        # phone results QR (the page also has the live stream to pass on)
         if settings.get('results_qr') != 'off':
             out['results_url'] = (settings.get('results_url') or '').strip()
-            out['stream'] = bool((settings.get('youtube_channel') or '').strip()) and not streaming_off()
+            out['stream'] = not streaming_off()
     return out
 
 
@@ -2624,7 +2623,7 @@ def _race_over(event, heat):
 
 def _race_started():
     _stream_activity()
-    try:                                # for "Copy YouTube chapters"
+    try:                                # for "Copy event times"
         st = race_book.s
         STREAM_LOG.race(st.get('current_event'), st.get('current_heat'), race_book_secs(st.get('running_time')))
     except Exception as e:
@@ -3367,7 +3366,6 @@ def route_settings():
                 seed_time_label=settings.get('seed_time_label', 'Seed Time'),
                 results_url=settings.get('results_url', ''), results_qr=settings.get('results_qr', 'slide'),
                 results_every=settings.get('results_every', '4'), results_secs=settings.get('results_secs', '15'),
-                youtube_channel=settings.get('youtube_channel', ''),
                 schedule_loaded=schedule_loaded,
                 schedule_error=schedule_error,
                 schedule_filename=settings.get('schedule_filename', ''),
@@ -3784,38 +3782,19 @@ def results_qr_info():
     mode = settings.get('results_qr') if settings.get('results_qr') in ('off', 'corner', 'slide') else 'slide'
     return flask.jsonify(url=(settings.get('results_url') or '').strip(), mode=mode,
                          every=num('results_every', 4, 1, 60), secs=num('results_secs', 15, 5, 120),
-                         stream=bool((settings.get('youtube_channel') or '').strip()))
-
-
-def youtube_live_url(chan):
-    """@handle, a handle without @, a channel id (UC...) or any youtube.com channel URL -> its /live address,
-    which YouTube sends to the broadcast that's on right now (or the channel page when nothing is)."""
-    c = (chan or '').strip()
-    if not c:
-        return ''
-    m = re.search(r'youtube\.com/((?:@[\w.-]+)|(?:channel/UC[\w-]+)|(?:c/[\w.-]+)|(?:user/[\w.-]+))', c)
-    if m:
-        path = m.group(1)
-    elif re.fullmatch(r'UC[\w-]{20,}', c):
-        path = 'channel/' + c
-    else:
-        path = '@' + c.lstrip('@')
-    return 'https://www.youtube.com/%s/live' % path
+                         stream=not streaming_off())
 
 
 @app.route('/api/stream_link', methods=['GET', 'OPTIONS'])
 def stream_link():
-    """The public link to the meet's live stream, for MeetDeck's phone results page (public, read-only)."""
+    """Whether the meet is streaming right now (OBS), for MeetDeck's phone results page (public, read-only).
+    The player's address is a MeetDeck setting; this only says live / off."""
     try:
         live = bool(obs.status().get('streaming')) if obs else False
     except Exception:
         live = False
-    if streaming_off():                  # streaming turned off: no link anywhere
-        r = flask.jsonify(url=None, live=False, channel='', off=True)
-        r.headers['Access-Control-Allow-Origin'] = '*'
-        return r
-    r = flask.jsonify(url=youtube_live_url(settings.get('youtube_channel')), live=live,
-                      channel=(settings.get('youtube_channel') or '').strip(), off=False)
+    off = streaming_off()                # streaming turned off: no stream anywhere
+    r = flask.jsonify(live=live and not off, off=off)
     r.headers['Access-Control-Allow-Origin'] = '*'
     return r
 
@@ -4046,11 +4025,11 @@ def route_obs_stream():
 # stream_autostop_min minutes. The warm-up and break slides count as activity, and so does the stream having
 # just started (warm-ups), so it never stops before the meet gets going.
 STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
-STREAM_LOG = yt_chapters.StreamLog(app_paths.data_path('stream_log.json'))
+STREAM_LOG = stream_chapters.StreamLog(app_paths.data_path('stream_log.json'))
 
 
 def _stream_logger():
-    """Note when the OBS stream started (for YouTube chapters)."""
+    """Note when the OBS stream started (for the recording's event times)."""
     while True:
         time.sleep(15)
         try:
@@ -4110,14 +4089,14 @@ def route_obs_autostop():
     return flask.jsonify({'minutes': int(settings.get('stream_autostop_min', 60) or 0), 'quiet_min': quiet, 'last': STREAM_WATCH['last']})
 
 
-@app.route('/api/youtube/chapters')
-def route_youtube_chapters():
+@app.route('/api/stream/chapters')
+def route_stream_chapters():
     """Chapters for a streamed meet: ?stream=<index> (default the latest stream that had races)."""
     try:
         idx = int(flask.request.args['stream']) if flask.request.args.get('stream') else None
     except ValueError:
         idx = None
-    text, info = yt_chapters.chapters(STREAM_LOG, dict(event_info.event_names), idx)
+    text, info = stream_chapters.chapters(STREAM_LOG, dict(event_info.event_names), idx)
     fmt = lambda t: time.strftime('%a %b %d, %I:%M %p', time.localtime(t)).replace(' 0', ' ')
     sess = [{'index': x['index'], 'label': '%s - %s (%d races)' % (fmt(x['start']), time.strftime('%I:%M %p', time.localtime(x['end'])).lstrip('0'), x['races'])}
             for x in STREAM_LOG.sessions()]
@@ -4302,7 +4281,7 @@ def inject_ad():
 
 
 def streaming_off():
-    """Settings -> Streaming turned off: nothing mentions the stream (no live link or YouTube on the phone page and
+    """Settings -> Streaming turned off: nothing mentions the stream (no live button or player on the phone page and
     the QR slides, no Stream tab, no announcements to OBS) - for when meets can't be streamed."""
     return bool(settings.get('streaming_off'))
 
