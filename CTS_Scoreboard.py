@@ -1743,6 +1743,11 @@ def debug_start():
         update['lane_place%d' % lane] = ' '
     _dbg_emit(update)
     _dbg['status'] = 'Event %d heat %d racing' % last_event_sent
+    try:                                # a simulated start is a race start too: stream replay links, chapters
+        _stream_activity()
+        STREAM_LOG.race(last_event_sent[0], last_event_sent[1], 0)
+    except Exception as e:
+        print('stream log:', e)
     socketio.start_background_task(_dbg_race, token)
 
 def debug_finish_now():
