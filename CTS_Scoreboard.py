@@ -4132,6 +4132,15 @@ def route_stream_chapters():
     return flask.jsonify({'text': text, **info, 'sessions': sess})
 
 
+@app.route('/api/stream/log')
+def route_stream_log():
+    """When each OBS stream ran and when each race started (unix times), for MeetDeck's race replay links:
+    {streams: [{start, end}], races: [{t, event, heat}]} (public, read-only)."""
+    with stream_chapters._lock:
+        d = {'streams': list(STREAM_LOG.d['streams']), 'races': list(STREAM_LOG.d['races'])[-3000:]}
+    return _cors(flask.jsonify(d))
+
+
 @app.route('/api/overlay/delay', methods=['GET', 'POST'])
 def route_overlay_delay():
     """GET/POST {seconds}: hold the stream overlays' updates this long (0-60 s) so they match a late camera feed.

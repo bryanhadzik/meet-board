@@ -45,3 +45,11 @@ def test_persist_and_sessions(tmp_path):
     again = stream_chapters.StreamLog(str(tmp_path / "stream_log.json"))
     assert again.sessions()[0]["races"] == 4
     assert stream_chapters.chapters(stream_chapters.StreamLog(str(tmp_path / "none.json")), {})[1]["error"]
+
+
+def test_stream_log_route():
+    import CTS_Scoreboard as cs
+    r = cs.app.test_client().get('/api/stream/log')
+    d = r.get_json()
+    assert r.status_code == 200 and 'streams' in d and 'races' in d
+    assert r.headers['Access-Control-Allow-Origin'] == '*'
