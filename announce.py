@@ -81,6 +81,7 @@ def event_label(meta):
 EXTRAS = [
     ('x_anthem', 'National anthem', 'Please stand for the national anthem.'),
     ('x_meeting', 'Coaches & captains', 'Coaches and captains meeting under the scoreboard.'),
+    ('x_meeting_room', 'Coaches & captains (team room)', 'Coaches and captains meeting in the team room.'),
     ('x_welcome', 'Welcome', 'Welcome to our meet.'),
     ('x_open', 'Pool open for warm-ups', 'The pool is open for warm-ups.'),
     ('x_break15', '15-minute break', 'We will now have a 15 minute break.'),
