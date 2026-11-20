@@ -660,11 +660,12 @@ $('up').addEventListener('submit', function (ev) {
   var annShow = function (d) {
     if (!d) return; ANN = d;
     var t = d.target;
-    $('annBtn').disabled = !t || !d.speaker;
-    $('annBtn').classList.toggle('busy', !!d.pending);
-    $('annBtn').textContent = d.pending ? 'Announcing soon…' : 'Announce';
+    var playing = !!(t && t.playing);
+    $('annBtn').disabled = !t || !d.speaker || playing;
+    $('annBtn').classList.toggle('busy', !!d.pending || playing);
+    $('annBtn').textContent = playing ? 'Announcing…' : d.pending ? 'Announcing soon…' : 'Announce';
     $('annT').textContent = t ? ('Event ' + t.event + ' · ' + t.name + (t.heats > 1 ? ' · Heat ' + t.heat + ' of ' + t.heats : '')) : 'Nothing left to announce';
-    $('annK').textContent = t && t.override ? 'Next to announce (picked)' : 'Next to announce';
+    $('annK').textContent = playing ? 'Announcing now' : t && t.override ? 'Next to announce (picked)' : 'Next to announce';
     var L = d.last;
     $('annNowT').textContent = L ? ('Event ' + L.event + (L.name ? ' · ' + L.name : '') + (L.heats > 1 ? ' · Heat ' + L.heat + ' of ' + L.heats : '')) : 'Nothing announced yet';
     $('annNowSay').textContent = L && L.text ? '"' + L.text + '"' : '';
@@ -789,6 +790,7 @@ if (SPEAKER) {
     var it = annQueue.shift();
     if (!it) {
       annBusy = false;
+      if (!annTest.on && annId != null) { socket.emit('announce_done', {id: annId}); annId = null; }
       if (annTest.on) { annTest.timer = setTimeout(annTestNext, 2500); return; }     // sound test: next one after a pause
       setTimeout(function () { if (!annBusy) annDuck(false); }, 400); return;
     }
@@ -830,13 +832,13 @@ if (SPEAKER) {
     if (!ready || !d || !d.items) return;
     window.annApplyVolume();
     if (ctx && ctx.state === 'suspended') ctx.resume();
-    annQueue = d.items.slice(); annBusy = true; annDuck(true);
+    annQueue = d.items.slice(); annBusy = true; annDuck(true); annId = d.id;
     setTimeout(annStep, 350);            // let the music dip first
   });
   /* ---- the mixer: music and mic into one output ----
      music: <audio> -> duck (dips while the mic is talking) -> master
      mic:   input -> gain -> low cut -> bass -> mid -> treble -> compressor -> level -> master */
-  var annPlayer = $('annPlayer'), annDip = null, annGain = null, annQueue = [], annBusy = false;
+  var annPlayer = $('annPlayer'), annDip = null, annGain = null, annQueue = [], annBusy = false, annId = null;
   var ctx = null, master = null, duckGain = null, mic = {}, micStream = null, micSrc = null, micKey = '',
       micBusy = false, lastVoice = 0, ducking = false, lastSent = 0,
       auto = new MicAuto(), autoOut = null, autoWas = false, specBuf = null, appliedGain = 0;

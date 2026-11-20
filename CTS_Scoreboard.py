@@ -2458,13 +2458,17 @@ def _ann_view():
     out = {'auto': bool(a.get('auto')), 'delay': a.get('delay', 5), 'when': a.get('when', 'end'), 'volume': a.get('volume', 100), 'target': None, 'last': None,
            'speaker': bool(music_state.speaker_sid), 'clips': len(announce.clips_on_disk(_ann_folder())),
            'clips_total': len(announce.clip_script()), 'pending': bool(_ann['timer'])}
+    pl = _ann.get('playing')
+    if pl and time.time() < pl['until']:     # still being said: keep it up until it's finished
+        key = pl['key']
     if key:
         pieces, meta = _ann_pieces(key)
         have = announce.clips_on_disk(_ann_folder())
         out['target'] = {'event': key[0], 'heat': key[1], 'heats': meta_heats(key[0]),
                          'name': announce.event_label(meta) if meta else event_info.get_event_name(key[0]),
                          'text': announce.text_of(pieces), 'missing': [p['clip'] for p in pieces if p['clip'] not in have],
-                         'override': _ann['override'] == key}
+                         'override': _ann['override'] == key,
+                         'playing': bool(pl and pl['key'] == key and time.time() < pl['until'])}
     have = announce.clips_on_disk(_ann_folder())
     out['extras'] = [{'clip': k, 'label': lab, 'text': t, 'have': k in have} for k, lab, t in announce.EXTRAS]
     out['now'] = _ann['now']
@@ -2546,6 +2550,24 @@ def _ann_test(on):
     return None
 
 
+def _ann_playing(key, text):
+    """The Announce panel keeps showing this heat until the speaker tab says it's finished (announce_done),
+    or until about how long it takes to say, if that never comes."""
+    secs = min(45.0, 3.0 + 0.5 * len((text or '').split()))
+    _ann['playing'] = {'key': key, 'id': _ann['seq'], 'until': time.time() + secs}
+    t = threading.Timer(secs + 0.2, _ann_broadcast)
+    t.daemon = True
+    t.start()
+
+
+@socketio.on('announce_done', namespace='/music')
+def on_announce_done(d):
+    pl = _ann.get('playing')
+    if pl and (d or {}).get('id') in (None, pl['id']):
+        _ann['playing'] = None
+        _ann_broadcast()
+
+
 def _ann_play(key, why='button'):
     if not key:
         return 'nothing left to announce'
@@ -2565,6 +2587,7 @@ def _ann_play(key, why='button'):
     _ann['now'] = None
     _ann['at'] = time.time()
     _ann['override'] = None
+    _ann_playing(key, announce.text_of(pieces))
     print('Announced %s/%s (%s): %s' % (key[0], key[1], why, announce.text_of(pieces)))
     _ann_broadcast()
     return None
@@ -2715,7 +2738,7 @@ def route_api_announce():
                 if 0 <= i < len(order):
                     _ann['override'] = order[i]
         elif act == 'reset':                 # start over: forget what was announced / swum
-            _ann.update(announced=set(), swum=set(), override=None, last=None)
+            _ann.update(announced=set(), swum=set(), override=None, last=None, playing=None)
         elif act == 'settings':
             a = _ann_settings()
             if 'auto' in d:
@@ -3888,7 +3911,7 @@ def route_api_startlists():
         event_info.from_object(staged.to_object())
         event_info.meet_info = staged.meet_info
         _store_usc(doc)
-        _ann.update(announced=set(), swum=set(), override=None, last=None)   # new start lists: start announcing over
+        _ann.update(announced=set(), swum=set(), override=None, last=None, playing=None)   # new start lists: start announcing over
         m = (doc or {}).get('meet') or {}
         settings['schedule_meet'] = {'id': str(m.get('id') or '')[:40], 'name': str(m.get('name') or '')[:120],
                                      'date': str(m.get('date') or '')[:20]}

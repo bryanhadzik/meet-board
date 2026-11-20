@@ -71,6 +71,7 @@ def test_api_play_advances(board):
     c.post('/api/announce', json={'action': 'play'})
     play = [d for ev, d, k in board if ev == 'announce_play'][0]
     assert all('say' in it and 'url' not in it for it in play['items'])     # no clips yet: PC voice
+    C.on_announce_done({'id': play['id']})                                  # the speaker tab finished saying it
     v = c.get('/api/announce').get_json()
     assert (v['target']['event'], v['target']['heat']) == (1, 2) and v['target']['text'] == "Event one. Women's 200 freestyle relay. Heat two. Please report to the blocks."
 
@@ -162,3 +163,13 @@ def test_auto_announce_skips_a_heat_announced_by_hand(board, monkeypatch):
             break
         time.sleep(0.02)
     assert len(plays()) == 2 and plays()[1].startswith('Event two')
+
+
+def test_panel_stays_on_the_heat_until_it_is_finished(board):
+    c = C.app.test_client()
+    c.post('/api/announce', json={'action': 'play'})
+    v = c.get('/api/announce').get_json()
+    assert (v['target']['event'], v['target']['heat']) == (1, 1) and v['target']['playing']   # still being said
+    C.on_announce_done({'id': C._ann['seq']})                                                   # speaker tab: finished
+    v = c.get('/api/announce').get_json()
+    assert (v['target']['event'], v['target']['heat']) == (1, 2) and not v['target']['playing']
