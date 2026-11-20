@@ -5,6 +5,7 @@ import zipfile
 import pytest
 
 import announce as A
+import time
 import CTS_Scoreboard as C
 
 W200FR = {'sex_codes': [2], 'distance': 200, 'stroke_code': 1, 'relay': True}
@@ -142,3 +143,22 @@ def test_auto_announce_stops_at_the_break(board, monkeypatch):
     assert not C._ann_break_after(7, 3)
     monkeypatch.setitem(C.settings, 'break_slide', {'auto': False, 'after': 8})
     assert not C._ann_break_after(8, 2)        # no automatic break set: announce as usual
+
+
+def test_auto_announce_skips_a_heat_announced_by_hand(board, monkeypatch):
+    monkeypatch.setattr(C.race_book, 'racing', True, raising=False)
+    monkeypatch.setitem(C.settings, 'announce', {'auto': True, 'delay': 0, 'when': 'end'})
+    c = C.app.test_client()
+    c.post('/api/announce', json={'action': 'play'})            # pressed by hand while 1/1 swims: says 1/2
+    plays = lambda: [d['text'] for ev, d, k in board if ev == 'announce_play']
+    assert len(plays()) == 1 and 'Heat two' in plays()[0]
+    monkeypatch.setattr(C.race_book, 'racing', False, raising=False)
+    C._ann_race_over(1, 1)                                       # race over, automatic on
+    time.sleep(0.3)
+    assert len(plays()) == 1                                     # not said again, and didn't jump ahead to 2/1
+    C._ann_race_over(1, 2)                                       # next race over: 2/1 is announced as usual
+    for _ in range(100):                                         # the automatic one fires from a timer thread
+        if len(plays()) == 2:
+            break
+        time.sleep(0.02)
+    assert len(plays()) == 2 and plays()[1].startswith('Event two')

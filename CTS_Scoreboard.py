@@ -2583,6 +2583,20 @@ def _ann_break_after(event, heat):
         return False
 
 
+def _ann_auto_ok(k):
+    """Automatic announcing after heat k: only if the heat right after it hasn't been announced already (someone
+    pressed Announce by hand during the race) - then the automatic one would repeat it or jump a heat ahead."""
+    order = _ann_order()
+    if k not in order:
+        return True
+    i = order.index(k) + 1
+    nxt = order[i] if i < len(order) else None
+    if nxt and nxt in _ann['announced'] and not _ann['override']:
+        print('Auto announce: %s/%s was already announced by hand - not announcing again' % nxt)
+        return False
+    return True
+
+
 def _ann_near_end(event, heat):
     """The last swimmer is about 5 yards out (estimated from splits): announce the next heat now."""
     a = _ann_settings()
@@ -2596,6 +2610,9 @@ def _ann_near_end(event, heat):
         print('Auto announce: break after event %d - not announcing the next heat' % k[0])
         return
     _ann['near_done'] = k
+    if not _ann_auto_ok(k):
+        _ann_broadcast()
+        return
     err = _ann_play(_ann_target(), 'near the finish')
     if err:
         print('Auto announce skipped:', err)
@@ -2625,6 +2642,9 @@ def _ann_race_over(event, heat):
 
         def fire():
             _ann['timer'] = None
+            if not _ann_auto_ok(k):
+                _ann_broadcast()
+                return
             err = _ann_play(_ann_target(), 'auto')
             if err:
                 print('Auto announce skipped:', err)
@@ -2680,6 +2700,9 @@ def route_api_announce():
         act = d.get('action')
         err = None
         if act == 'play':
+            if _ann['timer']:                # pressed by hand while the automatic one was waiting: don't say it twice
+                _ann['timer'].cancel()
+                _ann['timer'] = None
             err = _ann_play(_ann_target())
         elif act == 'extra':
             err = _ann_play_extra(str(d.get('clip') or ''))
