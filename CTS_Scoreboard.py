@@ -2259,7 +2259,13 @@ def _final_race_over(e, h):
     if not b.get('final_auto', True) or BREAK['on'] or BREAK['fired_for'] == ('final', e, h):
         return False
     order = meet_board.heat_order(event_info)
-    if not order or (e, h) != tuple(order[-1]):
+    if not order:
+        return False
+    last_e = int(order[-1][0])
+    # the last heat of the meet - or a race on an event number past the meet's last event (the console was
+    # advanced to the next event instead of the next heat, as with the last relay heat at the South Region
+    # Invite: 22/2 ran as 23/1). Event 99 is the console's test race.
+    if (e, h) != tuple(order[-1]) and not (last_e < e < 99):
         return False
     BREAK['fired_for'] = ('final', e, h)
 
@@ -4134,7 +4140,14 @@ def _stream_watchdog():
             mins = int(settings.get('stream_autostop_min', 60) or 0)
             # a break between sessions keeps the stream up; the final-results slide after the meet's last
             # heat does not (the meet is over, so the quiet countdown runs from that last race)
-            if race_book.racing or settings.get('warmup_slide_on') or (BREAK.get('on') and not BREAK.get('final')):
+            # a break slide counts for up to an hour (a real break is 10-15 minutes; one left up after the meet
+            # must not keep the stream running all night)
+            if BREAK.get('on') and not BREAK.get('final'):
+                STREAM_WATCH.setdefault('break_since', time.time())
+            else:
+                STREAM_WATCH.pop('break_since', None)
+            on_break = 'break_since' in STREAM_WATCH and time.time() - STREAM_WATCH['break_since'] < 3600
+            if race_book.racing or settings.get('warmup_slide_on') or on_break:
                 _stream_activity()
             if mins <= 0:
                 continue

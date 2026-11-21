@@ -55,3 +55,25 @@ def test_stream_autostop_setting():
     assert c.post('/api/obs/autostop', json={'minutes': 'x'}).status_code == 400
     assert c.post('/api/obs/autostop', json={'minutes': 0}).get_json()['minutes'] == 0
     cs.settings['stream_autostop_min'] = 60
+
+
+def test_final_results_slide_after_last_heat_or_past_last_event(monkeypatch):
+    """The final-results slide arms after the meet's last heat, and also when the console ran the last heat
+    under the next event number (22/2 ran as 23/1); never for event 99, the console's test race."""
+    monkeypatch.setattr(cs.meet_board, 'heat_order', lambda ei: [(21, 1), (21, 2), (22, 1), (22, 2)])
+    cs.settings['break_slide'] = {'after': 8, 'auto': True, 'delay': 120, 'final_auto': True}
+    timers = []
+
+    class T:
+        def __init__(self, s, f):
+            timers.append(s)
+            self.daemon = False
+        def start(self):
+            pass
+        def cancel(self):
+            pass
+    monkeypatch.setattr(cs.threading, 'Timer', T)
+    for case, armed in (((22, 1), False), ((99, 1), False), ((22, 2), True), ((23, 1), True)):
+        cs.BREAK.update(on=False, timer=None, fired_for=None)
+        assert cs._final_race_over(*case) is armed, case
+    cs.BREAK.update(on=False, timer=None, fired_for=None, final=False)
