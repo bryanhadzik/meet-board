@@ -4102,7 +4102,8 @@ def route_obs_stream():
 
 # ---------------------------------------------------------------- stream auto-stop
 # A stream left running after the meet: stop it once there's been no race (start, finish or touch) for
-# stream_autostop_min minutes. The warm-up and break slides count as activity, and so does the stream having
+# stream_autostop_min minutes. The warm-up and break slides count as activity (not the final-results slide),
+# and so does the stream having
 # just started (warm-ups), so it never stops before the meet gets going.
 STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
 STREAM_LOG = stream_chapters.StreamLog(app_paths.data_path('stream_log.json'))
@@ -4131,7 +4132,9 @@ def _stream_watchdog():
         time.sleep(60)
         try:
             mins = int(settings.get('stream_autostop_min', 60) or 0)
-            if race_book.racing or settings.get('warmup_slide_on') or BREAK.get('on'):
+            # a break between sessions keeps the stream up; the final-results slide after the meet's last
+            # heat does not (the meet is over, so the quiet countdown runs from that last race)
+            if race_book.racing or settings.get('warmup_slide_on') or (BREAK.get('on') and not BREAK.get('final')):
                 _stream_activity()
             if mins <= 0:
                 continue
