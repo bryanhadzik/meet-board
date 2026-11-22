@@ -42,6 +42,7 @@ import music_mute
 import blackout as blackout_mod
 import stream_chapters
 import console_log
+import video_timing
 from _version import __version__
 
 DEBUG = False
@@ -282,6 +283,8 @@ _settings_lock = threading.Lock()
 
 # OBS link: runs in the background, never blocks or breaks the boards.
 obs = obs_client.OBSClient(lambda: (settings.get('obs_url'), settings.get('obs_password')))
+# Video timing (unofficial reference): a clip of the raw pool camera for every heat
+VIDEO = video_timing.VideoTiming(app_paths.data_path(), settings, lambda: save_settings(), obs)
 
 def enrich_from_saved_hy3(loader):
     """After a .scb load, put back seed times / ages / relay swimmers from the
@@ -2692,6 +2695,10 @@ def _ann_race_over(event, heat):
 
 def _race_over(event, heat):
     _stream_activity()
+    try:
+        VIDEO.race_over(event, heat)
+    except Exception as e:
+        print('video:', e)
     _ann_race_over(event, heat)
     try:
         _break_race_over(event, heat)
@@ -2710,6 +2717,7 @@ def _race_started():
         st = race_book.s
         if str(st.get('current_event') or '').strip() not in ('', str(TEST_EVENT)):
             CONSOLE_LOG.start(st.get('current_event'), st.get('current_heat'))
+            VIDEO.race_started(st.get('current_event'), st.get('current_heat'), time.time())
     except Exception as e:
         print('console log:', e)
     try:
@@ -4126,6 +4134,57 @@ def route_obs_stream():
 STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
 STREAM_LOG = stream_chapters.StreamLog(app_paths.data_path('stream_log.json'))
 CONSOLE_LOG = console_log.ConsoleLog(app_paths.data_path('console_results.json'))
+
+
+@app.route('/video')
+def route_video_page():
+    """Video timing setup: record the camera per heat, mark the lanes on a still."""
+    return flask.render_template('video.html')
+
+
+@app.route('/api/video', methods=['GET', 'POST'])
+def route_video_api():
+    if flask.request.method == 'POST':
+        d = flask.request.get_json(silent=True) or {}
+        if 'enabled' in d:
+            settings['video_record'] = bool(d['enabled'])
+        for k, lo, hi in (('keep_days', 1, 365), ('keep_gb', 1, 2000)):
+            if k in d:
+                try:
+                    settings['video_' + k] = max(lo, min(hi, float(d[k])))
+                except (TypeError, ValueError):
+                    pass
+        if 'cam_url' in d:                      # blank = use the camera source in OBS
+            settings['video_cam_url'] = str(d['cam_url'] or '').strip()
+        if 'geom' in d:
+            try:
+                VIDEO.set_geom(d['geom'])
+            except (ValueError, TypeError) as e:
+                return flask.jsonify({'error': str(e)}), 400
+        save_settings()
+        if d.get('install_ffmpeg'):
+            try:
+                VIDEO.install_ffmpeg()
+            except Exception as e:
+                return flask.jsonify({'error': 'ffmpeg download failed: %s' % e}), 502
+    return flask.jsonify(VIDEO.status())
+
+
+@app.route('/api/video/snapshot.jpg')
+def route_video_snapshot():
+    try:
+        jpg = VIDEO.snapshot()
+    except Exception as e:
+        return flask.jsonify({'error': str(e)}), 502
+    return flask.Response(jpg, mimetype='image/jpeg', headers={'Cache-Control': 'no-store'})
+
+
+@app.route('/api/video/clip/<path:rel>')
+def route_video_clip(rel):
+    p = VIDEO.clip_path(rel)
+    if not p:
+        flask.abort(404)
+    return flask.send_file(p, mimetype='video/x-matroska', conditional=True)
 
 
 @app.route('/api/console_results', methods=['GET', 'POST'])

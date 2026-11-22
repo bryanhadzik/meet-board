@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meet-board: Video timing</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<style>
+  .vt { max-width:1100px; }
+  .vt .card { border:1px solid #c9d4d7; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#fff; }
+  .vt .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .vt .pill { font:700 12px/1 "Segoe UI",system-ui,sans-serif; padding:6px 10px; border-radius:999px; color:#fff; }
+  .vt .ok { background:#1f8a4c; } .vt .warn { background:#c9861a; } .vt .bad { background:#c0392b; } .vt .off { background:#7a8b8f; }
+  .vt .muted { color:#5d7075; font-size:13.5px; }
+  .vt .wrap { position:relative; width:100%; background:#0b1618; border-radius:8px; overflow:hidden; min-height:120px; }
+  .vt canvas { display:block; width:100%; cursor:crosshair; }
+  .vt .steps b.on { background:#ffe58a; padding:1px 5px; border-radius:4px; }
+  .vt table { border-collapse:collapse; font-size:13.5px; }
+  .vt td, .vt th { padding:4px 10px; border-bottom:1px solid #e3eaec; text-align:left; }
+  .vt input[type=number] { width:70px; }
+  .vt .hidden { display:none; }
+</style>
+</head>
+<body>
+{% set active = "video" %}{% include "_nav.html" %}
+<div class="container vt">
+  <h1 class="pagetitle">Video timing</h1>
+  <p class="lead">An <b>unofficial reference</b>: a clip of the pool camera (the raw feed, no overlay) for every heat,
+    to check a lane where the pad, button and watches disagree. It never changes a time.</p>
+
+  <div class="card">
+    <div class="row"><b>Recording</b> <span id="st" class="pill off">…</span><span class="muted" id="sub"></span></div>
+    <div class="row" style="margin-top:10px">
+      <label><input type="checkbox" id="en"> Record every heat</label>
+      <span class="muted">Keep clips</span> <input type="number" id="kd" min="1" max="365"> <span class="muted">days, at most</span>
+      <input type="number" id="kg" min="1" max="2000"> <span class="muted">GB</span>
+      <button id="ff" class="hidden">Download ffmpeg (one time)</button>
+    </div>
+    <div class="muted" style="margin-top:8px">Camera: <span id="cam">–</span></div>
+    <div class="muted" style="margin-top:4px" id="err"></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><b>Lanes</b><span class="muted" id="gsaved"></span><span style="flex:1"></span>
+      <button id="snap">Refresh still</button><button id="undo">Undo point</button><button id="clr">Start over</button><button id="save">Save</button></div>
+    <p class="steps muted" style="margin:8px 0">Click the <b id="s1">finish wall</b> then the <b id="s2">turn wall</b>: on each, click where the 9 lane lines meet the wall —
+      the lane-1 pool edge first, then each lane rope in order, then the lane-8 edge. Use the
+      <a href="#" id="zoomTip">mouse wheel</a> to zoom in for the far lanes. <span id="cnt"></span></p>
+    <div class="wrap"><canvas id="cv" width="1920" height="1080"></canvas></div>
+  </div>
+
+  <div class="card">
+    <b>Recent clips</b>
+    <table style="margin-top:8px"><thead><tr><th>Heat</th><th>Recorded</th><th>Length</th><th>Size</th><th></th></tr></thead><tbody id="clips"></tbody></table>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const cv = $("#cv"), cx = cv.getContext("2d");
+let img = null, S = null, pts = {finish: [], turn: []}, view = {z: 1, x: 0, y: 0};
+const api = (u, b) => fetch(u, b ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)} : {})
+  .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; });
+function cur() { return pts.finish.length < 9 ? "finish" : pts.turn.length < 9 ? "turn" : null; }
+function draw() {
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#0b1618"; cx.fillRect(0, 0, cv.width, cv.height);
+  cx.setTransform(view.z, 0, 0, view.z, -view.x * view.z, -view.y * view.z);
+  if (img) cx.drawImage(img, 0, 0, cv.width, cv.height);
+  const P = p => [p[0] * cv.width, p[1] * cv.height];
+  // lane strips where both walls are marked
+  for (let i = 0; i < 8; i++) {
+    const a = pts.finish[i], b = pts.finish[i + 1], c = pts.turn[i + 1], d = pts.turn[i];
+    if (!(a && b && c && d)) continue;
+    cx.beginPath(); [a, b, c, d].forEach((p, k) => { const [x, y] = P(p); k ? cx.lineTo(x, y) : cx.moveTo(x, y); }); cx.closePath();
+    cx.fillStyle = i % 2 ? "rgba(255,229,138,.18)" : "rgba(120,200,255,.18)"; cx.fill();
+    const m = [a, b, c, d].map(P).reduce((s, q) => [s[0] + q[0] / 4, s[1] + q[1] / 4], [0, 0]);
+    cx.fillStyle = "#fff"; cx.font = `bold ${28 / view.z}px Segoe UI, sans-serif`; cx.fillText(String(i + 1), m[0], m[1]);
+  }
+  for (const [k, col] of [["finish", "#ff5a4f"], ["turn", "#4fd1ff"]]) {
+    const L = pts[k]; if (!L.length) continue;
+    cx.strokeStyle = col; cx.lineWidth = 3 / view.z; cx.beginPath();
+    L.forEach((p, i) => { const [x, y] = P(p); i ? cx.lineTo(x, y) : cx.moveTo(x, y); }); cx.stroke();
+    L.forEach((p, i) => { const [x, y] = P(p); cx.fillStyle = col; cx.beginPath(); cx.arc(x, y, 7 / view.z, 0, 7); cx.fill();
+      cx.fillStyle = "#fff"; cx.font = `${18 / view.z}px Segoe UI, sans-serif`; cx.fillText(i === 0 ? "L1 edge" : i === 8 ? "L8 edge" : "rope " + i, x + 9 / view.z, y - 9 / view.z); });
+  }
+  const c = cur();
+  $("#s1").className = c === "finish" ? "on" : ""; $("#s2").className = c === "turn" ? "on" : "";
+  $("#cnt").textContent = c ? `${c === "finish" ? "Finish" : "Turn"} wall: point ${pts[c].length + 1} of 9.` : "All 18 points marked - Save.";
+}
+function evPt(e) {
+  const r = cv.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * cv.width, sy = (e.clientY - r.top) / r.height * cv.height;
+  return [(sx / view.z + view.x) / cv.width, (sy / view.z + view.y) / cv.height];
+}
+cv.addEventListener("click", e => { const c = cur(); if (!c) return; pts[c].push(evPt(e).map(v => +v.toFixed(5))); draw(); });
+cv.addEventListener("wheel", e => {
+  e.preventDefault(); const [fx, fy] = evPt(e), z = Math.max(1, Math.min(8, view.z * (e.deltaY < 0 ? 1.25 : 0.8)));
+  view.z = z; view.x = Math.max(0, Math.min(cv.width - cv.width / z, fx * cv.width - (e.offsetX / cv.clientWidth * cv.width) / z));
+  view.y = Math.max(0, Math.min(cv.height - cv.height / z, fy * cv.height - (e.offsetY / cv.clientHeight * cv.height) / z)); draw();
+}, {passive: false});
+$("#zoomTip").onclick = e => e.preventDefault();
+$("#undo").onclick = () => { const c = pts.turn.length ? "turn" : "finish"; pts[c].pop(); draw(); };
+$("#clr").onclick = () => { if (confirm("Clear all marked points?")) { pts = {finish: [], turn: []}; draw(); } };
+$("#save").onclick = async () => {
+  if (pts.finish.length !== 9 || pts.turn.length !== 9) return alert("Mark all 9 points on both walls first.");
+  try { S = await api("/api/video", {geom: pts}); show(); alert("Lanes saved."); } catch (e) { alert(e.message); }
+};
+function snap() {
+  const i = new Image();
+  i.onload = () => { img = i; cv.width = i.naturalWidth; cv.height = i.naturalHeight; draw(); };
+  i.onerror = () => fetch("/api/video/snapshot.jpg").then(r => r.json()).then(j => { $("#err").textContent = "Still: " + (j.error || "failed"); }).catch(() => {});
+  i.src = "/api/video/snapshot.jpg?t=" + Date.now();
+}
+$("#snap").onclick = snap;
+$("#en").onchange = () => api("/api/video", {enabled: $("#en").checked}).then(j => { S = j; show(); });
+$("#kd").onchange = () => api("/api/video", {keep_days: +$("#kd").value}).then(j => { S = j; show(); });
+$("#kg").onchange = () => api("/api/video", {keep_gb: +$("#kg").value}).then(j => { S = j; show(); });
+$("#ff").onclick = async () => { $("#ff").disabled = true; $("#ff").textContent = "Downloading…";
+  try { S = await api("/api/video", {install_ffmpeg: true}); show(); snap(); } catch (e) { alert(e.message); } $("#ff").disabled = false; $("#ff").textContent = "Download ffmpeg (one time)"; };
+const tm = t => t ? new Date(t * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit", second: "2-digit"}) : "";
+function show() {
+  if (!S) return;
+  const st = $("#st");
+  st.className = "pill " + (!S.enabled ? "off" : !S.ffmpeg || !S.camera ? "bad" : S.recording ? "warn" : "ok");
+  st.textContent = !S.enabled ? "off" : !S.ffmpeg ? "needs ffmpeg" : !S.camera ? "no camera" : S.recording ? `recording E${S.recording.event} H${S.recording.heat}` : "ready";
+  $("#sub").textContent = `${S.clips} clip${S.clips === 1 ? "" : "s"} · ${S.gb} GB`;
+  $("#en").checked = S.enabled; $("#kd").value = S.keep_days; $("#kg").value = S.keep_gb;
+  $("#ff").classList.toggle("hidden", S.ffmpeg);
+  $("#cam").textContent = S.camera ? `${S.camera} (${S.camera_from})` : "not found - connect OBS (Stream page), or its camera source isn't an RTSP address";
+  $("#err").textContent = S.error || "";
+  $("#gsaved").textContent = S.geom && S.geom.saved ? "saved " + S.geom.saved : "not marked yet";
+  $("#clips").innerHTML = (S.recent || []).map(c => `<tr><td>E${c.event} H${c.heat}</td><td>${tm(c.rec_start)}</td><td>${c.rec_end ? Math.round(c.rec_end - c.rec_start) + " s" : ""}</td>
+    <td>${c.bytes ? (c.bytes / 1e6).toFixed(0) + " MB" : ""}</td><td>${c.ok ? `<a href="/api/video/clip/${encodeURI(c.file)}">download</a>` : "failed"}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">None yet.</td></tr>`;
+}
+api("/api/video").then(j => {
+  S = j; if (S.geom && S.geom.finish) pts = {finish: S.geom.finish || [], turn: S.geom.turn || []};
+  show(); draw(); if (S.ffmpeg && S.camera) snap();
+}).catch(e => { $("#err").textContent = e.message; });
+setInterval(() => api("/api/video").then(j => { S = j; show(); }).catch(() => {}), 5000);
+</script>
+</body>
+</html>
