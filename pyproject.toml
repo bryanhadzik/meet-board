@@ -13,6 +13,7 @@ dependencies = [
     "mutagen>=1.48.1",
     "cryptography>=50.0.2",
     "segno",
+    "numpy",
 ]
 
 [project.scripts]
@@ -48,6 +49,7 @@ only-include = [
     "stream_chapters.py",
     "console_log.py",
     "video_timing.py",
+    "video_detect.py",
     "obs_client.py",
     "serial_monitor.py",
     "team_logos.py",

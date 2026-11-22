@@ -49,6 +49,29 @@
     <div class="wrap"><canvas id="cv" width="1920" height="1080"></canvas></div>
   </div>
 
+  <div class="card" id="chk">
+    <div class="row"><b>Check the detection</b><span class="muted" id="ckSub"></span><span style="flex:1"></span>
+      <select id="ckClip"><option value="">Pick a heat…</option></select>
+      <button id="ckRun">Find touches</button></div>
+    <p class="muted" style="margin:8px 0">Pick a heat, then click a lane's touch time to jump there in the video. The shaded boxes are where it
+      watches for the touch; a lane's box flashes when the video reaches that lane's touch. Step frame by frame (1/30 s) to see the hand on the wall.</p>
+    <div id="ckBody" class="hidden">
+      <div class="wrap" style="background:#000"><video id="ckV" style="display:block;width:100%" preload="auto" playsinline muted></video>
+        <canvas id="ckC" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none"></canvas></div>
+      <div class="row" style="margin:8px 0">
+        <button id="ckPlay">Play</button><button id="ckBack" title="One frame back">&#9664; frame</button><button id="ckFwd" title="One frame forward">frame &#9654;</button>
+        <button id="ckB1" title="One second back">−1 s</button><button id="ckF1" title="One second forward">+1 s</button>
+        <label class="muted">Speed <select id="ckSpd"><option>0.1</option><option selected>0.25</option><option>0.5</option><option>1</option></select></label>
+        <label class="muted"><input type="checkbox" id="ckZones" checked> show zones</label>
+        <span style="flex:1"></span>
+        <span class="muted">Race clock</span> <b id="ckClock" style="font:700 22px Consolas,monospace;min-width:7ch;display:inline-block;text-align:right">–</b>
+        <span class="muted" id="ckClipT"></span>
+      </div>
+      <canvas id="ckG" height="120" style="width:100%;height:120px;background:#f6f9fa;border-radius:6px"></canvas>
+      <div class="muted" style="font-size:12.5px;margin:2px 0 8px" id="ckGl">Motion at the wall for the picked lane: the line is the detected touch, the dot is where the video is.</div>
+      <table style="width:100%"><thead id="ckHead"></thead><tbody id="ckRows"></tbody></table>
+    </div>
+  </div>
   <div class="card">
     <b>Recent clips</b>
     <table style="margin-top:8px"><thead><tr><th>Heat</th><th>Recorded</th><th>Length</th><th>Size</th><th></th></tr></thead><tbody id="clips"></tbody></table>
@@ -138,11 +161,122 @@ function show() {
   $("#sub").textContent = `${S.clips} clip${S.clips === 1 ? "" : "s"} · ${S.gb} GB`;
   $("#en").checked = S.enabled; $("#kd").value = S.keep_days; $("#kg").value = S.keep_gb;
   $("#cam").textContent = S.camera ? `${S.camera} (${S.camera_from})` : "not found - connect OBS (Stream page), or its camera source isn't an RTSP address";
-  $("#err").textContent = S.error || ""; fillSrc();
+  $("#err").textContent = S.error || ""; fillSrc(); ckFill();
   $("#gsaved").textContent = S.geom && S.geom.saved ? "saved " + S.geom.saved : "not marked yet";
   $("#clips").innerHTML = (S.recent || []).map(c => `<tr><td>E${c.event} H${c.heat}</td><td>${tm(c.rec_start)}</td><td>${c.rec_end ? Math.round(c.rec_end - c.rec_start) + " s" : ""}</td>
     <td>${c.bytes ? (c.bytes / 1e6).toFixed(0) + " MB" : ""}</td><td>${c.ok ? `<a href="/api/video/clip/${encodeURI(c.file)}">download</a>` : "failed"}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">None yet.</td></tr>`;
 }
+// ---------------- Check the detection ----------------
+const ck = {info: null, lane: null, poll: null};
+const ckV = $("#ckV"), ckC = $("#ckC"), ckG = $("#ckG");
+const tfmt = t => { if (t == null || isNaN(t)) return "–"; const neg = t < 0; t = Math.abs(t); const m = Math.floor(t / 60), s = t - m * 60;
+  return (neg ? "−" : "") + (m ? m + ":" + s.toFixed(2).padStart(5, "0") : s.toFixed(2)); };
+const SRC = {console: "console", pad: "pad", backup: "button", watch: "timer 1", watch2: "timer 2"};
+function ckFill() {
+  const sel = $("#ckClip"), cur = sel.value, ok = (S.recent || []).filter(c => c.ok);
+  const want = `<option value="">Pick a heat…</option>` + ok.map(c => `<option value="${c.file}">E${c.event} H${c.heat}${c.label ? " · " + c.label : " · " + tm(c.rec_start)}${c.detected ? " ✓" : ""}</option>`).join("");
+  if (sel.dataset.sig !== want) { sel.innerHTML = want; sel.dataset.sig = want; sel.value = cur; }
+}
+async function ckLoad(keepTime) {
+  const f = $("#ckClip").value; if (!f) { $("#ckBody").classList.add("hidden"); return; }
+  ck.info = await api("/api/video/clipinfo?file=" + encodeURIComponent(f));
+  $("#ckBody").classList.remove("hidden");
+  const src = "/api/video/clip/" + encodeURI(f);
+  if (!ckV.src.endsWith(src)) { ckV.src = src; ckV.playbackRate = +$("#ckSpd").value; }
+  ckShow();
+}
+function ckShow() {
+  const I = ck.info || {}, D = I.detect || {};
+  $("#ckSub").textContent = I.detecting ? "finding touches…" : D.error ? "couldn't: " + D.error : D.lanes ? `start lined up at ${D.start_in_clip.toFixed(2)} s into the clip` : "not checked yet - click Find touches";
+  $("#ckRun").disabled = !!I.detecting;
+  const lanes = D.lanes || {}, refs = I.refs || {};
+  const all = [...new Set([...Object.keys(refs), ...Object.keys(lanes)])].map(Number).sort((a, b) => a - b);
+  // every source in its own column so the times line up
+  const ORDER = ["console", "pad", "backup", "watch", "watch2"];
+  const used = ORDER.filter(k => all.some(l => (((lanes[l] || {}).times || (refs[l] || {}).times || {})[k])));
+  $("#ckHead").innerHTML = `<tr><th>Lane</th><th>Swimmer</th>${used.map(k => `<th style="text-align:right">${SRC[k][0].toUpperCase() + SRC[k].slice(1)}</th>`).join("")}<th style="text-align:right">Video touch</th><th style="text-align:right">Difference</th><th></th><th></th></tr>`;
+  const num = "font-family:Consolas,monospace;text-align:right;white-space:nowrap";
+  $("#ckRows").innerHTML = all.map(l => {
+    const r = lanes[l] || {}, rf = refs[l] || {}, times = r.times || rf.times || {};
+    const big = r.diff != null && Math.abs(r.diff) > 0.3;
+    return `<tr data-ln="${l}" style="${ck.lane === l ? "background:#eef6ff" : ""}"><td><b>${l}</b></td><td>${esc(r.name || rf.name || "")}</td>
+      ${used.map(k => `<td style="${num};color:#5d7075">${times[k] ? tfmt(times[k]) : "–"}</td>`).join("")}
+      <td style="${num}">${r.clip_t != null ? `<a href="#" data-jump="${l}" style="font-weight:700">${tfmt(r.video)}</a>` : '<span class="muted">not found</span>'}</td>
+      <td style="${num};${big ? "color:#c0392b;font-weight:700" : ""}">${r.diff != null ? (r.diff >= 0 ? "+" : "") + r.diff.toFixed(2) + " s" : ""}</td>
+      <td class="muted" style="font-size:12px;white-space:nowrap">${r.clip_t != null ? "at " + tfmt(r.clip_t) + " in clip" : ""}</td>
+      <td style="white-space:nowrap">${r.clip_t != null ? `<button data-jump="${l}" title="Play from 1.5 s before the touch, slowly">Watch</button> <button data-frame="${l}" title="Stop on the detected touch frame">Touch frame</button>` : ""}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="muted">No lanes.</td></tr>`;
+  ckDraw(); ckGraph();
+}
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function ckDraw() {
+  const D = (ck.info || {}).detect || {}, z = D.zones || {};
+  const W = ckV.videoWidth || 1920, H = ckV.videoHeight || 1080;
+  ckC.width = W; ckC.height = H;
+  const g = ckC.getContext("2d"); g.clearRect(0, 0, W, H);
+  const t = ckV.currentTime || 0;
+  if ($("#ckZones").checked) for (const [l, q] of Object.entries(z)) {
+    const r = (D.lanes || {})[l], hit = r && r.clip_t != null && Math.abs(t - r.clip_t) < 0.2;
+    g.beginPath(); q.forEach((p, i) => { const x = p[0] * W, y = p[1] * H; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+    g.fillStyle = hit ? "rgba(255,60,60,.45)" : (+l === ck.lane ? "rgba(255,229,138,.35)" : "rgba(120,200,255,.18)"); g.fill();
+    g.strokeStyle = hit ? "#ff3c3c" : "rgba(255,255,255,.6)"; g.lineWidth = hit ? 4 : 1.5; g.stroke();
+    const m = q.reduce((s, p) => [s[0] + p[0] * W / 4, s[1] + p[1] * H / 4], [0, 0]);
+    g.fillStyle = "#fff"; g.font = "bold 26px Segoe UI, sans-serif"; g.fillText(l, m[0] + 30, m[1] + 9);
+  }
+  const s0 = D.start_in_clip;
+  $("#ckClock").textContent = s0 != null ? tfmt(t - s0) : "–";
+  $("#ckClipT").textContent = `clip ${tfmt(t)}`;
+}
+function ckGraph() {
+  const D = (ck.info || {}).detect || {}, l = ck.lane, g = ckG.getContext("2d");
+  ckG.width = ckG.clientWidth || 900; const W = ckG.width, H = ckG.height; g.clearRect(0, 0, W, H);
+  const mo = (D.motion || {})[l], r = (D.lanes || {})[l];
+  if (!mo || !r || r.clip_t == null) { g.fillStyle = "#7a8b8f"; g.font = "13px Segoe UI"; g.fillText(l ? "No motion data for this lane." : "Click a lane's Watch button to see its motion here.", 10, 24); return; }
+  const fps = D.motion_fps || 10, a = r.clip_t - 5, b = r.clip_t + 5;
+  const i0 = Math.max(0, Math.floor(a * fps)), i1 = Math.min(mo.length - 1, Math.ceil(b * fps));
+  const seg = mo.slice(i0, i1 + 1), mx = Math.max(5, ...seg);
+  const X = t => (t - a) / (b - a) * W, Y = v => H - 8 - v / mx * (H - 16);
+  g.strokeStyle = "#2f6fb6"; g.lineWidth = 1.5; g.beginPath();
+  seg.forEach((v, k) => { const x = X((i0 + k) / fps), y = Y(v); k ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  g.strokeStyle = "#c0392b"; g.lineWidth = 2; g.beginPath(); g.moveTo(X(r.clip_t), 0); g.lineTo(X(r.clip_t), H); g.stroke();
+  g.fillStyle = "#c0392b"; g.font = "12px Segoe UI"; g.fillText("touch " + tfmt(r.video), X(r.clip_t) + 4, 14);
+  const t = ckV.currentTime || 0;
+  if (t >= a && t <= b) { const k = Math.round(t * fps) - i0; g.fillStyle = "#1f8a4c"; g.beginPath(); g.arc(X(t), Y(seg[Math.max(0, Math.min(seg.length - 1, k))] || 0), 5, 0, 7); g.fill(); }
+  $("#ckGl").textContent = `Lane ${l}: motion at the wall from 5 s before to 5 s after the detected touch. Red line = detected touch; green dot = where the video is.`;
+}
+let ckStopAt = null;
+document.addEventListener("click", e => {
+  const j = e.target.closest("[data-jump]"), f = e.target.closest("[data-frame]");
+  if (!j && !f) return;
+  e.preventDefault();
+  const l = +(j || f).dataset[j ? "jump" : "frame"], r = (((ck.info || {}).detect || {}).lanes || {})[l];
+  if (!r || r.clip_t == null) return;
+  ck.lane = l;
+  if (f) { ckV.pause(); ckV.currentTime = r.clip_t; ckStopAt = null; }
+  else { ckV.currentTime = Math.max(0, r.clip_t - 1.5); ckV.playbackRate = +$("#ckSpd").value; ckStopAt = r.clip_t + 1.0; ckV.play(); }
+  ckShow(); $("#chk").scrollIntoView({behavior: "smooth", block: "start"});
+});
+ckV.addEventListener("timeupdate", () => { if (ckStopAt != null && ckV.currentTime >= ckStopAt) { ckV.pause(); ckStopAt = null; } });
+ckV.addEventListener("loadedmetadata", ckDraw);
+ckV.addEventListener("seeked", () => { ckDraw(); ckGraph(); });
+ckV.addEventListener("play", () => { $("#ckPlay").textContent = "Pause"; });
+ckV.addEventListener("pause", () => { $("#ckPlay").textContent = "Play"; ckDraw(); ckGraph(); });
+(function loop() { if (!ckV.paused) { ckDraw(); ckGraph(); } requestAnimationFrame(loop); })();
+$("#ckPlay").onclick = () => { ckStopAt = null; ckV.paused ? (ckV.playbackRate = +$("#ckSpd").value, ckV.play()) : ckV.pause(); };
+$("#ckBack").onclick = () => { ckV.pause(); ckV.currentTime = Math.max(0, ckV.currentTime - 1 / 30); };
+$("#ckFwd").onclick = () => { ckV.pause(); ckV.currentTime += 1 / 30; };
+$("#ckB1").onclick = () => { ckV.currentTime = Math.max(0, ckV.currentTime - 1); };
+$("#ckF1").onclick = () => { ckV.currentTime += 1; };
+$("#ckSpd").onchange = () => { ckV.playbackRate = +$("#ckSpd").value; };
+$("#ckZones").onchange = ckDraw;
+$("#ckClip").onchange = () => { ck.lane = null; ckLoad(); };
+$("#ckRun").onclick = async () => {
+  const f = $("#ckClip").value; if (!f) return;
+  try { await api("/api/video/detect", {file: f}); } catch (e) { return alert(e.message); }
+  clearInterval(ck.poll);
+  ck.poll = setInterval(async () => { await ckLoad(); if (!ck.info.detecting) { clearInterval(ck.poll); api("/api/video").then(j => { S = j; show(); }); } }, 2000);
+  ckLoad();
+};
 api("/api/video").then(j => {
   S = j; if (S.geom && S.geom.finish) pts = {finish: S.geom.finish || [], turn: S.geom.turn || []};
   show(); draw(); if (S.ffmpeg && S.camera) snap();

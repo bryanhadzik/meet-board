@@ -38,6 +38,7 @@ class VideoTiming:
         self._url_cache = (0.0, None, '')
         self.last_error = ''
         self.installing = False
+        self._detecting = set()
         os.makedirs(self.clips_dir, exist_ok=True)
         try:
             with open(self.index_file) as f:
@@ -179,12 +180,13 @@ class VideoTiming:
             now = time.time()
             day = time.strftime('%Y%m%d', time.localtime(now))
             os.makedirs(os.path.join(self.clips_dir, day), exist_ok=True)
-            rel = '%s/E%02dH%02d_%s.mkv' % (day, e, h, time.strftime('%H%M%S', time.localtime(now)))
+            rel = '%s/E%02dH%02d_%s.mp4' % (day, e, h, time.strftime('%H%M%S', time.localtime(now)))
             args = [ff, '-hide_banner', '-loglevel', 'error', '-nostats']
             if url.lower().startswith('rtsp'):
                 args += ['-rtsp_transport', 'tcp']
             args += ['-use_wallclock_as_timestamps', '1', '-i', url, '-map', '0:v:0', '-c', 'copy',
-                     '-t', str(MAX_CLIP_S), '-f', 'matroska', os.path.join(self.clips_dir, rel)]
+                     '-t', str(MAX_CLIP_S), '-f', 'mp4', '-movflags', '+frag_keyframe+empty_moov+default_base_moof',
+                     os.path.join(self.clips_dir, rel)]
             try:
                 self._proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                               stderr=subprocess.PIPE, creationflags=_NOWIN)
@@ -307,8 +309,69 @@ class VideoTiming:
                 'keep_days': float(self.settings.get('video_keep_days') or 14),
                 'keep_gb': float(self.settings.get('video_keep_gb') or 40),
                 'geom': self.geom(), 'error': self.last_error,
-                'recent': [{k: c.get(k) for k in ('event', 'heat', 'file', 'race_start', 'rec_start', 'rec_end', 'bytes', 'ok')}
-                           for c in self.index[-60:]][::-1]}
+                'recent': [dict({k: c.get(k) for k in ('event', 'heat', 'file', 'race_start', 'rec_start', 'rec_end', 'bytes',
+                                                        'ok', 'label', 'imported')},
+                                detected=bool(c.get('detect')), detecting=c.get('file') in self._detecting)
+                           for c in self.index[-200:]][::-1]}
+
+    def entry(self, rel):
+        return next((c for c in self.index if c.get('file') == rel), None)
+
+    def add_import(self, src, meta):
+        """A clip from somewhere else (e.g. cut from a stream recording), with its own lane geometry and the
+        lanes' reference times. meta: {event, heat, name, start_guess, refs, geom, label}"""
+        name = re.sub(r'[^A-Za-z0-9_.-]', '_', str(meta.get('name') or 'clip.mp4'))[:80]
+        rel = 'import/' + name
+        os.makedirs(os.path.join(self.clips_dir, 'import'), exist_ok=True)
+        path = os.path.join(self.clips_dir, rel)
+        with open(path + '.part', 'wb') as f:
+            shutil.copyfileobj(src, f, 1 << 20)
+        os.replace(path + '.part', path)
+        c = {'event': int(meta['event']), 'heat': int(meta['heat']), 'file': rel, 'imported': True,
+             'label': str(meta.get('label') or '')[:80], 'start_guess': float(meta.get('start_guess') or 0),
+             'refs': meta.get('refs') or {}, 'geom': meta.get('geom') or None,
+             'rec_start': float(meta.get('rec_start') or time.time()), 'rec_end': meta.get('rec_end'),
+             'race_start': meta.get('race_start'), 'bytes': os.path.getsize(path), 'ok': True}
+        with self._lock:
+            self.index = [x for x in self.index if x.get('file') != rel] + [c]
+            self._save_index()
+        return c
+
+    def run_detect(self, rel, refs=None):
+        """Find the touches in one clip, in the background. refs: {lane: {'times': {...}, 'name': ...}};
+        an imported clip brings its own."""
+        import video_detect
+        c = self.entry(rel)
+        if not c:
+            raise ValueError('no such clip')
+        ff = self.ffmpeg()
+        if not ff:
+            raise RuntimeError('the recorder (ffmpeg) is not set up yet')
+        geom = c.get('geom') or self.geom()
+        if not geom or len(geom.get('finish') or []) != 9 or len(geom.get('turn') or []) != 9:
+            raise RuntimeError('mark the lanes first')
+        refs = c.get('refs') or refs or {}
+        if not refs:
+            raise RuntimeError("no reference times for this heat (the console's results weren't recorded)")
+        guess = c.get('start_guess')
+        if guess is None:
+            guess = max(0.0, (c.get('race_start') or c['rec_start']) - c['rec_start'])
+        if rel in self._detecting:
+            return
+        self._detecting.add(rel)
+
+        def go():
+            try:
+                r = video_detect.detect(ff, os.path.join(self.clips_dir, rel), geom, refs, guess)
+            except Exception as e:
+                r = {'error': str(e)}
+            r['at'] = time.time()
+            with self._lock:
+                c['detect'] = r
+                c['refs_used'] = refs
+                self._save_index()
+            self._detecting.discard(rel)
+        threading.Thread(target=go, daemon=True).start()
 
     def clip_path(self, rel):
         p = os.path.normpath(os.path.join(self.clips_dir, rel))

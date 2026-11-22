@@ -4180,12 +4180,77 @@ def route_video_snapshot():
     return flask.Response(jpg, mimetype='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 
+def _secs(txt):
+    txt = (txt or '').strip()
+    try:
+        if ':' in txt:
+            m, sec = txt.split(':', 1)
+            return int(m) * 60 + float(sec)
+        return float(txt) if txt else 0.0
+    except ValueError:
+        return 0.0
+
+
+def _video_refs(event, heat):
+    """The console's lane times for a heat (what the scoreboard showed), as reference times for the video."""
+    rec = (CONSOLE_LOG.get().get('%d:%d' % (int(event), int(heat))) or {}).get('lanes') or {}
+    refs = {}
+    for lane, x in rec.items():
+        t = _secs(x.get('time'))
+        if t:
+            try:
+                name = event_info.get_display_string(int(event), int(heat), int(lane)) or ''
+            except Exception:
+                name = ''
+            refs[str(lane)] = {'times': {'console': t}, 'name': str(name).strip()}
+    return refs
+
+
+@app.route('/api/video/detect', methods=['POST'])
+def route_video_detect():
+    d = flask.request.get_json(silent=True) or {}
+    c = VIDEO.entry(d.get('file') or '')
+    if not c:
+        return flask.jsonify({'error': 'no such clip'}), 404
+    try:
+        VIDEO.run_detect(c['file'], None if c.get('refs') else _video_refs(c['event'], c['heat']))
+    except Exception as e:
+        return flask.jsonify({'error': str(e)}), 400
+    return flask.jsonify({'ok': True})
+
+
+@app.route('/api/video/clipinfo')
+def route_video_clipinfo():
+    c = VIDEO.entry(flask.request.args.get('file') or '')
+    if not c:
+        return flask.jsonify({'error': 'no such clip'}), 404
+    out = {k: c.get(k) for k in ('event', 'heat', 'file', 'label', 'imported', 'rec_start', 'rec_end', 'race_start', 'detect')}
+    out['detecting'] = c['file'] in VIDEO._detecting
+    out['refs'] = c.get('refs_used') or c.get('refs') or _video_refs(c['event'], c['heat'])
+    return flask.jsonify(out)
+
+
+@app.route('/api/video/import', methods=['POST'])
+def route_video_import():
+    """Add a clip recorded elsewhere: multipart 'file' plus 'meta' (JSON: event, heat, name, start_guess, refs,
+    geom, label)."""
+    f = flask.request.files.get('file')
+    try:
+        meta = json.loads(flask.request.form.get('meta') or '{}')
+        if not f or 'event' not in meta or 'heat' not in meta:
+            raise ValueError('file, event and heat are needed')
+        c = VIDEO.add_import(f.stream, meta)
+    except Exception as e:
+        return flask.jsonify({'error': str(e)}), 400
+    return flask.jsonify({'ok': True, 'file': c['file']})
+
+
 @app.route('/api/video/clip/<path:rel>')
 def route_video_clip(rel):
     p = VIDEO.clip_path(rel)
     if not p:
         flask.abort(404)
-    return flask.send_file(p, mimetype='video/x-matroska', conditional=True)
+    return flask.send_file(p, mimetype='video/mp4' if p.endswith('.mp4') else 'video/x-matroska', conditional=True)
 
 
 @app.route('/api/console_results', methods=['GET', 'POST'])
