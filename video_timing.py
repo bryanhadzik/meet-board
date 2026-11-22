@@ -11,9 +11,10 @@ needed to read touches off those clips later.
 
 Never official: clips are a reference for checking a disputed lane, nothing more.
 """
-import glob, io, json, os, re, shutil, subprocess, threading, time, urllib.request, zipfile
+import glob, json, os, re, shutil, subprocess, threading, time, urllib.request, zipfile
 
-FFMPEG_ZIP = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-lgpl-7.1.zip'
+FFMPEG_RELEASE = 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest'
+FFMPEG_FALLBACK = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip'
 STOP_AFTER_S = 3.0          # keep recording this long after the race is over
 MAX_CLIP_S = 20 * 60        # safety cap on one clip
 _NOWIN = 0x08000000 if os.name == 'nt' else 0   # CREATE_NO_WINDOW
@@ -36,6 +37,7 @@ class VideoTiming:
         self._stop_timer = None
         self._url_cache = (0.0, None, '')
         self.last_error = ''
+        self.installing = False
         os.makedirs(self.clips_dir, exist_ok=True)
         try:
             with open(self.index_file) as f:
@@ -60,13 +62,49 @@ class VideoTiming:
             return self.ffmpeg()
         if os.name != 'nt':
             raise RuntimeError('install ffmpeg with the system package manager')
-        with urllib.request.urlopen(FFMPEG_ZIP, timeout=120) as r:
-            data = r.read()
-        with zipfile.ZipFile(io.BytesIO(data)) as z:
-            name = next(n for n in z.namelist() if n.endswith('/bin/ffmpeg.exe'))
-            with z.open(name) as src, open(os.path.join(self.dir, 'ffmpeg.exe'), 'wb') as dst:
-                shutil.copyfileobj(src, dst)
+        url = FFMPEG_FALLBACK
+        try:                                # the newest released version's Windows build (names change per version)
+            req = urllib.request.Request(FFMPEG_RELEASE, headers={'Accept': 'application/vnd.github+json'})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                assets = json.load(r).get('assets') or []
+            pick = sorted((a for a in assets if re.match(r'ffmpeg-n[\d.]+-latest-win64-lgpl-[\d.]+\.zip$', a.get('name', ''))),
+                          key=lambda a: [int(x) for x in re.findall(r'\d+', a['name'].split('-')[1])], reverse=True)
+            if pick:
+                url = pick[0]['browser_download_url']
+        except Exception:
+            pass
+        tmp = os.path.join(self.dir, 'ffmpeg-download.zip')
+        try:
+            with urllib.request.urlopen(url, timeout=300) as r, open(tmp, 'wb') as f:
+                shutil.copyfileobj(r, f, 1 << 20)
+            with zipfile.ZipFile(tmp) as z:
+                name = next(n for n in z.namelist() if n.endswith('/bin/ffmpeg.exe'))
+                part = os.path.join(self.dir, 'ffmpeg.exe.part')
+                with z.open(name) as src, open(part, 'wb') as dst:
+                    shutil.copyfileobj(src, dst)
+                os.replace(part, os.path.join(self.dir, 'ffmpeg.exe'))
+        finally:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
         return self.ffmpeg()
+
+    def ensure_ffmpeg(self):
+        """Recording is on but the recorder (ffmpeg) isn't here yet: fetch it in the background."""
+        if self.ffmpeg() or self.installing:
+            return
+        self.installing = True
+
+        def run():
+            try:
+                self.install_ffmpeg()
+                self.last_error = ''
+            except Exception as e:
+                self.last_error = 'Could not download the recorder (ffmpeg): %s' % e
+            finally:
+                self.installing = False
+        threading.Thread(target=run, daemon=True).start()
 
     def camera_url(self, refresh=False):
         """(url, where it came from). The setting wins; otherwise the RTSP source in OBS."""
@@ -249,7 +287,9 @@ class VideoTiming:
         url, src = self.camera_url()
         with self._lock:
             cur = dict(self._cur) if self._cur else None
-        return {'enabled': self.enabled, 'ffmpeg': bool(self.ffmpeg()), 'camera': mask(url) if url else '',
+        if self.enabled and not self.ffmpeg():
+            self.ensure_ffmpeg()
+        return {'enabled': self.enabled, 'ffmpeg': bool(self.ffmpeg()), 'installing': self.installing, 'camera': mask(url) if url else '',
                 'camera_from': src, 'recording': cur, 'clips': len(self.index),
                 'gb': round(sum(c.get('bytes') or 0 for c in self.index) / 1e9, 2),
                 'keep_days': float(self.settings.get('video_keep_days') or 14),

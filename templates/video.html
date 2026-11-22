@@ -34,7 +34,6 @@
       <label><input type="checkbox" id="en"> Record every heat</label>
       <span class="muted">Keep clips</span> <input type="number" id="kd" min="1" max="365"> <span class="muted">days, at most</span>
       <input type="number" id="kg" min="1" max="2000"> <span class="muted">GB</span>
-      <button id="ff" class="hidden">Download ffmpeg (one time)</button>
     </div>
     <div class="muted" style="margin-top:8px">Camera: <span id="cam">–</span></div>
     <div class="muted" style="margin-top:4px" id="err"></div>
@@ -113,17 +112,16 @@ $("#snap").onclick = snap;
 $("#en").onchange = () => api("/api/video", {enabled: $("#en").checked}).then(j => { S = j; show(); });
 $("#kd").onchange = () => api("/api/video", {keep_days: +$("#kd").value}).then(j => { S = j; show(); });
 $("#kg").onchange = () => api("/api/video", {keep_gb: +$("#kg").value}).then(j => { S = j; show(); });
-$("#ff").onclick = async () => { $("#ff").disabled = true; $("#ff").textContent = "Downloading…";
-  try { S = await api("/api/video", {install_ffmpeg: true}); show(); snap(); } catch (e) { alert(e.message); } $("#ff").disabled = false; $("#ff").textContent = "Download ffmpeg (one time)"; };
 const tm = t => t ? new Date(t * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit", second: "2-digit"}) : "";
 function show() {
   if (!S) return;
   const st = $("#st");
-  st.className = "pill " + (!S.enabled ? "off" : !S.ffmpeg || !S.camera ? "bad" : S.recording ? "warn" : "ok");
-  st.textContent = !S.enabled ? "off" : !S.ffmpeg ? "needs ffmpeg" : !S.camera ? "no camera" : S.recording ? `recording E${S.recording.event} H${S.recording.heat}` : "ready";
+  st.className = "pill " + (!S.enabled ? "off" : S.installing ? "warn" : !S.ffmpeg || !S.camera ? "bad" : S.recording ? "warn" : "ok");
+  st.textContent = !S.enabled ? "off" : S.installing ? "setting up…" : !S.ffmpeg ? "not set up" : !S.camera ? "no camera" : S.recording ? `recording E${S.recording.event} H${S.recording.heat}` : "ready";
+  st.title = S.installing ? "Downloading the recorder (ffmpeg, about a 170 MB download) - one time only" : "";
+  if (S.ffmpeg && S.camera && !img) snap();
   $("#sub").textContent = `${S.clips} clip${S.clips === 1 ? "" : "s"} · ${S.gb} GB`;
   $("#en").checked = S.enabled; $("#kd").value = S.keep_days; $("#kg").value = S.keep_gb;
-  $("#ff").classList.toggle("hidden", S.ffmpeg);
   $("#cam").textContent = S.camera ? `${S.camera} (${S.camera_from})` : "not found - connect OBS (Stream page), or its camera source isn't an RTSP address";
   $("#err").textContent = S.error || "";
   $("#gsaved").textContent = S.geom && S.geom.saved ? "saved " + S.geom.saved : "not marked yet";
