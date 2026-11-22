@@ -4173,7 +4173,8 @@ def route_video_api():
 @app.route('/api/video/snapshot.jpg')
 def route_video_snapshot():
     try:
-        jpg = VIDEO.snapshot()
+        q = flask.request.args
+        jpg = VIDEO.snapshot(q.get('clip') or None, float(q['at']) if q.get('at') else None)
     except Exception as e:
         return flask.jsonify({'error': str(e)}), 502
     return flask.Response(jpg, mimetype='image/jpeg', headers={'Cache-Control': 'no-store'})

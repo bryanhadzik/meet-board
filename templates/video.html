@@ -41,7 +41,8 @@
 
   <div class="card">
     <div class="row"><b>Lanes</b><span class="muted" id="gsaved"></span><span style="flex:1"></span>
-      <button id="snap">Refresh still</button><button id="undo">Undo point</button><button id="clr">Start over</button><button id="save">Save</button></div>
+      <select id="src" title="The lane ropes are out between meets - use a recorded heat, or a picture you saved during a meet"><option value="">Live camera</option></select>
+      <button id="snap">Refresh still</button><button id="upl" title="Use a picture taken from this camera during a meet (a screenshot of the camera in OBS works if it isn't cropped)">Use a picture…</button><input type="file" id="file" accept="image/*" style="display:none"><button id="undo">Undo point</button><button id="clr">Start over</button><button id="save">Save</button></div>
     <p class="steps muted" style="margin:8px 0">Click the <b id="s1">finish wall</b> then the <b id="s2">turn wall</b>: on each, click where the 9 lane lines meet the wall —
       the lane-1 pool edge first, then each lane rope in order, then the lane-8 edge. Use the
       <a href="#" id="zoomTip">mouse wheel</a> to zoom in for the far lanes. <span id="cnt"></span></p>
@@ -106,7 +107,21 @@ function snap() {
   const i = new Image();
   i.onload = () => { img = i; cv.width = i.naturalWidth; cv.height = i.naturalHeight; draw(); };
   i.onerror = () => fetch("/api/video/snapshot.jpg").then(r => r.json()).then(j => { $("#err").textContent = "Still: " + (j.error || "failed"); }).catch(() => {});
-  i.src = "/api/video/snapshot.jpg?t=" + Date.now();
+  const c = $("#src").value;
+  i.src = "/api/video/snapshot.jpg?t=" + Date.now() + (c ? "&clip=" + encodeURIComponent(c) : "");
+}
+$("#src").onchange = snap;
+$("#upl").onclick = () => $("#file").click();
+$("#file").onchange = () => {
+  const f = $("#file").files[0]; if (!f) return;
+  const i = new Image();
+  i.onload = () => { img = i; cv.width = i.naturalWidth; cv.height = i.naturalHeight; draw(); URL.revokeObjectURL(i.src); };
+  i.src = URL.createObjectURL(f);
+};
+function fillSrc() {
+  const sel = $("#src"), cur = sel.value, ok = (S.recent || []).filter(c => c.ok);
+  const want = `<option value="">Live camera</option>` + ok.map(c => `<option value="${c.file}">Recorded: E${c.event} H${c.heat} · ${tm(c.rec_start)}</option>`).join("");
+  if (sel.dataset.sig !== want) { sel.innerHTML = want; sel.dataset.sig = want; sel.value = cur; }
 }
 $("#snap").onclick = snap;
 $("#en").onchange = () => api("/api/video", {enabled: $("#en").checked}).then(j => { S = j; show(); });
@@ -123,7 +138,7 @@ function show() {
   $("#sub").textContent = `${S.clips} clip${S.clips === 1 ? "" : "s"} · ${S.gb} GB`;
   $("#en").checked = S.enabled; $("#kd").value = S.keep_days; $("#kg").value = S.keep_gb;
   $("#cam").textContent = S.camera ? `${S.camera} (${S.camera_from})` : "not found - connect OBS (Stream page), or its camera source isn't an RTSP address";
-  $("#err").textContent = S.error || "";
+  $("#err").textContent = S.error || ""; fillSrc();
   $("#gsaved").textContent = S.geom && S.geom.saved ? "saved " + S.geom.saved : "not marked yet";
   $("#clips").innerHTML = (S.recent || []).map(c => `<tr><td>E${c.event} H${c.heat}</td><td>${tm(c.rec_start)}</td><td>${c.rec_end ? Math.round(c.rec_end - c.rec_start) + " s" : ""}</td>
     <td>${c.bytes ? (c.bytes / 1e6).toFixed(0) + " MB" : ""}</td><td>${c.ok ? `<a href="/api/video/clip/${encodeURI(c.file)}">download</a>` : "failed"}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">None yet.</td></tr>`;

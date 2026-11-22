@@ -134,17 +134,29 @@ class VideoTiming:
             self.last_error = 'OBS: %s' % e
         return None, ''
 
-    def snapshot(self):
-        """One JPEG straight from the camera."""
-        ff, (url, _) = self.ffmpeg(), self.camera_url()
+    def snapshot(self, clip=None, at=None):
+        """One JPEG straight from the camera - or from a recorded heat (clip), `at` seconds in (default: the
+        middle), for marking the lanes when the lane ropes are out between meets."""
+        ff = self.ffmpeg()
         if not ff:
-            raise RuntimeError('ffmpeg is not installed yet')
-        if not url:
-            raise RuntimeError('no camera address (OBS not connected, or no RTSP source in OBS)')
+            raise RuntimeError('the recorder (ffmpeg) is not set up yet')
         args = [ff, '-hide_banner', '-loglevel', 'error']
-        if url.lower().startswith('rtsp'):
-            args += ['-rtsp_transport', 'tcp']
-        args += ['-i', url, '-frames:v', '1', '-q:v', '3', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-']
+        if clip:
+            path = self.clip_path(clip)
+            if not path:
+                raise RuntimeError('no such clip')
+            c = next((x for x in self.index if x.get('file') == clip), {})
+            if at is None:
+                at = max(0.0, ((c.get('rec_end') or 0) - (c.get('rec_start') or 0)) / 2)
+            args += ['-ss', '%.2f' % float(at), '-i', path]
+        else:
+            url = self.camera_url()[0]
+            if not url:
+                raise RuntimeError('no camera address (OBS not connected, or no RTSP source in OBS)')
+            if url.lower().startswith('rtsp'):
+                args += ['-rtsp_transport', 'tcp']
+            args += ['-i', url]
+        args += ['-frames:v', '1', '-q:v', '3', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-']
         p = subprocess.run(args, capture_output=True, timeout=20, creationflags=_NOWIN)
         if p.returncode or not p.stdout:
             raise RuntimeError(mask(p.stderr.decode(errors='replace').strip()[-300:]) or 'no picture from the camera')
@@ -296,7 +308,7 @@ class VideoTiming:
                 'keep_gb': float(self.settings.get('video_keep_gb') or 40),
                 'geom': self.geom(), 'error': self.last_error,
                 'recent': [{k: c.get(k) for k in ('event', 'heat', 'file', 'race_start', 'rec_start', 'rec_end', 'bytes', 'ok')}
-                           for c in self.index[-12:]][::-1]}
+                           for c in self.index[-60:]][::-1]}
 
     def clip_path(self, rel):
         p = os.path.normpath(os.path.join(self.clips_dir, rel))
