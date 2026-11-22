@@ -41,6 +41,7 @@ import music
 import music_mute
 import blackout as blackout_mod
 import stream_chapters
+import console_log
 from _version import __version__
 
 DEBUG = False
@@ -155,6 +156,11 @@ def _emit_and_remember(event, *args, **kwargs):
                 if isinstance(v, str) and ':' in v:
                     v = args[0][k] = _ZERO_FILL.sub(r'\g<1>0', v)
                 _live_race[k] = v
+        try:                            # what the console showed per heat, for MeetDeck's cross-check
+            if not test_race and any(k.startswith(('lane_time', 'lane_place', 'lane_running')) for k in args[0]):
+                CONSOLE_LOG.lanes(last_event_sent[0], last_event_sent[1], _live_race)
+        except Exception as e:
+            print('console log:', e)
         try:
             woke = screens_black.watch_update(args[0]) if screens_black else False
         except Exception:
@@ -2701,6 +2707,12 @@ def _race_started():
     except Exception as e:
         print('stream log:', e)
     try:
+        st = race_book.s
+        if str(st.get('current_event') or '').strip() not in ('', str(TEST_EVENT)):
+            CONSOLE_LOG.start(st.get('current_event'), st.get('current_heat'))
+    except Exception as e:
+        print('console log:', e)
+    try:
         _ann_settings()                 # near-end announcing: on/off from the saved choice
     except Exception:
         pass
@@ -4113,6 +4125,17 @@ def route_obs_stream():
 # just started (warm-ups), so it never stops before the meet gets going.
 STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
 STREAM_LOG = stream_chapters.StreamLog(app_paths.data_path('stream_log.json'))
+CONSOLE_LOG = console_log.ConsoleLog(app_paths.data_path('console_results.json'))
+
+
+@app.route('/api/console_results', methods=['GET', 'POST'])
+def route_console_results():
+    """Each heat's final lane times and places as the console sent them, keyed "event:heat"
+    (the console's numbering). POST {"clear": true} empties it (a new meet)."""
+    if flask.request.method == 'POST':
+        if (flask.request.get_json(silent=True) or {}).get('clear'):
+            CONSOLE_LOG.clear()
+    return flask.jsonify({'heats': CONSOLE_LOG.get(), 'live': {'event': last_event_sent[0], 'heat': last_event_sent[1]}})
 
 
 def _stream_logger():
