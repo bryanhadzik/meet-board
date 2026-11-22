@@ -46,6 +46,8 @@ only-include = [
     "music.py",
     "music_mute.py",
     "stream_chapters.py",
+    "console_log.py",
+    "video_timing.py",
     "obs_client.py",
     "serial_monitor.py",
     "team_logos.py",
