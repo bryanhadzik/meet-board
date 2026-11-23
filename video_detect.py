@@ -130,5 +130,106 @@ def detect(ffmpeg, path, geom, refs, start_guess):
                      'clip_t': round(o, 3) if o is not None else None,
                      'video': round(o - off, 2) if o is not None else None,
                      'diff': round(o - off - est, 2) if o is not None else None}
-    return {'start_in_clip': round(off, 3), 'lanes': res, 'zones': {l: z[2] for l, z in zones.items()},
+    board = geom.get('board')
+    if board:
+        # when each lane's time showed up on the scoreboard in the picture (for checking the pad, not the clock:
+        # the board shows a time 0.1-0.7 s after the console takes it)
+        try:
+            rows, bfps = board_rows(ffmpeg, path, board)
+            holds = board_holds(rows, bfps)
+        except Exception:
+            holds = {}
+        for lane, R in res.items():
+            ts = R['times']
+            p = ts.get('pad') or ts.get('console') or ts.get('backup') or R['ref']
+            lo, hi = min(list(ts.values()) + [p]), max(list(ts.values()) + [p])
+            # the first hold from just before the earliest time to 2 s after the latest one: when a pad is late
+            # (or missed), the board shows the backup's time first and that is worth seeing
+            near = [h for h in holds.get(lane, []) if off + lo - 0.5 <= h <= off + hi + 2.0]
+            if near:
+                h = min(near)
+                R['board_clip_t'] = h
+                R['board_lag'] = round(h - off - p, 2)
+    return {'start_in_clip': round(off, 3), 'lanes': res, 'board': board, 'zones': {l: z[2] for l, z in zones.items()},
             'motion': {l: [round(float(v), 1) for v in sig[l][::3]] for l in sig}, 'motion_fps': fps / 3}
+
+
+# ---------------------------------------------------------------- the scoreboard in the picture
+# When the lane-time board is in the camera's view, each lane's row shows the running clock until that lane's pad
+# (or button) registers, then holds the time. The frame where a row stops changing is when the console took that
+# lane's time, and (that moment - the lane's console time) is where the race started in the clip - a start that
+# needs no strobe and no guessing. board = {'box': [x0, y0, x1, y1] (fractions of the frame; the time digits from
+# the top row to the bottom row), 'top': first lane shown in the box, 'bottom': last lane shown}.
+
+def board_rows(ffmpeg, path, board):
+    """Per-frame change in each lane's row of the board: ({lane: array}, fps)."""
+    x0, y0, x1, y1 = [float(v) for v in board['box']]
+    top, bot = int(board.get('top', 1)), int(board.get('bottom', 8))
+    lanes = list(range(top, bot + 1)) if bot >= top else list(range(top, bot - 1, -1))
+    n, RH, RW = len(lanes), 12, 64
+    fps = 30.0
+    vf = 'crop=w=iw*%.5f:h=ih*%.5f:x=iw*%.5f:y=ih*%.5f,scale=%d:%d,fps=%d,format=gray' % (x1 - x0, y1 - y0, x0, y0, RW, RH * n, fps)
+    p = subprocess.Popen([ffmpeg, '-v', 'error', '-i', path, '-an', '-vf', vf, '-f', 'rawvideo', '-'], stdout=subprocess.PIPE,
+                         creationflags=0x08000000 if __import__('os').name == 'nt' else 0)
+    raw = p.stdout.read()
+    p.wait()
+    fr = np.frombuffer(raw, np.uint8)
+    fr = fr[:len(fr) // (RW * RH * n) * RW * RH * n].reshape(-1, RH * n, RW).astype(np.int16)
+    if len(fr) < 2:
+        return {}, fps
+    d = np.abs(np.diff(fr, axis=0))
+    out = {}
+    for i, lane in enumerate(lanes):
+        band = d[:, i * RH + 2:(i + 1) * RH - 2, :]
+        out[lane] = np.concatenate([[0.0], band.mean(axis=(1, 2))])
+    return out, fps
+
+
+def board_holds(rows, fps, hold=1.0):
+    """{lane: [clip times]} - each moment a row stopped changing and stayed still for at least `hold` seconds."""
+    out = {}
+    k, h = 4, int(round(hold * fps))
+    for lane, x in rows.items():
+        if len(x) < h + k + 2:
+            continue
+        roll = np.array([x[max(0, i - k + 1):i + 1].max() for i in range(len(x))])
+        busy = roll[roll > 0]
+        if not len(busy):
+            continue
+        thr = max(1.5, 0.25 * float(np.percentile(roll, 95)))
+        still = roll < thr
+        ts, i = [], 1
+        while i < len(x) - h:
+            # a real hold: the row was running (changing most of the last second) and then stays still -
+            # a lone blip (a keyframe in the recording) doesn't count
+            if still[i] and not still[i - 1] and still[i:i + h].all() and (~still[max(0, i - int(fps)):i]).mean() >= 0.6:
+                j = i
+                while j > 0 and x[j] < thr:          # the last frame where the digits changed
+                    j -= 1
+                ts.append(round(j / fps, 3))
+                while i < len(x) and still[i]:
+                    i += 1
+            i += 1
+        out[lane] = ts
+    return out
+
+
+def board_start(holds, refs, tol=0.12):
+    """Line the clip up from the board: the offset that puts the most lanes' holds on their console/pad times.
+    refs: {lane: seconds}. Returns (start_in_clip, {lane: hold time}) or (None, {})."""
+    cands = [h - r for l, r in refs.items() for h in holds.get(l, [])]
+    best = (0, None)
+    for o in cands:
+        hit = {}
+        for l, r in refs.items():
+            near = [h for h in holds.get(l, []) if abs(h - (o + r)) <= tol]
+            if near:
+                hit[l] = min(near, key=lambda h: abs(h - (o + r)))
+        if len(hit) > best[0] or (len(hit) == best[0] and best[1] and
+                                   np.std([hit[l] - refs[l] for l in hit]) < np.std([best[1][l] - refs[l] for l in best[1]])):
+            best = (len(hit), hit)
+    need = 2 if sum(1 for l in refs if l in holds) >= 2 else 1
+    if best[0] < need:
+        return None, {}
+    hit = best[1]
+    return float(np.median([hit[l] - refs[l] for l in hit])), hit

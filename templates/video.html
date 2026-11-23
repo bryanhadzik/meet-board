@@ -43,9 +43,16 @@
     <div class="row"><b>Lanes</b><span class="muted" id="gsaved"></span><span style="flex:1"></span>
       <select id="src" title="The lane ropes are out between meets - use a recorded heat, or a picture you saved during a meet"><option value="">Live camera</option></select>
       <button id="snap">Refresh still</button><button id="upl" title="Use a picture taken from this camera during a meet (a screenshot of the camera in OBS works if it isn't cropped)">Use a picture…</button><input type="file" id="file" accept="image/*" style="display:none"><button id="undo">Undo point</button><button id="clr">Start over</button><button id="save">Save</button></div>
+    <div class="row" style="margin-top:6px"><button id="bMark" title="Mark the lane-time scoreboard in the picture, to see when each lane's time showed up on it">Mark scoreboard</button>
+      <span class="muted" id="bInfo"></span>
+      <span id="bCtl" class="hidden"><span class="muted">top row is lane</span> <select id="bTop"></select> <span class="muted">bottom row is lane</span> <select id="bBot"></select>
+      <button id="bSave">Save scoreboard</button><button id="bCancel">Cancel</button> <button id="bClear" title="Stop using the scoreboard">Remove</button></span></div>
     <p class="steps muted" style="margin:8px 0">Click the <b id="s1">finish wall</b> then the <b id="s2">turn wall</b>: on each, click where the 9 lane lines meet the wall —
       the lane-1 pool edge first, then each lane rope in order, then the lane-8 edge. Use the
       <a href="#" id="zoomTip">mouse wheel</a> to zoom in for the far lanes. <span id="cnt"></span></p>
+    <p class="muted hidden" id="bHelp" style="margin:4px 0 8px;background:#fff7d6;padding:6px 10px;border-radius:6px">Scoreboard: click the <b>top-left corner of the top row's time</b>, then the
+      <b>bottom-right corner of the bottom row's time</b> (just the time digits, not the lane numbers). Zoom in with the mouse wheel. Then say which lanes the top and bottom rows are -
+      rows cut off by the edge of the picture don't count.</p>
     <div class="wrap"><canvas id="cv" width="1920" height="1080"></canvas></div>
   </div>
 
@@ -54,13 +61,14 @@
       <select id="ckClip"><option value="">Pick a heat…</option></select>
       <button id="ckRun">Find touches</button></div>
     <p class="muted" style="margin:8px 0">Pick a heat, then click a lane's touch time to jump there in the video. The shaded boxes are where it
-      watches for the touch; a lane's box flashes when the video reaches that lane's touch. Step frame by frame (1/30 s) to see the hand on the wall.</p>
+      watches for the touch; a lane's box flashes when the video reaches that lane's touch. Step frame by frame (1/30 s) to see the hand on the wall - or use the keys: ← → one frame, Shift+← → one second, space to play/pause.</p>
     <div id="ckBody" class="hidden">
       <div class="wrap" style="background:#000"><video id="ckV" style="display:block;width:100%" preload="auto" playsinline muted></video>
         <canvas id="ckC" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none"></canvas></div>
       <div class="row" style="margin:8px 0">
         <button id="ckPlay">Play</button><button id="ckBack" title="One frame back">&#9664; frame</button><button id="ckFwd" title="One frame forward">frame &#9654;</button>
         <button id="ckB1" title="One second back">−1 s</button><button id="ckF1" title="One second forward">+1 s</button>
+        <button id="ckStart" title="Stop on the frame where the race started - step back and forward to find the starter's strobe">Start</button>
         <label class="muted">Speed <select id="ckSpd"><option>0.1</option><option selected>0.25</option><option>0.5</option><option>1</option></select></label>
         <label class="muted"><input type="checkbox" id="ckZones" checked> show zones</label>
         <span style="flex:1"></span>
@@ -105,6 +113,18 @@ function draw() {
     L.forEach((p, i) => { const [x, y] = P(p); cx.fillStyle = col; cx.beginPath(); cx.arc(x, y, 7 / view.z, 0, 7); cx.fill();
       cx.fillStyle = "#fff"; cx.font = `${18 / view.z}px Segoe UI, sans-serif`; cx.fillText(i === 0 ? "L1 edge" : i === 8 ? "L8 edge" : "rope " + i, x + 9 / view.z, y - 9 / view.z); });
   }
+  // the scoreboard box (while marking it, or as saved)
+  const B = bm.on ? (bm.pts.length === 2 ? {box: [...bm.pts[0], ...bm.pts[1]], top: +$("#bTop").value, bottom: +$("#bBot").value} : null) : curBoard();
+  if (B) {
+    const [x0, y0, x1, y1] = B.box, n = Math.abs(B.bottom - B.top) + 1, dir = B.bottom >= B.top ? 1 : -1;
+    cx.lineWidth = 2 / view.z; cx.strokeStyle = "#ffe58a"; cx.fillStyle = "#ffe58a"; cx.font = `bold ${14 / view.z}px Segoe UI, sans-serif`;
+    for (let i = 0; i < n; i++) {
+      const yy = (y0 + (y1 - y0) * i / n) * cv.height, hh = (y1 - y0) / n * cv.height;
+      cx.strokeRect(x0 * cv.width, yy, (x1 - x0) * cv.width, hh);
+      cx.fillText("L" + (B.top + i * dir), x1 * cv.width + 4 / view.z, yy + hh * 0.75);
+    }
+  }
+  if (bm.on) bm.pts.forEach(p => { const [x, y] = P(p); cx.fillStyle = "#ffe58a"; cx.beginPath(); cx.arc(x, y, 5 / view.z, 0, 7); cx.fill(); });
   const c = cur();
   $("#s1").className = c === "finish" ? "on" : ""; $("#s2").className = c === "turn" ? "on" : "";
   $("#cnt").textContent = c ? `${c === "finish" ? "Finish" : "Turn"} wall: point ${pts[c].length + 1} of 9.` : "All 18 points marked - Save.";
@@ -113,7 +133,7 @@ function evPt(e) {
   const r = cv.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * cv.width, sy = (e.clientY - r.top) / r.height * cv.height;
   return [(sx / view.z + view.x) / cv.width, (sy / view.z + view.y) / cv.height];
 }
-cv.addEventListener("click", e => { const c = cur(); if (!c) return; pts[c].push(evPt(e).map(v => +v.toFixed(5))); draw(); });
+cv.addEventListener("click", e => { if (bm.on) { if (bm.pts.length < 2) bm.pts.push(evPt(e).map(v => +v.toFixed(5))); draw(); return; } const c = cur(); if (!c) return; pts[c].push(evPt(e).map(v => +v.toFixed(5))); draw(); });
 cv.addEventListener("wheel", e => {
   e.preventDefault(); const [fx, fy] = evPt(e), z = Math.max(1, Math.min(8, view.z * (e.deltaY < 0 ? 1.25 : 0.8)));
   view.z = z; view.x = Math.max(0, Math.min(cv.width - cv.width / z, fx * cv.width - (e.offsetX / cv.clientWidth * cv.width) / z));
@@ -133,7 +153,35 @@ function snap() {
   const c = $("#src").value;
   i.src = "/api/video/snapshot.jpg?t=" + Date.now() + (c ? "&clip=" + encodeURIComponent(c) : "");
 }
-$("#src").onchange = snap;
+$("#src").onchange = () => { snap(); loadSrcBoard(); };
+// ---- the scoreboard in the picture
+let bm = {on: false, pts: []}, srcBoard;
+function curBoard() { return srcBoard !== undefined ? srcBoard : ((S && S.geom) || {}).board || null; }
+function loadSrcBoard() {
+  const f = $("#src").value; srcBoard = undefined;
+  if (f) api("/api/video/clipinfo?file=" + encodeURIComponent(f)).then(j => { srcBoard = j.board || null; bShow(); draw(); }).catch(() => {});
+  bShow(); draw();
+}
+function bShow() {
+  const B = curBoard();
+  $("#bInfo").textContent = bm.on ? (bm.pts.length < 2 ? `click corner ${bm.pts.length + 1} of 2` : "check the boxes line up with the rows, then Save")
+    : B ? `marked - lanes ${B.top}–${B.bottom}${$("#src").value ? " (for this recording's picture)" : ""}` : "not marked - optional";
+  ["#bCtl", "#bHelp"].forEach(q => $(q).classList.toggle("hidden", !bm.on));
+  $("#bMark").classList.toggle("hidden", bm.on);
+}
+for (const q of ["#bTop", "#bBot"]) $(q).innerHTML = Array.from({length: 10}, (_, i) => `<option>${i + 1}</option>`).join("");
+$("#bTop").onchange = $("#bBot").onchange = draw;
+$("#bMark").onclick = () => { const B = curBoard(); bm = {on: true, pts: []}; $("#bTop").value = B ? B.top : 1; $("#bBot").value = B ? B.bottom : 8; bShow(); draw(); };
+$("#bCancel").onclick = () => { bm = {on: false, pts: []}; bShow(); draw(); };
+async function bPost(board) {
+  try { S = await api("/api/video", {board, board_clip: $("#src").value || null}); } catch (e) { return alert(e.message); }
+  bm = {on: false, pts: []}; loadSrcBoard(); show();
+}
+$("#bSave").onclick = () => {
+  if (bm.pts.length !== 2) return alert("Click the two corners first.");
+  bPost({box: [...bm.pts[0], ...bm.pts[1]], top: +$("#bTop").value, bottom: +$("#bBot").value});
+};
+$("#bClear").onclick = () => { if (confirm("Stop using the scoreboard in the picture?")) bPost(null); };
 $("#upl").onclick = () => $("#file").click();
 $("#file").onchange = () => {
   const f = $("#file").files[0]; if (!f) return;
@@ -162,6 +210,7 @@ function show() {
   $("#en").checked = S.enabled; $("#kd").value = S.keep_days; $("#kg").value = S.keep_gb;
   $("#cam").textContent = S.camera ? `${S.camera} (${S.camera_from})` : "not found - connect OBS (Stream page), or its camera source isn't an RTSP address";
   $("#err").textContent = S.error || ""; fillSrc(); ckFill();
+  if (!bm.on) bShow();
   $("#gsaved").textContent = S.geom && S.geom.saved ? "saved " + S.geom.saved : "not marked yet";
   $("#clips").innerHTML = (S.recent || []).map(c => `<tr><td>E${c.event} H${c.heat}</td><td>${tm(c.rec_start)}</td><td>${c.rec_end ? Math.round(c.rec_end - c.rec_start) + " s" : ""}</td>
     <td>${c.bytes ? (c.bytes / 1e6).toFixed(0) + " MB" : ""}</td><td>${c.ok ? `<a href="/api/video/clip/${encodeURI(c.file)}">download</a>` : "failed"}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">None yet.</td></tr>`;
@@ -194,7 +243,8 @@ function ckShow() {
   // every source in its own column so the times line up
   const ORDER = ["console", "pad", "backup", "watch", "watch2"];
   const used = ORDER.filter(k => all.some(l => (((lanes[l] || {}).times || (refs[l] || {}).times || {})[k])));
-  $("#ckHead").innerHTML = `<tr><th>Lane</th><th>Swimmer</th>${used.map(k => `<th style="text-align:right">${SRC[k][0].toUpperCase() + SRC[k].slice(1)}</th>`).join("")}<th style="text-align:right">Video touch</th><th style="text-align:right">Difference</th><th></th><th></th></tr>`;
+  const hasB = !!(D.board || I.board);
+  $("#ckHead").innerHTML = `<tr><th>Lane</th><th>Swimmer</th>${used.map(k => `<th style="text-align:right">${SRC[k][0].toUpperCase() + SRC[k].slice(1)}</th>`).join("")}<th style="text-align:right">Video touch</th><th style="text-align:right">Difference</th>${hasB ? `<th style="text-align:right" title="When the lane's time showed up on the scoreboard in the picture, and how long after the pad (or console) time - the board runs 0.1-0.7 s behind">On scoreboard</th>` : ""}<th></th><th></th></tr>`;
   const num = "font-family:Consolas,monospace;text-align:right;white-space:nowrap";
   $("#ckRows").innerHTML = all.map(l => {
     const r = lanes[l] || {}, rf = refs[l] || {}, times = r.times || rf.times || {};
@@ -203,6 +253,7 @@ function ckShow() {
       ${used.map(k => `<td style="${num};color:#5d7075">${times[k] ? tfmt(times[k]) : "–"}</td>`).join("")}
       <td style="${num}">${r.clip_t != null ? `<a href="#" data-jump="${l}" style="font-weight:700">${tfmt(r.video)}</a>` : '<span class="muted">not found</span>'}</td>
       <td style="${num};${big ? "color:#c0392b;font-weight:700" : ""}">${r.diff != null ? (r.diff >= 0 ? "+" : "") + r.diff.toFixed(2) + " s" : ""}</td>
+      ${hasB ? `<td style="${num}">${r.board_clip_t != null ? `<a href="#" data-board="${l}" title="Stop on the frame where this lane's time showed up on the scoreboard. ${r.board_lag < 0 ? "That was before the pad time - the pad was probably late; the board showed the button's time first." : "The board normally runs 0.1-0.7 s behind the pad."}" style="${r.board_lag < 0 || r.board_lag > 0.9 ? "color:#c0392b;font-weight:700" : ""}">${r.board_lag >= 0 ? "+" : "−"}${Math.abs(r.board_lag).toFixed(2)} s</a>` : '<span class="muted">–</span>'}</td>` : ""}
       <td class="muted" style="font-size:12px;white-space:nowrap">${r.clip_t != null ? "at " + tfmt(r.clip_t) + " in clip" : ""}</td>
       <td style="white-space:nowrap">${r.clip_t != null ? `<button data-jump="${l}" title="Play from 1.5 s before the touch, slowly">Watch</button> <button data-frame="${l}" title="Stop on the detected touch frame">Touch frame</button>` : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="muted">No lanes.</td></tr>`;
@@ -222,6 +273,16 @@ function ckDraw() {
     g.strokeStyle = hit ? "#ff3c3c" : "rgba(255,255,255,.6)"; g.lineWidth = hit ? 4 : 1.5; g.stroke();
     const m = q.reduce((s, p) => [s[0] + p[0] * W / 4, s[1] + p[1] * H / 4], [0, 0]);
     g.fillStyle = "#fff"; g.font = "bold 26px Segoe UI, sans-serif"; g.fillText(l, m[0] + 30, m[1] + 9);
+  }
+  const B = D.board || (ck.info || {}).board;
+  if (B && $("#ckZones").checked) {
+    const [x0, y0, x1, y1] = B.box, n = Math.abs(B.bottom - B.top) + 1, dir = B.bottom >= B.top ? 1 : -1;
+    for (let i = 0; i < n; i++) {
+      const l = B.top + i * dir, r = (D.lanes || {})[l], yy = (y0 + (y1 - y0) * i / n) * H, hh = (y1 - y0) / n * H;
+      const hit = r && r.board_clip_t != null && t >= r.board_clip_t - 0.02 && t < r.board_clip_t + 0.6;
+      g.strokeStyle = hit ? "#ff3c3c" : (l === ck.lane ? "#ffe58a" : "rgba(255,255,255,.55)"); g.lineWidth = hit ? 3 : 1;
+      g.strokeRect(x0 * W, yy, (x1 - x0) * W, hh);
+    }
   }
   const s0 = D.start_in_clip;
   $("#ckClock").textContent = s0 != null ? tfmt(t - s0) : "–";
@@ -246,6 +307,13 @@ function ckGraph() {
 }
 let ckStopAt = null;
 document.addEventListener("click", e => {
+  const bj = e.target.closest("[data-board]");
+  if (bj) {
+    e.preventDefault();
+    const l = +bj.dataset.board, r = (((ck.info || {}).detect || {}).lanes || {})[l];
+    if (r && r.board_clip_t != null) { ck.lane = l; ckV.pause(); ckStopAt = null; pend = 0; ckV.currentTime = r.board_clip_t + FD / 2; ckShow(); $("#chk").scrollIntoView({behavior: "smooth", block: "start"}); }
+    return;
+  }
   const j = e.target.closest("[data-jump]"), f = e.target.closest("[data-frame]");
   if (!j && !f) return;
   e.preventDefault();
@@ -263,10 +331,41 @@ ckV.addEventListener("play", () => { $("#ckPlay").textContent = "Pause"; });
 ckV.addEventListener("pause", () => { $("#ckPlay").textContent = "Play"; ckDraw(); ckGraph(); });
 (function loop() { if (!ckV.paused) { ckDraw(); ckGraph(); } requestAnimationFrame(loop); })();
 $("#ckPlay").onclick = () => { ckStopAt = null; ckV.paused ? (ckV.playbackRate = +$("#ckSpd").value, ckV.play()) : ckV.pause(); };
-$("#ckBack").onclick = () => { ckV.pause(); ckV.currentTime = Math.max(0, ckV.currentTime - 1 / 30); };
-$("#ckFwd").onclick = () => { ckV.pause(); ckV.currentTime += 1 / 30; };
-$("#ckB1").onclick = () => { ckV.currentTime = Math.max(0, ckV.currentTime - 1); };
-$("#ckF1").onclick = () => { ckV.currentTime += 1; };
+// Frame stepping. The browser reports where the video is, not which frame is showing, and a recording's frame
+// times aren't exactly 1/30 s apart - so step from the frame actually on screen (requestVideoFrameCallback),
+// aiming at the middle of the next frame. Going back can take a moment (the browser decodes from the last
+// keyframe), so clicks made while it's still seeking add up instead of getting lost.
+const FPS = 30, FD = 1 / FPS;
+let shown = null, pend = 0;
+function watchFrames() { if (ckV.requestVideoFrameCallback) ckV.requestVideoFrameCallback((now, m) => { shown = m.mediaTime; watchFrames(); }); }
+watchFrames();
+ckV.addEventListener("emptied", () => { shown = null; pend = 0; });
+function stepFrames(n) {
+  ckV.pause(); ckStopAt = null; pend += n;
+  if (ckV.seeking) { ckBusy(); return; }
+  const k = pend; pend = 0;
+  // the frame on screen starts at `shown`; aim for the middle of the frame k away
+  const onFrame = shown != null && ckV.currentTime - shown >= -0.002 && ckV.currentTime - shown < FD;
+  const to = onFrame ? shown + k * FD + FD / 2 : ckV.currentTime + k * FD;
+  ckV.currentTime = Math.max(0, Math.min((ckV.duration || 1e9) - FD / 2, to));
+  ckBusy();
+}
+function ckBusy() { $("#ckClipT").textContent = ckV.seeking ? "finding frame…" : `clip ${tfmt(ckV.currentTime)}`; }
+ckV.addEventListener("seeked", () => { if (pend) { stepFrames(0); } ckBusy(); });
+$("#ckBack").onclick = () => stepFrames(-1);
+$("#ckFwd").onclick = () => stepFrames(1);
+$("#ckB1").onclick = () => stepFrames(-FPS);
+$("#ckF1").onclick = () => stepFrames(FPS);
+$("#ckStart").onclick = () => {
+  const s0 = (((ck.info || {}).detect || {}).start_in_clip);
+  if (s0 == null) return alert("Find touches first - that lines up the start.");
+  ckV.pause(); ckStopAt = null; pend = 0; ckV.currentTime = Math.max(0, s0);
+};
+document.addEventListener("keydown", e => {
+  if ($("#ckBody").classList.contains("hidden") || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepFrames((e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? FPS : 1)); }
+  else if (e.key === " ") { e.preventDefault(); $("#ckPlay").click(); }
+});
 $("#ckSpd").onchange = () => { ckV.playbackRate = +$("#ckSpd").value; };
 $("#ckZones").onchange = ckDraw;
 $("#ckClip").onchange = () => { ck.lane = null; ckLoad(); };

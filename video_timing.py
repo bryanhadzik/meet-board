@@ -292,10 +292,46 @@ class VideoTiming:
                 out.append([round(x, 5), round(y, 5)])
             return out
         g = {'finish': pts(g.get('finish')), 'turn': pts(g.get('turn')), 'lane1': g.get('lane1') or 'first',
-             'saved': time.strftime('%Y-%m-%d %H:%M')}
+             'board': self.geom().get('board'), 'saved': time.strftime('%Y-%m-%d %H:%M')}
         self.settings['video_geom'] = g
         self.save_settings()
         return g
+
+    @staticmethod
+    def _board(b):
+        box = [float(v) for v in (b.get('box') or [])]
+        if len(box) != 4 or not all(0 <= v <= 1 for v in box):
+            raise ValueError('scoreboard box must be 4 fractions of the frame')
+        x0, x1, y0, y1 = sorted(box[0::2])[0], sorted(box[0::2])[1], sorted(box[1::2])[0], sorted(box[1::2])[1]
+        if x1 - x0 < 0.005 or y1 - y0 < 0.005:
+            raise ValueError('scoreboard box is too small')
+        top, bot = int(b.get('top') or 1), int(b.get('bottom') or 8)
+        if not (1 <= top <= 10 and 1 <= bot <= 10):
+            raise ValueError('lanes must be 1-10')
+        return {'box': [round(v, 5) for v in (x0, y0, x1, y1)], 'top': top, 'bottom': bot}
+
+    def set_board(self, b, clip=None):
+        """Where the lane-time scoreboard is in the picture (None clears it). With clip = an imported clip that
+        has its own picture geometry, it goes on every clip with that same geometry; otherwise on the camera's."""
+        b = self._board(b) if b else None
+        c = self.entry(clip) if clip else None
+        if c and c.get('geom'):
+            key = json.dumps([c['geom'].get('finish'), c['geom'].get('turn')])
+            with self._lock:
+                for x in self.index:
+                    if x.get('geom') and json.dumps([x['geom'].get('finish'), x['geom'].get('turn')]) == key:
+                        x['geom']['board'] = b
+                self._save_index()
+            return b
+        g = dict(self.geom())
+        g['board'] = b
+        self.settings['video_geom'] = g
+        self.save_settings()
+        return b
+
+    def board_for(self, rel):
+        c = self.entry(rel) if rel else None
+        return ((c or {}).get('geom') or {}).get('board') if c and c.get('geom') else self.geom().get('board')
 
     def status(self):
         url, src = self.camera_url()
@@ -347,7 +383,9 @@ class VideoTiming:
         ff = self.ffmpeg()
         if not ff:
             raise RuntimeError('the recorder (ffmpeg) is not set up yet')
-        geom = c.get('geom') or self.geom()
+        geom = dict(c.get('geom') or self.geom())
+        if not geom.get('board') and not c.get('geom'):
+            geom['board'] = self.geom().get('board')
         if not geom or len(geom.get('finish') or []) != 9 or len(geom.get('turn') or []) != 9:
             raise RuntimeError('mark the lanes first')
         refs = c.get('refs') or refs or {}

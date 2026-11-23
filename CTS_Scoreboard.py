@@ -4161,6 +4161,11 @@ def route_video_api():
                 VIDEO.set_geom(d['geom'])
             except (ValueError, TypeError) as e:
                 return flask.jsonify({'error': str(e)}), 400
+        if 'board' in d:
+            try:
+                VIDEO.set_board(d['board'], d.get('board_clip') or None)
+            except (ValueError, TypeError) as e:
+                return flask.jsonify({'error': str(e)}), 400
         save_settings()
         if d.get('install_ffmpeg'):
             try:
@@ -4227,6 +4232,7 @@ def route_video_clipinfo():
     out = {k: c.get(k) for k in ('event', 'heat', 'file', 'label', 'imported', 'rec_start', 'rec_end', 'race_start', 'detect')}
     out['detecting'] = c['file'] in VIDEO._detecting
     out['refs'] = c.get('refs_used') or c.get('refs') or _video_refs(c['event'], c['heat'])
+    out['board'] = VIDEO.board_for(c['file'])
     return flask.jsonify(out)
 
 
