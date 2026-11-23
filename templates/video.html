@@ -257,6 +257,14 @@ function ckShow() {
       <td class="muted" style="font-size:12px;white-space:nowrap">${r.clip_t != null ? "at " + tfmt(r.clip_t) + " in clip" : ""}</td>
       <td style="white-space:nowrap">${r.clip_t != null ? `<button data-jump="${l}" title="Play from 1.5 s before the touch, slowly">Watch</button> <button data-frame="${l}" title="Stop on the detected touch frame">Touch frame</button>` : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="muted">No lanes.</td></tr>`;
+  // the start, first, with the same jump buttons as a lane
+  if (D.start_in_clip != null) {
+    const s0 = D.start_in_clip, span = 2 + used.length;
+    $("#ckRows").insertAdjacentHTML("afterbegin", `<tr style="background:#f6f9fa"><td><b>Start</b></td><td colspan="${span - 1}" class="muted">where the race clock is lined up to 0.00 - look for the starter's strobe</td>
+      <td style="${num}"><a href="#" data-start="1" style="font-weight:700">0.00</a></td><td></td>${hasB ? "<td></td>" : ""}
+      <td class="muted" style="font-size:12px;white-space:nowrap">at ${tfmt(s0)} in clip</td>
+      <td style="white-space:nowrap"><button data-start="1" data-play="1" title="Play from 1.5 s before the start, slowly">Watch</button> <button data-start="1" title="Stop on the start frame">Start frame</button></td></tr>`);
+  }
   ckDraw(); ckGraph();
 }
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -307,6 +315,17 @@ function ckGraph() {
 }
 let ckStopAt = null;
 document.addEventListener("click", e => {
+  const sj = e.target.closest("[data-start]");
+  if (sj) {
+    e.preventDefault();
+    const s0 = (((ck.info || {}).detect || {}).start_in_clip);
+    if (s0 == null) return;
+    pend = 0; ckStopAt = null;
+    if (sj.dataset.play) { ckV.currentTime = Math.max(0, s0 - 1.5); ckV.playbackRate = +$("#ckSpd").value; ckStopAt = s0 + 1.0; ckV.play(); }
+    else { ckV.pause(); ckV.currentTime = Math.max(0, s0); }
+    $("#chk").scrollIntoView({behavior: "smooth", block: "start"});
+    return;
+  }
   const bj = e.target.closest("[data-board]");
   if (bj) {
     e.preventDefault();
