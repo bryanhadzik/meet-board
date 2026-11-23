@@ -457,7 +457,21 @@ $("#ckRun").onclick = async () => {
 api("/api/video").then(j => {
   S = j; if (S.geom && S.geom.finish) pts = {finish: S.geom.finish || [], turn: S.geom.turn || []};
   show(); draw(); if (S.ffmpeg && S.camera) snap();
+  openFromLink();
 }).catch(e => { $("#err").textContent = e.message; });
+// Opened from MeetDeck (?event=&heat=&lane=): load that heat's recording and stop on the lane's touch
+async function openFromLink() {
+  const q = new URLSearchParams(location.search), ev = +q.get("event"), ht = +q.get("heat"), ln = +q.get("lane");
+  if (!ev || !ht) return;
+  const c = (S.recent || []).find(x => x.ok && x.event === ev && x.heat === ht);
+  $("#chk").scrollIntoView({block: "start"});
+  if (!c) { $("#ckSub").textContent = `No recording for event ${ev} heat ${ht}.`; return; }
+  $("#ckClip").value = c.file; ck.lane = ln || null;
+  await ckLoad();
+  const r = ((((ck.info || {}).detect || {}).lanes) || {})[ln];
+  if (r && r.clip_t != null) { ckV.pause(); ckV.currentTime = r.clip_t; ckShow(); }
+  $("#chk").scrollIntoView({block: "start"});
+}
 setInterval(() => api("/api/video").then(j => { S = j; show(); }).catch(() => {}), 5000);
 </script>
 </body>
