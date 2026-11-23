@@ -4244,6 +4244,21 @@ def route_video_start():
     return flask.jsonify({'ok': True})
 
 
+@app.route('/api/video/touch', methods=['POST'])
+def route_video_touch():
+    """Mark a lane's touch by hand: {file, lane, at} (clip seconds; at null removes the mark)."""
+    d = flask.request.get_json(silent=True) or {}
+    try:
+        return flask.jsonify({'marks': VIDEO.set_touch(d.get('file') or '', d.get('lane'), d.get('at'))})
+    except (ValueError, TypeError) as e:
+        return flask.jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/video/marks')
+def route_video_marks():
+    return flask.jsonify(VIDEO.all_marks())
+
+
 @app.route('/api/video/clipinfo')
 def route_video_clipinfo():
     c = VIDEO.entry(flask.request.args.get('file') or '')
@@ -4255,6 +4270,7 @@ def route_video_clipinfo():
     out['board'] = VIDEO.board_for(c['file'])
     out['strobe'] = VIDEO.board_for(c['file'], 'strobe')
     out['start_fixed'] = c.get('start_fixed')
+    out['marks'] = c.get('marks') or {}
     return flask.jsonify(out)
 
 

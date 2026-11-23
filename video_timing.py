@@ -330,6 +330,35 @@ class VideoTiming:
                 c['start_fixed'] = round(float(at), 3)
             self._save_index()
 
+    def set_touch(self, rel, lane, at):
+        """Your own mark of a lane's touch (clip seconds of the frame the hand hits the wall; None removes it).
+        Kept with the clip, shown beside the video's guess, and used later to tune the detection."""
+        c = self.entry(rel)
+        if not c:
+            raise ValueError('no such clip')
+        lane = str(int(lane))
+        with self._lock:
+            m = c.setdefault('marks', {})
+            if at is None:
+                m.pop(lane, None)
+            else:
+                m[lane] = {'clip_t': round(float(at), 3), 'at': time.strftime('%Y-%m-%d %H:%M')}
+            self._save_index()
+        return c.get('marks')
+
+    def all_marks(self):
+        """Every hand-marked touch, with what's needed to tune the detection against it."""
+        out = []
+        for c in self.index:
+            if c.get('marks'):
+                d = c.get('detect') or {}
+                out.append({'file': c['file'], 'event': c['event'], 'heat': c['heat'], 'marks': c['marks'],
+                            'start_in_clip': d.get('start_in_clip'), 'start_src': d.get('start_src'),
+                            'start_fixed': c.get('start_fixed'), 'refs': c.get('refs_used') or c.get('refs'),
+                            'detected': {l: v.get('clip_t') for l, v in (d.get('lanes') or {}).items()},
+                            'geom': c.get('geom') or self.geom()})
+        return out
+
     def _set_pic(self, key, val, clip=None):
         c = self.entry(clip) if clip else None
         if c and c.get('geom'):
