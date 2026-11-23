@@ -4161,6 +4161,11 @@ def route_video_api():
                 VIDEO.set_geom(d['geom'])
             except (ValueError, TypeError) as e:
                 return flask.jsonify({'error': str(e)}), 400
+        if 'strobe' in d:
+            try:
+                VIDEO.set_strobe(d['strobe'], d.get('board_clip') or None)
+            except (ValueError, TypeError) as e:
+                return flask.jsonify({'error': str(e)}), 400
         if 'board' in d:
             try:
                 VIDEO.set_board(d['board'], d.get('board_clip') or None)
@@ -4224,6 +4229,21 @@ def route_video_detect():
     return flask.jsonify({'ok': True})
 
 
+@app.route('/api/video/start', methods=['POST'])
+def route_video_start():
+    """Set a clip's start by hand: {file, at} (clip seconds; at null = automatic again), then find the touches again."""
+    d = flask.request.get_json(silent=True) or {}
+    c = VIDEO.entry(d.get('file') or '')
+    if not c:
+        return flask.jsonify({'error': 'no such clip'}), 404
+    try:
+        VIDEO.set_start(c['file'], d.get('at'))
+        VIDEO.run_detect(c['file'], None if c.get('refs') else _video_refs(c['event'], c['heat']))
+    except Exception as e:
+        return flask.jsonify({'error': str(e)}), 400
+    return flask.jsonify({'ok': True})
+
+
 @app.route('/api/video/clipinfo')
 def route_video_clipinfo():
     c = VIDEO.entry(flask.request.args.get('file') or '')
@@ -4233,6 +4253,8 @@ def route_video_clipinfo():
     out['detecting'] = c['file'] in VIDEO._detecting
     out['refs'] = c.get('refs_used') or c.get('refs') or _video_refs(c['event'], c['heat'])
     out['board'] = VIDEO.board_for(c['file'])
+    out['strobe'] = VIDEO.board_for(c['file'], 'strobe')
+    out['start_fixed'] = c.get('start_fixed')
     return flask.jsonify(out)
 
 

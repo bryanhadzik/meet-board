@@ -292,7 +292,7 @@ class VideoTiming:
                 out.append([round(x, 5), round(y, 5)])
             return out
         g = {'finish': pts(g.get('finish')), 'turn': pts(g.get('turn')), 'lane1': g.get('lane1') or 'first',
-             'board': self.geom().get('board'), 'saved': time.strftime('%Y-%m-%d %H:%M')}
+             'board': self.geom().get('board'), 'strobe': self.geom().get('strobe'), 'saved': time.strftime('%Y-%m-%d %H:%M')}
         self.settings['video_geom'] = g
         self.save_settings()
         return g
@@ -309,6 +309,42 @@ class VideoTiming:
         if not (1 <= top <= 10 and 1 <= bot <= 10):
             raise ValueError('lanes must be 1-10')
         return {'box': [round(v, 5) for v in (x0, y0, x1, y1)], 'top': top, 'bottom': bot}
+
+    def set_strobe(self, b, clip=None):
+        """Where the starter's strobe is in the picture ({box: [x0, y0, x1, y1]} fractions, or None), same rules as
+        the scoreboard: on every imported clip with the same picture, or on the camera's."""
+        if b:
+            box = self._board({'box': b.get('box'), 'top': 1, 'bottom': 1})['box']
+            b = {'box': box}
+        return self._set_pic('strobe', b or None, clip)
+
+    def set_start(self, rel, at):
+        """Fix a clip's start by hand (clip seconds, or None to go back to automatic) and find the touches again."""
+        c = self.entry(rel)
+        if not c:
+            raise ValueError('no such clip')
+        with self._lock:
+            if at is None:
+                c.pop('start_fixed', None)
+            else:
+                c['start_fixed'] = round(float(at), 3)
+            self._save_index()
+
+    def _set_pic(self, key, val, clip=None):
+        c = self.entry(clip) if clip else None
+        if c and c.get('geom'):
+            sig = json.dumps([c['geom'].get('finish'), c['geom'].get('turn')])
+            with self._lock:
+                for x in self.index:
+                    if x.get('geom') and json.dumps([x['geom'].get('finish'), x['geom'].get('turn')]) == sig:
+                        x['geom'][key] = val
+                self._save_index()
+            return val
+        g = dict(self.geom())
+        g[key] = val
+        self.settings['video_geom'] = g
+        self.save_settings()
+        return val
 
     def set_board(self, b, clip=None):
         """Where the lane-time scoreboard is in the picture (None clears it). With clip = an imported clip that
@@ -329,9 +365,9 @@ class VideoTiming:
         self.save_settings()
         return b
 
-    def board_for(self, rel):
+    def board_for(self, rel, key='board'):
         c = self.entry(rel) if rel else None
-        return ((c or {}).get('geom') or {}).get('board') if c and c.get('geom') else self.geom().get('board')
+        return ((c or {}).get('geom') or {}).get(key) if c and c.get('geom') else self.geom().get(key)
 
     def status(self):
         url, src = self.camera_url()
@@ -384,8 +420,9 @@ class VideoTiming:
         if not ff:
             raise RuntimeError('the recorder (ffmpeg) is not set up yet')
         geom = dict(c.get('geom') or self.geom())
-        if not geom.get('board') and not c.get('geom'):
+        if not c.get('geom'):
             geom['board'] = self.geom().get('board')
+            geom['strobe'] = self.geom().get('strobe')
         if not geom or len(geom.get('finish') or []) != 9 or len(geom.get('turn') or []) != 9:
             raise RuntimeError('mark the lanes first')
         refs = c.get('refs') or refs or {}
@@ -400,7 +437,7 @@ class VideoTiming:
 
         def go():
             try:
-                r = video_detect.detect(ff, os.path.join(self.clips_dir, rel), geom, refs, guess)
+                r = video_detect.detect(ff, os.path.join(self.clips_dir, rel), geom, refs, guess, c.get('start_fixed'))
             except Exception as e:
                 r = {'error': str(e)}
             r['at'] = time.time()

@@ -47,12 +47,17 @@
       <span class="muted" id="bInfo"></span>
       <span id="bCtl" class="hidden"><span class="muted">top row is lane</span> <select id="bTop"></select> <span class="muted">bottom row is lane</span> <select id="bBot"></select>
       <button id="bSave">Save scoreboard</button><button id="bCancel">Cancel</button> <button id="bClear" title="Stop using the scoreboard">Remove</button></span></div>
+    <div class="row" style="margin-top:6px"><button id="sMark" title="Mark the starter's strobe, so each heat's start is taken from its flash">Mark strobe</button>
+      <span class="muted" id="sInfo"></span>
+      <span id="sCtl" class="hidden"><button id="sSave">Save strobe</button><button id="sCancel">Cancel</button> <button id="sClear" title="Stop using the strobe">Remove</button></span></div>
     <p class="steps muted" style="margin:8px 0">Click the <b id="s1">finish wall</b> then the <b id="s2">turn wall</b>: on each, click where the 9 lane lines meet the wall —
       the lane-1 pool edge first, then each lane rope in order, then the lane-8 edge. Use the
       <a href="#" id="zoomTip">mouse wheel</a> to zoom in for the far lanes. <span id="cnt"></span></p>
     <p class="muted hidden" id="bHelp" style="margin:4px 0 8px;background:#fff7d6;padding:6px 10px;border-radius:6px">Scoreboard: click the <b>top-left corner of the top row's time</b>, then the
       <b>bottom-right corner of the bottom row's time</b> (just the time digits, not the lane numbers). Zoom in with the mouse wheel. Then say which lanes the top and bottom rows are -
       rows cut off by the edge of the picture don't count.</p>
+    <p class="muted hidden" id="sHelp" style="margin:4px 0 8px;background:#fff7d6;padding:6px 10px;border-radius:6px">Strobe: click two corners of a small box around the starter's strobe light
+      (where it flashes). Keep the box tight so people walking past don't set it off. Best done on a recording paused on the flash.</p>
     <div class="wrap"><canvas id="cv" width="1920" height="1080"></canvas></div>
   </div>
 
@@ -69,6 +74,8 @@
         <button id="ckPlay">Play</button><button id="ckBack" title="One frame back">&#9664; frame</button><button id="ckFwd" title="One frame forward">frame &#9654;</button>
         <button id="ckB1" title="One second back">−1 s</button><button id="ckF1" title="One second forward">+1 s</button>
         <button id="ckStart" title="Stop on the frame where the race started - step back and forward to find the starter's strobe">Start</button>
+        <button id="ckSetStart" title="Use the frame showing now as the start (the first frame the strobe is lit), and find the touches again">Set start here</button>
+        <button id="ckAutoStart" class="hidden" title="Go back to finding the start automatically">Automatic start</button>
         <label class="muted">Speed <select id="ckSpd"><option>0.1</option><option selected>0.25</option><option>0.5</option><option>1</option></select></label>
         <label class="muted"><input type="checkbox" id="ckZones" checked> show zones</label>
         <span style="flex:1"></span>
@@ -124,6 +131,10 @@ function draw() {
       cx.fillText("L" + (B.top + i * dir), x1 * cv.width + 4 / view.z, yy + hh * 0.75);
     }
   }
+  const SB = sm.on ? (sm.pts.length === 2 ? {box: [...sm.pts[0], ...sm.pts[1]]} : null) : curStrobe();
+  if (SB) { const [x0, y0, x1, y1] = SB.box; cx.lineWidth = 2 / view.z; cx.strokeStyle = "#ff8a3d"; cx.strokeRect(x0 * cv.width, y0 * cv.height, (x1 - x0) * cv.width, (y1 - y0) * cv.height);
+    cx.fillStyle = "#ff8a3d"; cx.font = `bold ${14 / view.z}px Segoe UI, sans-serif`; cx.fillText("strobe", x1 * cv.width + 4 / view.z, y0 * cv.height + 12 / view.z); }
+  if (sm.on) sm.pts.forEach(p => { const [x, y] = P(p); cx.fillStyle = "#ff8a3d"; cx.beginPath(); cx.arc(x, y, 5 / view.z, 0, 7); cx.fill(); });
   if (bm.on) bm.pts.forEach(p => { const [x, y] = P(p); cx.fillStyle = "#ffe58a"; cx.beginPath(); cx.arc(x, y, 5 / view.z, 0, 7); cx.fill(); });
   const c = cur();
   $("#s1").className = c === "finish" ? "on" : ""; $("#s2").className = c === "turn" ? "on" : "";
@@ -133,7 +144,7 @@ function evPt(e) {
   const r = cv.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * cv.width, sy = (e.clientY - r.top) / r.height * cv.height;
   return [(sx / view.z + view.x) / cv.width, (sy / view.z + view.y) / cv.height];
 }
-cv.addEventListener("click", e => { if (bm.on) { if (bm.pts.length < 2) bm.pts.push(evPt(e).map(v => +v.toFixed(5))); draw(); return; } const c = cur(); if (!c) return; pts[c].push(evPt(e).map(v => +v.toFixed(5))); draw(); });
+cv.addEventListener("click", e => { if (sm.on) { if (sm.pts.length < 2) sm.pts.push(evPt(e).map(v => +v.toFixed(5))); draw(); sShow(); return; } if (bm.on) { if (bm.pts.length < 2) bm.pts.push(evPt(e).map(v => +v.toFixed(5))); draw(); return; } const c = cur(); if (!c) return; pts[c].push(evPt(e).map(v => +v.toFixed(5))); draw(); });
 cv.addEventListener("wheel", e => {
   e.preventDefault(); const [fx, fy] = evPt(e), z = Math.max(1, Math.min(8, view.z * (e.deltaY < 0 ? 1.25 : 0.8)));
   view.z = z; view.x = Math.max(0, Math.min(cv.width - cv.width / z, fx * cv.width - (e.offsetX / cv.clientWidth * cv.width) / z));
@@ -155,12 +166,28 @@ function snap() {
 }
 $("#src").onchange = () => { snap(); loadSrcBoard(); };
 // ---- the scoreboard in the picture
-let bm = {on: false, pts: []}, srcBoard;
+let bm = {on: false, pts: []}, srcBoard, sm = {on: false, pts: []}, srcStrobe;
+function curStrobe() { return srcStrobe !== undefined ? srcStrobe : ((S && S.geom) || {}).strobe || null; }
+function sShow() {
+  const B = curStrobe();
+  $("#sInfo").textContent = sm.on ? (sm.pts.length < 2 ? `click corner ${sm.pts.length + 1} of 2` : "check the box sits on the strobe, then Save")
+    : B ? `marked${$("#src").value ? " (for this recording's picture)" : ""} - each heat's start comes from the flash` : "not marked - the start is lined up from the lanes' times";
+  ["#sCtl", "#sHelp"].forEach(q => $(q).classList.toggle("hidden", !sm.on));
+  $("#sMark").classList.toggle("hidden", sm.on);
+}
+$("#sMark").onclick = () => { sm = {on: true, pts: []}; bm = {on: false, pts: []}; bShow(); sShow(); draw(); };
+$("#sCancel").onclick = () => { sm = {on: false, pts: []}; sShow(); draw(); };
+async function sPost(strobe) {
+  try { S = await api("/api/video", {strobe, board_clip: $("#src").value || null}); } catch (e) { return alert(e.message); }
+  sm = {on: false, pts: []}; loadSrcBoard(); show();
+}
+$("#sSave").onclick = () => { if (sm.pts.length !== 2) return alert("Click the two corners first."); sPost({box: [...sm.pts[0], ...sm.pts[1]]}); };
+$("#sClear").onclick = () => { if (confirm("Stop using the strobe for the start?")) sPost(null); };
 function curBoard() { return srcBoard !== undefined ? srcBoard : ((S && S.geom) || {}).board || null; }
 function loadSrcBoard() {
-  const f = $("#src").value; srcBoard = undefined;
-  if (f) api("/api/video/clipinfo?file=" + encodeURIComponent(f)).then(j => { srcBoard = j.board || null; bShow(); draw(); }).catch(() => {});
-  bShow(); draw();
+  const f = $("#src").value; srcBoard = undefined; srcStrobe = undefined;
+  if (f) api("/api/video/clipinfo?file=" + encodeURIComponent(f)).then(j => { srcBoard = j.board || null; srcStrobe = j.strobe || null; bShow(); sShow(); draw(); }).catch(() => {});
+  bShow(); sShow(); draw();
 }
 function bShow() {
   const B = curBoard();
@@ -171,7 +198,7 @@ function bShow() {
 }
 for (const q of ["#bTop", "#bBot"]) $(q).innerHTML = Array.from({length: 10}, (_, i) => `<option>${i + 1}</option>`).join("");
 $("#bTop").onchange = $("#bBot").onchange = draw;
-$("#bMark").onclick = () => { const B = curBoard(); bm = {on: true, pts: []}; $("#bTop").value = B ? B.top : 1; $("#bBot").value = B ? B.bottom : 8; bShow(); draw(); };
+$("#bMark").onclick = () => { const B = curBoard(); sm = {on: false, pts: []}; sShow(); bm = {on: true, pts: []}; $("#bTop").value = B ? B.top : 1; $("#bBot").value = B ? B.bottom : 8; bShow(); draw(); };
 $("#bCancel").onclick = () => { bm = {on: false, pts: []}; bShow(); draw(); };
 async function bPost(board) {
   try { S = await api("/api/video", {board, board_clip: $("#src").value || null}); } catch (e) { return alert(e.message); }
@@ -211,6 +238,7 @@ function show() {
   $("#cam").textContent = S.camera ? `${S.camera} (${S.camera_from})` : "not found - connect OBS (Stream page), or its camera source isn't an RTSP address";
   $("#err").textContent = S.error || ""; fillSrc(); ckFill();
   if (!bm.on) bShow();
+  if (!sm.on) sShow();
   $("#gsaved").textContent = S.geom && S.geom.saved ? "saved " + S.geom.saved : "not marked yet";
   $("#clips").innerHTML = (S.recent || []).map(c => `<tr><td>E${c.event} H${c.heat}</td><td>${tm(c.rec_start)}</td><td>${c.rec_end ? Math.round(c.rec_end - c.rec_start) + " s" : ""}</td>
     <td>${c.bytes ? (c.bytes / 1e6).toFixed(0) + " MB" : ""}</td><td>${c.ok ? `<a href="/api/video/clip/${encodeURI(c.file)}">download</a>` : "failed"}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">None yet.</td></tr>`;
@@ -236,7 +264,9 @@ async function ckLoad(keepTime) {
 }
 function ckShow() {
   const I = ck.info || {}, D = I.detect || {};
-  $("#ckSub").textContent = I.detecting ? "finding touches…" : D.error ? "couldn't: " + D.error : D.lanes ? `start lined up at ${D.start_in_clip.toFixed(2)} s into the clip` : "not checked yet - click Find touches";
+  const SRCS = {strobe: "from the strobe flash", "set by hand": "set by hand", lanes: "from the lanes' times (no strobe flash)"};
+  $("#ckSub").textContent = I.detecting ? "finding touches…" : D.error ? "couldn't: " + D.error : D.lanes ? `start ${SRCS[D.start_src] || "from the lanes' times"}, ${D.start_in_clip.toFixed(2)} s into the clip` : "not checked yet - click Find touches";
+  $("#ckAutoStart").classList.toggle("hidden", I.start_fixed == null);
   $("#ckRun").disabled = !!I.detecting;
   const lanes = D.lanes || {}, refs = I.refs || {};
   const all = [...new Set([...Object.keys(refs), ...Object.keys(lanes)])].map(Number).sort((a, b) => a - b);
@@ -260,7 +290,7 @@ function ckShow() {
   // the start, first, with the same jump buttons as a lane
   if (D.start_in_clip != null) {
     const s0 = D.start_in_clip, span = 2 + used.length;
-    $("#ckRows").insertAdjacentHTML("afterbegin", `<tr style="background:${ck.lane === "S" ? "#eef6ff" : "#f6f9fa"}"><td><b>Start</b></td><td colspan="${span - 1}" class="muted">where the race clock is lined up to 0.00 - look for the starter's strobe</td>
+    $("#ckRows").insertAdjacentHTML("afterbegin", `<tr style="background:${ck.lane === "S" ? "#eef6ff" : "#f6f9fa"}"><td><b>Start</b></td><td colspan="${span - 1}" class="muted">${D.start_src === "strobe" ? "from the starter's strobe flash" : D.start_src === "set by hand" ? "set by hand" : "lined up from the lanes' times - check it against the strobe"}</td>
       <td style="${num}"><a href="#" data-start="1" style="font-weight:700">0.00</a></td><td></td>${hasB ? "<td></td>" : ""}
       <td class="muted" style="font-size:12px;white-space:nowrap">at ${tfmt(s0)} in clip</td>
       <td style="white-space:nowrap"><button data-start="1" data-play="1" title="Play from 1.5 s before the start, slowly">Watch</button> <button data-start="1" title="Stop on the start frame">Start frame</button></td></tr>`);
@@ -382,6 +412,15 @@ $("#ckBack").onclick = () => stepFrames(-1);
 $("#ckFwd").onclick = () => stepFrames(1);
 $("#ckB1").onclick = () => stepFrames(-FPS);
 $("#ckF1").onclick = () => stepFrames(FPS);
+async function ckSetStart(at) {
+  const f = $("#ckClip").value; if (!f) return;
+  try { await api("/api/video/start", {file: f, at}); } catch (e) { return alert(e.message); }
+  clearInterval(ck.poll);
+  ck.poll = setInterval(async () => { await ckLoad(); if (!ck.info.detecting) clearInterval(ck.poll); }, 1500);
+  ckLoad();
+}
+$("#ckSetStart").onclick = () => { ckV.pause(); ckSetStart(+(shown != null && Math.abs(shown - ckV.currentTime) < FD ? shown : ckV.currentTime).toFixed(3)); };
+$("#ckAutoStart").onclick = () => ckSetStart(null);
 $("#ckStart").onclick = () => {
   const s0 = (((ck.info || {}).detect || {}).start_in_clip);
   if (s0 == null) return alert("Find touches first - that lines up the start.");

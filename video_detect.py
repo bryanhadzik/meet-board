@@ -86,7 +86,28 @@ def _onset(x, t, lo, hi, qlo, qhi, frac=0.5):
     return float(t[i[0]]) if len(i) else None
 
 
-def detect(ffmpeg, path, geom, refs, start_guess):
+def strobe_flash(ffmpeg, path, box, guess, span=12.0, fps=30.0, min_jump=25.0):
+    """The starter's strobe: the clip time of the biggest jump in brightness inside `box` (fractions
+    [x0, y0, x1, y1]) within `span` s of the guess. Returns (time, jump) - time is None when no flash shows."""
+    x0, y0, x1, y1 = [float(v) for v in box]
+    t0 = max(0.0, guess - span)
+    vf = 'crop=w=iw*%.5f:h=ih*%.5f:x=iw*%.5f:y=ih*%.5f,scale=24:24,fps=%d,format=gray' % (x1 - x0, y1 - y0, x0, y0, fps)
+    p = subprocess.run([ffmpeg, '-v', 'error', '-ss', '%.2f' % t0, '-i', path, '-t', '%.2f' % (2 * span), '-an', '-vf', vf,
+                        '-f', 'rawvideo', '-'], capture_output=True,
+                       creationflags=0x08000000 if __import__('os').name == 'nt' else 0)
+    a = np.frombuffer(p.stdout, np.uint8)
+    n = len(a) // 576
+    if n < 3:
+        return None, 0.0
+    b = a[:n * 576].reshape(n, 576).astype(float).mean(axis=1)
+    jump = np.diff(b, prepend=b[0])
+    i = int(np.argmax(jump))
+    if jump[i] < min_jump:
+        return None, float(jump[i])
+    return round(t0 + i / fps, 3), float(jump[i])
+
+
+def detect(ffmpeg, path, geom, refs, start_guess, start_fixed=None):
     """refs: {lane: {'times': {name: seconds}, ...}}; start_guess: clip time (s) where the race started, roughly.
     Returns {'start_in_clip', 'lanes': {lane: {...}}, 'zones': {lane: quad}}."""
     zones = lane_zones(geom)
@@ -106,9 +127,16 @@ def detect(ffmpeg, path, geom, refs, start_guess):
     # line the clip up: for lanes whose times agree, find the touch near (start guess + ref) and take the median
     # of (touch - ref). The guess should be within a second or two; if too few lanes turn up, nearby starts are tried.
     best = None
+    src = 'lanes'
+    if start_fixed is not None:
+        best, src = (None, float(start_fixed)), 'set by hand'
+    elif (geom.get('strobe') or {}).get('box'):
+        ft, _ = strobe_flash(ffmpeg, path, geom['strobe']['box'], start_guess)
+        if ft is not None:
+            best, src = (None, ft), 'strobe'
     agree = [l for l, L in lanes.items() if L['agree']]
     need = max(2, (len(agree) + 1) // 2)
-    for shift in sorted(np.arange(-10, 10.5, 1.0), key=abs):
+    for shift in (sorted(np.arange(-10, 10.5, 1.0), key=abs) if best is None else []):
         s0 = start_guess + shift
         offs = []
         for lane in agree:
@@ -150,7 +178,7 @@ def detect(ffmpeg, path, geom, refs, start_guess):
                 h = min(near)
                 R['board_clip_t'] = h
                 R['board_lag'] = round(h - off - p, 2)
-    return {'start_in_clip': round(off, 3), 'lanes': res, 'board': board, 'zones': {l: z[2] for l, z in zones.items()},
+    return {'start_in_clip': round(off, 3), 'start_src': src, 'lanes': res, 'board': board, 'zones': {l: z[2] for l, z in zones.items()},
             'motion': {l: [round(float(v), 1) for v in sig[l][::3]] for l in sig}, 'motion_fps': fps / 3}
 
 
