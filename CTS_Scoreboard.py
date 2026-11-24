@@ -43,6 +43,7 @@ import blackout as blackout_mod
 import stream_chapters
 import console_log
 import video_timing
+import wall_watch
 from _version import __version__
 
 DEBUG = False
@@ -196,6 +197,10 @@ def _race_book_feed(update):
     global _race_book_last
     try:
         race_book.feed(update)
+        try:
+            TOUCH.on_feed()
+        except NameError:
+            pass                        # before the touch watch is set up
         d = race_book.payload()
         key = json.dumps(d, sort_keys=True, default=str)
         if key != _race_book_last:
@@ -285,6 +290,7 @@ _settings_lock = threading.Lock()
 obs = obs_client.OBSClient(lambda: (settings.get('obs_url'), settings.get('obs_password')))
 # Video timing (unofficial reference): a clip of the raw pool camera for every heat
 VIDEO = video_timing.VideoTiming(app_paths.data_path(), settings, lambda: save_settings(), obs)
+TOUCH = wall_watch.TouchWatch(app_paths.data_path(), settings, lambda: save_settings(), VIDEO, race_book)
 
 def enrich_from_saved_hy3(loader):
     """After a .scb load, put back seed times / ages / relay swimmers from the
@@ -2708,6 +2714,10 @@ def _race_over(event, heat):
 
 def _race_started():
     _stream_activity()
+    try:
+        TOUCH.on_start()
+    except Exception as e:
+        print('touch watch:', e)
     try:                                # for "Copy event times"
         st = race_book.s
         STREAM_LOG.race(st.get('current_event'), st.get('current_heat'), race_book_secs(st.get('running_time')))
@@ -4134,6 +4144,39 @@ def route_obs_stream():
 STREAM_WATCH = {'activity': time.time(), 'stopped_at': None, 'last': ''}
 STREAM_LOG = stream_chapters.StreamLog(app_paths.data_path('stream_log.json'))
 CONSOLE_LOG = console_log.ConsoleLog(app_paths.data_path('console_results.json'))
+
+
+@app.route('/touchwatch')
+def route_touchwatch_page():
+    """Touch watch: the camera with each lane's pad armed / disarmed, and an alarm for a missed touch."""
+    return flask.render_template('touchwatch.html')
+
+
+@app.route('/api/touchwatch', methods=['GET', 'POST'])
+def route_touchwatch_api():
+    if flask.request.method == 'POST':
+        d = flask.request.get_json(silent=True) or {}
+        if d.get('test'):
+            TOUCH.test_alarm()
+        if 'ack' in d:
+            TOUCH.ack(d['ack'] or None)
+        try:
+            TOUCH.set({k: d[k] for k in ('lockout', 'cam_latency', 'enabled') if k in d})
+        except (TypeError, ValueError) as e:
+            return flask.jsonify({'error': str(e)}), 400
+    TOUCH.viewer()
+    return flask.jsonify(TOUCH.status())
+
+
+@app.route('/api/touchwatch/frame.jpg')
+def route_touchwatch_frame():
+    TOUCH.viewer()
+    p = TOUCH.frame_path
+    if not os.path.exists(p):
+        flask.abort(404)
+    with open(p, 'rb') as f:
+        data = f.read()
+    return flask.Response(data, mimetype='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 
 @app.route('/video')

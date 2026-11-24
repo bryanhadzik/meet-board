@@ -50,6 +50,7 @@ only-include = [
     "console_log.py",
     "video_timing.py",
     "video_detect.py",
+    "wall_watch.py",
     "obs_client.py",
     "serial_monitor.py",
     "team_logos.py",

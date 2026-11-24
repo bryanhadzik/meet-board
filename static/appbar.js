@@ -105,6 +105,7 @@
       item(MB + "/team_colors", "Team colors &amp; logos", "colors") +
       item(MB + "/state_times", "State times", "state") +
       item(MB + "/video", "Video timing", "video") +
+      item(MB + "/touchwatch", "Touch watch (missed touches)", "touchwatch") +
       item(MB + "/meet_files", "Meet files (load by hand)", "files") +
       item(MB + "/software_update", 'Meet board update <span class="badge" id="abUpdItem" style="display:none">new</span>', "update") +
       (C.debug ? item(MB + "/debug", "Debug", "debug") : "") +

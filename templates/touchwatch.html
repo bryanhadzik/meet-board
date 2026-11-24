@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meet-board: Touch watch</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<style>
+  .tw { max-width:1280px; }
+  .tw .card { border:1px solid #c9d4d7; border-radius:10px; padding:12px 14px; margin-bottom:14px; background:#fff; }
+  .tw .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .tw .muted { color:#5d7075; font-size:13px; }
+  .tw .grid { display:grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr); gap:14px; }
+  @media (max-width: 900px) { .tw .grid { grid-template-columns: 1fr; } }
+  .tw .cam { position:relative; background:#0b1618; border-radius:8px; overflow:hidden; aspect-ratio:16/9; }
+  .tw .cam img, .tw .cam canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .tw .cam .none { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#8fa3a8; font-size:14px; text-align:center; padding:20px; }
+  .tw .clock { font:700 34px/1 Consolas, monospace; }
+  .tw .lanes { width:100%; border-collapse:collapse; font-size:14px; }
+  .tw .lanes td { padding:5px 6px; border-bottom:1px solid #e3eaec; }
+  .tw .st { font:700 12px/1 "Segoe UI", sans-serif; padding:4px 8px; border-radius:999px; color:#fff; white-space:nowrap; display:inline-block; min-width:76px; text-align:center; }
+  .tw .armed { background:#1f8a4c; } .tw .disarmed { background:#c9861a; } .tw .done { background:#2f6fb6; } .tw .waiting { background:#7a8b8f; } .tw .alarm { background:#c0392b; }
+  .tw #banner { display:none; background:#c0392b; color:#fff; border-radius:10px; padding:12px 16px; margin-bottom:14px; font-size:16px; }
+  .tw #banner.on { display:block; animation: flash 1s steps(2) infinite; }
+  @keyframes flash { 50% { background:#7d1f15; } }
+  .tw #banner button { margin-left:10px; }
+  .tw .alist { font-size:13px; max-height:240px; overflow:auto; }
+  .tw .alist div { padding:4px 0; border-bottom:1px solid #eef2f3; }
+  .tw input[type=number] { width:64px; }
+</style>
+</head>
+<body>
+{% set active = "touchwatch" %}{% include "_nav.html" %}
+<div class="container tw">
+  <h1 class="pagetitle">Touch watch</h1>
+  <p class="lead">Each lane's touchpad: <span class="st armed">armed</span> it will take a touch, <span class="st disarmed">disarmed</span> the console
+    ignores it for a while after every touch (so a relay swimmer getting out doesn't count), <span class="st done">done</span> finished.
+    It sounds an alarm when a lane's touch looks missed - the camera saw a touch with no split, or a touch is well overdue for the swimmer's pace -
+    so the timers' watches get checked. An aid only: it never changes a time.</p>
+  <div id="banner"><b>Missed touch?</b> <span id="bannerMsg"></span><button id="ackAll">Got it</button></div>
+  <div class="grid">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><b id="heat">–</b><span class="muted" id="dist"></span><span style="flex:1"></span>
+        <span class="muted">Race clock</span> <span class="clock" id="clock">–</span></div>
+      <div class="cam"><img id="img" alt=""><canvas id="cv" width="1280" height="720"></canvas><div class="none" id="none">Waiting for the camera…</div></div>
+      <div class="muted" id="camSt" style="margin-top:6px"></div>
+    </div>
+    <div>
+      <div class="card">
+        <table class="lanes" id="lanes"></table>
+      </div>
+      <div class="card">
+        <div class="row"><button id="snd">Turn sound on</button><button id="test" class="ghost">Test the alarm</button></div>
+        <div class="row" style="margin-top:10px"><span class="muted">Pad disarmed for</span> <input type="number" id="lock" min="3" max="60" step="1"> <span class="muted">s after a touch (the console's setting)</span></div>
+        <div class="row" style="margin-top:6px"><span class="muted">Camera runs</span> <input type="number" id="lat" min="0" max="5" step="0.1"> <span class="muted">s behind the pool</span></div>
+        <div class="row" style="margin-top:6px"><label><input type="checkbox" id="en"> Watch for missed touches</label></div>
+      </div>
+      <div class="card"><b>Alarms this race</b><div class="alist" id="alist"><span class="muted">None.</span></div></div>
+    </div>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = t => { if (t == null) return "–"; const m = Math.floor(t / 60), s = t - m * 60; return m ? `${m}:${s.toFixed(1).padStart(4, "0")}` : s.toFixed(1); };
+const api = (b) => fetch("/api/touchwatch", b ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)} : {}).then(r => r.json());
+let S = null, sound = false, ctx = null, lastBeep = 0;
+try { sound = localStorage.getItem("tw-sound") === "1"; } catch (e) {}
+const LABEL = {armed: "armed", disarmed: "disarmed", done: "done", waiting: "ready"};
+function beep() {
+  if (!sound) return;
+  try {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    for (let k = 0; k < 3; k++) {
+      const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + k * 0.22;
+      o.type = "square"; o.frequency.value = k % 2 ? 660 : 880; g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.2);
+    }
+  } catch (e) {}
+}
+function sndBtn() { $("#snd").textContent = sound ? "Sound on - turn off" : "Turn sound on"; }
+$("#snd").onclick = () => { sound = !sound; try { localStorage.setItem("tw-sound", sound ? "1" : "0"); } catch (e) {} sndBtn(); if (sound) { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); ctx.resume(); } };
+$("#test").onclick = () => api({test: true}).then(j => { S = j; show(); });
+$("#ackAll").onclick = () => api({ack: null}).then(j => { S = j; show(); });
+$("#lock").onchange = () => api({lockout: +$("#lock").value}).then(j => { S = j; show(); });
+$("#lat").onchange = () => api({cam_latency: +$("#lat").value}).then(j => { S = j; show(); });
+$("#en").onchange = () => api({enabled: $("#en").checked}).then(j => { S = j; show(); });
+sndBtn();
+function draw() {
+  const cv = $("#cv"), g = cv.getContext("2d"), W = cv.width, H = cv.height;
+  g.clearRect(0, 0, W, H);
+  if (!S) return;
+  const open = new Set((S.alarms || []).filter(a => !a.ack).map(a => a.lane));
+  const blink = Date.now() % 1000 < 500;
+  for (const [l, q] of Object.entries(S.zones || {})) {
+    const L = (S.lanes || {})[l]; if (!L) continue;
+    const st = open.has(+l) ? "alarm" : L.state;
+    const col = {armed: "31,190,90", disarmed: "240,170,40", done: "70,140,230", waiting: "150,170,175", alarm: "235,60,50"}[st];
+    g.beginPath(); q.forEach((p, i) => { const x = p[0] * W, y = p[1] * H; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+    g.fillStyle = `rgba(${col},${st === "alarm" ? (blink ? .55 : .2) : .28})`; g.fill();
+    g.strokeStyle = `rgb(${col})`; g.lineWidth = st === "alarm" ? 5 : 2.5; g.stroke();
+    const m = q.reduce((s, p) => [s[0] + p[0] * W / 4, s[1] + p[1] * H / 4], [0, 0]);
+    g.font = "bold 26px Segoe UI, sans-serif"; g.lineWidth = 4; g.strokeStyle = "rgba(0,0,0,.7)";
+    const txt = l + (st === "disarmed" && L.rearm_in != null ? `  ${Math.ceil(L.rearm_in)}s` : st === "alarm" ? "  !" : "");
+    g.strokeText(txt, m[0] + 30, m[1] + 9); g.fillStyle = "#fff"; g.fillText(txt, m[0] + 30, m[1] + 9);
+  }
+}
+function show() {
+  if (!S) return;
+  $("#heat").textContent = S.event ? `Event ${S.event} · Heat ${S.heat}` : "No heat";
+  $("#dist").textContent = S.distance ? `${S.distance} yards` : "";
+  $("#clock").textContent = S.racing && S.clock != null ? fmt(S.clock) : "–";
+  if (document.activeElement !== $("#lock")) $("#lock").value = S.lockout;
+  if (document.activeElement !== $("#lat")) $("#lat").value = S.cam_latency;
+  $("#en").checked = S.enabled;
+  const open = (S.alarms || []).filter(a => !a.ack);
+  $("#banner").classList.toggle("on", open.length > 0);
+  $("#bannerMsg").textContent = open.length ? open[open.length - 1].msg + (open.length > 1 ? ` (+${open.length - 1} more)` : "") : "";
+  if (open.length && Date.now() - lastBeep > 1500) { lastBeep = Date.now(); beep(); }
+  const openLanes = new Set(open.map(a => a.lane));
+  const rows = Object.entries(S.lanes || {}).map(([l, L]) => {
+    const st = openLanes.has(+l) ? "alarm" : L.state;
+    return `<tr><td><b>${l}</b></td><td>${esc(L.name)}</td>
+      <td><span class="st ${st}">${st === "alarm" ? "check!" : LABEL[st]}${st === "disarmed" && L.rearm_in != null ? " " + Math.ceil(L.rearm_in) + "s" : ""}</span></td>
+      <td class="muted" style="white-space:nowrap" title="touches at the pad end so far / in the race">${L.splits}${L.touches ? "/" + L.touches : ""}</td>
+      <td class="muted" style="white-space:nowrap" title="when the next touch is due, from the pace">${L.state === "armed" || L.state === "disarmed" ? (L.due ? "next ~" + fmt(L.due) : "") : ""}</td></tr>`;
+  }).join("");
+  $("#lanes").innerHTML = rows || `<tr><td class="muted">No swimmers in this heat yet.</td></tr>`;
+  $("#alist").innerHTML = (S.alarms || []).slice().reverse().map(a => `<div style="${a.ack ? "opacity:.6" : "color:#c0392b"}">${a.event ? `E${esc(a.event)} H${esc(a.heat)} · ` : ""}${esc(a.msg)}${a.ack ? "" : ` <a href="#" data-ack="${esc(a.id)}">got it</a>`}</div>`).join("") || `<span class="muted">None.</span>`;
+  const C = S.camera || {};
+  $("#camSt").textContent = !Object.keys(S.zones || {}).length ? "Mark the lanes on the Video timing page so the camera knows where each lane's wall is."
+    : C.running ? `Camera: ${C.fps || 0} frames/s analysed${C.frame_age != null ? `, picture ${C.frame_age}s old` : ""}`
+    : C.error ? "Camera: " + C.error : "Camera starts when this page is open or a race is on.";
+  draw();
+}
+document.addEventListener("click", e => { const a = e.target.closest("[data-ack]"); if (a) { e.preventDefault(); api({ack: a.dataset.ack}).then(j => { S = j; show(); }); } });
+async function poll() { try { S = await api(); show(); } catch (e) {} setTimeout(poll, 300); }
+poll();
+setInterval(draw, 250);
+// the camera picture: the newest still, a few times a second
+(function pic() {
+  const i = new Image();
+  i.onload = () => { $("#img").src = i.src; $("#none").style.display = "none"; setTimeout(pic, 250); };
+  i.onerror = () => { $("#none").style.display = "flex"; setTimeout(pic, 1500); };
+  i.src = "/api/touchwatch/frame.jpg?t=" + Date.now();
+})();
+</script>
+</body>
+</html>

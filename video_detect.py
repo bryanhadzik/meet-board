@@ -31,9 +31,9 @@ def _quad_mask(quad, w=AW, h=AH):
     return pos | neg
 
 
-def lane_zones(geom):
-    """{lane: (near_mask, wall_mask, quad_pixels)} from the marked geometry (fractions of the frame).
-    finish[i] / turn[i]: lane line i (0 = lane-1 edge ... 8 = lane-8 edge) at the finish and turn walls."""
+def lane_zones(geom, AW=AW, AH=AH):
+    """{lane: (near_mask, wall_mask, quad_pixels)} from the marked geometry (fractions of the frame), for a
+    picture AW x AH. finish[i] / turn[i]: lane line i (0 = lane-1 edge ... 8 = lane-8 edge) at the walls."""
     fin = np.array(geom['finish'], float) * [AW, AH]
     trn = np.array(geom['turn'], float) * [AW, AH]
     zones = {}
@@ -47,7 +47,7 @@ def lane_zones(geom):
         near = [a2, a2 + da * d * 0.35, b2 + db * d * 0.35, b2]
         wall = [a2 - da * 2, a2 + da * d * 0.15, b2 + db * d * 0.15, b2 - db * 2]
         full = [a2, a2 + da * d, b2 + db * d, b2]
-        zones[lane] = (_quad_mask(near), _quad_mask(wall), [[round(float(x) / AW, 4), round(float(y) / AH, 4)] for x, y in full])
+        zones[lane] = (_quad_mask(near, AW, AH), _quad_mask(wall, AW, AH), [[round(float(x) / AW, 4), round(float(y) / AH, 4)] for x, y in full])
     return zones
 
 
