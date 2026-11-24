@@ -19,6 +19,9 @@
   .vt td, .vt th { padding:4px 10px; border-bottom:1px solid #e3eaec; text-align:left; }
   .vt input[type=number] { width:70px; }
   .vt .hidden { display:none; }
+  .vt .tb { font-size:12px; padding:2px 7px; }
+  .vt #ckTbl td, .vt #ckTbl th { padding:4px 6px; }
+  .vt .tblwrap { overflow-x:auto; }
 </style>
 </head>
 <body>
@@ -67,7 +70,7 @@
       <button id="ckRun">Find touches</button></div>
     <p class="muted" style="margin:8px 0">Pick a heat, then click a lane's touch time to jump there in the video. The shaded boxes are where it
       watches for the touch; a lane's box flashes when the video reaches that lane's touch. When the guess is off, step to the
-      first frame the hand is on the wall and click that lane's <b>Set touch here</b> - your marks are kept and used to tune the detection. Step frame by frame (1/30 s) to see the hand on the wall - or use the keys: ← → one frame, Shift+← → one second, space to play/pause.</p>
+      first frame the hand is on the wall and click that lane's <b>Set touch</b> - your marks are kept and used to tune the detection. Step frame by frame (1/30 s) to see the hand on the wall - or use the keys: ← → one frame, Shift+← → one second, space to play/pause.</p>
     <div id="ckBody" class="hidden">
       <div class="wrap" style="background:#000"><video id="ckV" style="display:block;width:100%" preload="auto" playsinline muted></video>
         <canvas id="ckC" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none"></canvas></div>
@@ -85,7 +88,7 @@
       </div>
       <canvas id="ckG" height="120" style="width:100%;height:120px;background:#f6f9fa;border-radius:6px"></canvas>
       <div class="muted" style="font-size:12.5px;margin:2px 0 8px" id="ckGl">Motion at the wall for the picked lane: the line is the detected touch, the dot is where the video is.</div>
-      <table style="width:100%"><thead id="ckHead"></thead><tbody id="ckRows"></tbody></table>
+      <div class="tblwrap"><table id="ckTbl" style="width:100%"><thead id="ckHead"></thead><tbody id="ckRows"></tbody></table></div>
     </div>
   </div>
   <div class="card">
@@ -275,27 +278,25 @@ function ckShow() {
   const ORDER = ["console", "pad", "backup", "watch", "watch2"];
   const used = ORDER.filter(k => all.some(l => (((lanes[l] || {}).times || (refs[l] || {}).times || {})[k])));
   const hasB = !!(D.board || I.board), mk = I.marks || {}, s0 = D.start_in_clip || 0;
-  $("#ckHead").innerHTML = `<tr><th>Lane</th><th>Swimmer</th>${used.map(k => `<th style="text-align:right">${SRC[k][0].toUpperCase() + SRC[k].slice(1)}</th>`).join("")}<th style="text-align:right">Video touch</th><th style="text-align:right">Difference</th><th style="text-align:right" title="Your own mark of the touch (Set touch here), and how far the video's guess was from it">Your mark</th>${hasB ? `<th style="text-align:right" title="When the lane's time showed up on the scoreboard in the picture, and how long after the pad (or console) time - the board runs 0.1-0.7 s behind">On scoreboard</th>` : ""}<th></th><th></th></tr>`;
+  $("#ckHead").innerHTML = `<tr><th>Lane</th><th>Swimmer</th>${used.map(k => `<th style="text-align:right">${SRC[k][0].toUpperCase() + SRC[k].slice(1)}</th>`).join("")}<th style="text-align:right">Video touch</th><th style="text-align:right">Difference</th><th style="text-align:right" title="Your own mark of the touch (Set touch here), and how far the video's guess was from it">Your mark</th>${hasB ? `<th style="text-align:right" title="When the lane's time showed up on the scoreboard in the picture, and how long after the pad (or console) time - the board runs 0.1-0.7 s behind">On scoreboard</th>` : ""}<th></th></tr>`;
   const num = "font-family:Consolas,monospace;text-align:right;white-space:nowrap";
   $("#ckRows").innerHTML = all.map(l => {
     const r = lanes[l] || {}, rf = refs[l] || {}, times = r.times || rf.times || {};
     const big = r.diff != null && Math.abs(r.diff) > 0.3;
     return `<tr data-ln="${l}" style="${ck.lane === l ? "background:#eef6ff" : ""}"><td><b>${l}</b></td><td>${esc(r.name || rf.name || "")}</td>
       ${used.map(k => `<td style="${num};color:#5d7075">${times[k] ? tfmt(times[k]) : "–"}</td>`).join("")}
-      <td style="${num}">${r.clip_t != null ? `<a href="#" data-jump="${l}" style="font-weight:700">${tfmt(r.video)}</a>` : '<span class="muted">not found</span>'}</td>
+      <td style="${num}">${r.clip_t != null ? `<a href="#" data-jump="${l}" style="font-weight:700" title="at ${tfmt(r.clip_t)} in the clip">${tfmt(r.video)}</a>` : '<span class="muted">not found</span>'}</td>
       <td style="${num};${big ? "color:#c0392b;font-weight:700" : ""}">${r.diff != null ? (r.diff >= 0 ? "+" : "") + r.diff.toFixed(2) + " s" : ""}</td>
       <td style="${num}">${mk[l] ? `<a href="#" data-mark="${l}" title="Jump to your mark">${tfmt(mk[l].clip_t - s0)}</a> <span style="color:${r.clip_t != null && Math.abs(r.clip_t - mk[l].clip_t) > 0.1 ? "#c0392b" : "#1f8a4c"}" title="the video's guess minus your mark">${r.clip_t != null ? ((r.clip_t - mk[l].clip_t) >= 0 ? "+" : "−") + Math.abs(r.clip_t - mk[l].clip_t).toFixed(2) : ""}</span> <a href="#" data-unmark="${l}" title="Remove your mark" style="color:#7a8b8f;text-decoration:none">×</a>` : '<span class="muted">–</span>'}</td>
       ${hasB ? `<td style="${num}">${r.board_clip_t != null ? `<a href="#" data-board="${l}" title="Stop on the frame where this lane's time showed up on the scoreboard. ${r.board_lag < 0 ? "That was before the pad time - the pad was probably late; the board showed the button's time first." : "The board normally runs 0.1-0.7 s behind the pad."}" style="${r.board_lag < 0 || r.board_lag > 0.9 ? "color:#c0392b;font-weight:700" : ""}">${r.board_lag >= 0 ? "+" : "−"}${Math.abs(r.board_lag).toFixed(2)} s</a>` : '<span class="muted">–</span>'}</td>` : ""}
-      <td class="muted" style="font-size:12px;white-space:nowrap">${r.clip_t != null ? "at " + tfmt(r.clip_t) + " in clip" : ""}</td>
-      <td style="white-space:nowrap">${r.clip_t != null ? `<button data-jump="${l}" title="Play from 1.5 s before the touch, slowly">Watch</button> <button data-frame="${l}" title="Stop on the detected touch frame">Touch frame</button>` : ""} <button data-setmark="${l}" title="Mark the frame showing now as this lane's touch (the first frame the hand is on the wall). Your marks teach the detection.">Set touch here</button></td></tr>`;
+      <td style="white-space:nowrap">${r.clip_t != null ? `<button class="tb" data-jump="${l}" title="Play from 1.5 s before the touch, slowly">Watch</button> <button class="tb" data-frame="${l}" title="Stop on the detected touch frame">Touch</button>` : ""} <button class="tb" data-setmark="${l}" title="Mark the frame showing now as this lane's touch (the first frame the hand is on the wall). Your marks teach the detection.">Set touch</button></td></tr>`;
   }).join("") || `<tr><td colspan="9" class="muted">No lanes.</td></tr>`;
   // the start, first, with the same jump buttons as a lane
   if (D.start_in_clip != null) {
     const span = 2 + used.length;
     $("#ckRows").insertAdjacentHTML("afterbegin", `<tr style="background:${ck.lane === "S" ? "#eef6ff" : "#f6f9fa"}"><td><b>Start</b></td><td colspan="${span - 1}" class="muted">${D.start_src === "strobe" ? "from the starter's strobe flash" : D.start_src === "set by hand" ? "set by hand" : "lined up from the lanes' times - check it against the strobe"}</td>
-      <td style="${num}"><a href="#" data-start="1" style="font-weight:700">0.00</a></td><td></td><td></td>${hasB ? "<td></td>" : ""}
-      <td class="muted" style="font-size:12px;white-space:nowrap">at ${tfmt(s0)} in clip</td>
-      <td style="white-space:nowrap"><button data-start="1" data-play="1" title="Play from 1.5 s before the start, slowly">Watch</button> <button data-start="1" title="Stop on the start frame">Start frame</button></td></tr>`);
+      <td style="${num}"><a href="#" data-start="1" style="font-weight:700" title="at ${tfmt(s0)} in the clip">0.00</a></td><td></td><td></td>${hasB ? "<td></td>" : ""}
+      <td style="white-space:nowrap"><button class="tb" data-start="1" data-play="1" title="Play from 1.5 s before the start, slowly">Watch</button> <button class="tb" data-start="1" title="Stop on the start frame">Start</button></td></tr>`);
   }
   ckDraw(); ckGraph();
 }
