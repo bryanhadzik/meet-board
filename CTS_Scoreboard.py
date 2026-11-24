@@ -4254,6 +4254,12 @@ def route_video_touch():
         return flask.jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/video/times')
+def route_video_times():
+    """Video times for every heat recorded on ?date=YYYY-MM-DD (MeetDeck pulls these into its Video column)."""
+    return flask.jsonify(VIDEO.times_for_date(flask.request.args.get('date') or time.strftime('%Y-%m-%d')))
+
+
 @app.route('/api/video/marks')
 def route_video_marks():
     return flask.jsonify(VIDEO.all_marks())

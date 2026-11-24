@@ -346,6 +346,26 @@ class VideoTiming:
             self._save_index()
         return c.get('marks')
 
+    def times_for_date(self, date):
+        """Every clip recorded (or imported) for a meet on `date` (YYYY-MM-DD, this PC's local time), with each
+        lane's video time: your hand mark when there is one, else the detected touch. Race times in seconds."""
+        out = []
+        for c in self.index:
+            if not c.get('ok') or time.strftime('%Y-%m-%d', time.localtime(c.get('rec_start') or 0)) != date:
+                continue
+            d = c.get('detect') or {}
+            s0 = d.get('start_in_clip')
+            lanes = {}
+            for l, r in (d.get('lanes') or {}).items():
+                if r.get('video') is not None:
+                    lanes[str(l)] = {'t': r['video'], 'src': 'video'}
+            for l, m in (c.get('marks') or {}).items():
+                if s0 is not None:
+                    lanes[str(l)] = {'t': round(m['clip_t'] - s0, 2), 'src': 'mark'}
+            out.append({'file': c['file'], 'event': c['event'], 'heat': c['heat'], 'rec_start': c.get('rec_start'),
+                        'start_src': d.get('start_src'), 'lanes': lanes})
+        return out
+
     def all_marks(self):
         """Every hand-marked touch, with what's needed to tune the detection against it."""
         out = []
