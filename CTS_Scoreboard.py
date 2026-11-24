@@ -4146,6 +4146,18 @@ STREAM_LOG = stream_chapters.StreamLog(app_paths.data_path('stream_log.json'))
 CONSOLE_LOG = console_log.ConsoleLog(app_paths.data_path('console_results.json'))
 
 
+@app.route('/api/now')
+def route_api_now():
+    """The heat on the console now, whether it's racing, and the heat just finished (results still up) - for
+    MeetDeck's timer phones, so they open on the heat the timers just timed."""
+    s = race_book.s
+    hold = race_book.hold if race_book.hold and not race_book.racing else None
+    return flask.jsonify({'event': str(s.get('current_event', '')).strip(), 'heat': str(s.get('current_heat', '')).strip(),
+                          'racing': race_book.racing,
+                          'done_event': str((hold or {}).get('current_event', '') or '').strip(),
+                          'done_heat': str((hold or {}).get('current_heat', '') or '').strip()})
+
+
 @app.route('/touchwatch')
 def route_touchwatch_page():
     """Touch watch: the camera with each lane's pad armed / disarmed, and an alarm for a missed touch."""
